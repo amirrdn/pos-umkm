@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './store/useAuthStore';
+import { useThemeStore } from './store/useThemeStore';
 import { LoginView } from './components/LoginView';
 import { PosView } from './components/PosView';
 import { ProductMaster } from './components/ProductMaster';
@@ -9,6 +10,7 @@ import RegisterView from './components/RegisterView';
 import { TransactionHistory } from './components/TransactionHistory';
 import { StaffManagementView } from './components/StaffManagementView';
 import { InventoryView } from './components/InventoryView';
+import { CustomerManagementView } from './components/CustomerManagementView';
 
 
 /**
@@ -28,6 +30,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
 function App() {
   const token = useAuthStore((state) => state.token);
+  useThemeStore();
 
   return (
     <BrowserRouter>
@@ -112,6 +115,16 @@ function App() {
           element={
             <ProtectedRoute>
               <InventoryView />
+            </ProtectedRoute>
+          } 
+        />
+
+        {/* Rute Kelola Pelanggan Terproteksi */}
+        <Route 
+          path="/admin/customers" 
+          element={
+            <ProtectedRoute>
+              <CustomerManagementView />
             </ProtectedRoute>
           } 
         />

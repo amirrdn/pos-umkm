@@ -28,6 +28,11 @@ interface TransactionData {
   subTotal?: number;
   discount?: number;
   tax?: number;
+  customer?: {
+    id: string;
+    name: string;
+    points: number;
+  } | null;
 }
 
 interface ReceiptTemplateProps {
@@ -166,6 +171,24 @@ export const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptTemplateProps>(
               <div className="flex justify-between font-bold border-t border-dotted border-slate-300 pt-0.5 mt-0.5">
                 <span>Kembalian:</span>
                 <span>Rp {(transactionData.change || 0).toLocaleString('id-ID')}</span>
+              </div>
+            </>
+          )}
+
+          {transactionData.customer && (
+            <>
+              <div className="border-t border-dotted border-slate-350 my-1"></div>
+              <div className="flex justify-between">
+                <span>Pelanggan:</span>
+                <span className="font-semibold">{transactionData.customer.name}</span>
+              </div>
+              <div className="flex justify-between text-emerald-800 font-bold">
+                <span>Poin Baru:</span>
+                <span>+{Math.floor(Number(transactionData.grandTotal) / 10000)} Pts</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Total Poin:</span>
+                <span>{transactionData.customer.points} Pts</span>
               </div>
             </>
           )}
