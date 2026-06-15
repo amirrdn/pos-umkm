@@ -57,6 +57,26 @@ async function main() {
       name: 'delete:products',
       moduleName: 'products',
       description: 'Izin untuk menghapus produk (Soft Delete)'
+    },
+    {
+      name: 'view:customers',
+      moduleName: 'customers',
+      description: 'Izin untuk melihat daftar pelanggan'
+    },
+    {
+      name: 'create:customers',
+      moduleName: 'customers',
+      description: 'Izin untuk membuat pelanggan baru'
+    },
+    {
+      name: 'update:customers',
+      moduleName: 'customers',
+      description: 'Izin untuk memperbarui data pelanggan'
+    },
+    {
+      name: 'delete:customers',
+      moduleName: 'customers',
+      description: 'Izin untuk menghapus pelanggan'
     }
   ];
 
@@ -115,8 +135,8 @@ async function main() {
     }
   });
 
-  // Hubungkan Peran Kasir dengan permission 'create-transaction' dan 'view:products'
-  const kasirPermissions = ['create-transaction', 'view:products'];
+  // Hubungkan Peran Kasir dengan permission 'create-transaction', 'view:products', 'view:customers', 'create:customers'
+  const kasirPermissions = ['create-transaction', 'view:products', 'view:customers', 'create:customers'];
   for (const permName of kasirPermissions) {
     const matchedPerm = permissions.find(p => p.name === permName);
     if (matchedPerm) {
@@ -298,6 +318,46 @@ async function main() {
     });
   }
   console.log(`📦 ${productsData.length} Data Produk berhasil di-seed.`);
+
+  // f. SEEDING CUSTOMERS
+  console.log('👥 Seeding data pelanggan...');
+  const customersData = [
+    {
+      id: 'cust-uuid-111',
+      tenantId: tenant.id,
+      name: 'Budi Santoso',
+      phone: '081234567001',
+      email: 'budi.santoso@gmail.com',
+      points: 120
+    },
+    {
+      id: 'cust-uuid-222',
+      tenantId: tenant.id,
+      name: 'Siti Rahma',
+      phone: '081234567002',
+      email: 'siti.rahma@yahoo.com',
+      points: 50
+    },
+    {
+      id: 'cust-uuid-333',
+      tenantId: tenant.id,
+      name: 'Joko Widodo',
+      phone: '081234567003',
+      email: 'joko.widodo@outlook.com',
+      points: 0
+    }
+  ];
+
+  for (const cust of customersData) {
+    await prisma.customer.upsert({
+      where: { id: cust.id },
+      update: {
+        points: cust.points
+      },
+      create: cust
+    });
+  }
+  console.log(`👥 ${customersData.length} Pelanggan berhasil di-seed.`);
   console.log('✅ Proses seeding database selesai dengan sukses! 🎉');
 }
 

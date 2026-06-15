@@ -22,6 +22,7 @@ enum TenantStatus {
 
 // Status untuk Transaksi Penjualan
 enum TransactionStatus {
+  PENDING
   COMPLETED
   VOID
 }
@@ -56,6 +57,7 @@ model Tenant {
   transactions Transaction[]
   shifts       Shift[]
   stockLedgers StockLedger[]
+  customers    Customer[]
 
   @@map("tenants")
 }
@@ -198,11 +200,15 @@ model Transaction {
   status        TransactionStatus @default(COMPLETED)
   createdAt     DateTime          @default(now())
 
+  customerId    String?
+  qrisUrl       String?
+
   // Relasi
   tenant Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   user   User              @relation(fields: [userId], references: [id], onDelete: Restrict)
   shift  Shift?            @relation(fields: [shiftId], references: [id], onDelete: SetNull)
   items  TransactionItem[]
+  customer      Customer?         @relation(fields: [customerId], references: [id], onDelete: SetNull)
 
   // Nomor invoice harus unik di dalam tenant yang sama
   @@unique([tenantId, invoiceNumber])
@@ -277,4 +283,21 @@ model StockLedger {
   user    User    @relation(fields: [userId], references: [id], onDelete: Restrict)
 
   @@map("stock_ledgers")
+}
+
+// 13. Customer (Database Pelanggan & Loyalty Points)
+model Customer {
+  id        String   @id @default(uuid())
+  tenantId  String
+  name      String
+  phone     String?
+  email     String?
+  points    Int      @default(0)
+  createdAt DateTime @default(now())
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+
+  @@unique([tenantId, phone])
+  @@map("customers")
 }
