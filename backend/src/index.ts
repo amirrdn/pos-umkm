@@ -11,6 +11,7 @@ import analyticsRoutes from './routes/analyticsRoutes';
 import shiftRoutes from './routes/shiftRoutes';
 import staffRoutes from './routes/staffRoutes';
 import inventoryRoutes from './routes/inventoryRoutes';
+import customerRoutes from './routes/customerRoutes';
 
 
 // Inisialisasi konfigurasi dari file .env
@@ -55,6 +56,9 @@ app.use('/api/staff', staffRoutes);
 
 // 8. Route Manajemen Inventaris (Kartu Stok & Mutasi)
 app.use('/api/inventory', inventoryRoutes);
+
+// 9. Route Manajemen Pelanggan (Database & Membership)
+app.use('/api/customers', customerRoutes);
 
 
 // 5. Route Admin khusus (Dashboard) - Menggunakan JWT auth dan role-checking

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
+import { useThemeStore } from '../store/useThemeStore';
 import { useReactToPrint } from 'react-to-print';
 import { ReceiptTemplate } from './ReceiptTemplate';
 import { API_BASE_URL } from '../config';
@@ -17,7 +18,9 @@ import {
   User,
   Eye,
   Calendar,
-  CreditCard
+  CreditCard,
+  Sun,
+  Moon
 } from 'lucide-react';
 
 interface TransactionItem {
@@ -42,6 +45,8 @@ interface Transaction {
   subTotal?: number;
   discount?: number;
   tax?: number;
+  paymentMethod?: string;
+  qrisUrl?: string | null;
 }
 
 export const TransactionHistory: React.FC = () => {
@@ -49,6 +54,7 @@ export const TransactionHistory: React.FC = () => {
   const token = useAuthStore((state) => state.token);
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
+  const { theme, toggleTheme } = useThemeStore();
 
   // States
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -59,6 +65,53 @@ export const TransactionHistory: React.FC = () => {
 
   // Ref untuk Cetak Struk
   const componentRef = useRef<HTMLDivElement>(null);
+
+  // Polling status transaksi QRIS jika sedang melihat detail transaksi PENDING
+  const pollingIntervalRef = useRef<any>(null);
+
+  useEffect(() => {
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (selectedTransaction && selectedTransaction.status === 'PENDING' && selectedTransaction.paymentMethod === 'QRIS') {
+      pollingIntervalRef.current = setInterval(async () => {
+        try {
+          const response = await fetch(`${API_BASE_URL}/api/transactions/status/${selectedTransaction.invoiceNumber}`, {
+            headers: {
+              'x-tenant-id': user?.tenantId || '',
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          if (response.ok) {
+            const resData = await response.json();
+            if (resData.data?.status !== 'PENDING') {
+              // Status telah berubah (COMPLETED / VOID)
+              setSelectedTransaction(prev => {
+                if (!prev) return null;
+                return { ...prev, status: resData.data.status };
+              });
+              // Refresh daftar riwayat
+              fetchHistory();
+              if (pollingIntervalRef.current) {
+                clearInterval(pollingIntervalRef.current);
+              }
+            }
+          }
+        } catch (err) {
+          console.error('Error polling status in history:', err);
+        }
+      }, 3000);
+    } else {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+      }
+    }
+  }, [selectedTransaction]);
 
   // Hook react-to-print v3+
   const handlePrint = useReactToPrint({
@@ -137,7 +190,7 @@ export const TransactionHistory: React.FC = () => {
   };
 
   return (
-    <div className="h-screen w-screen bg-slate-50 flex flex-col font-sans overflow-hidden">
+    <div className="h-screen w-screen bg-slate-50 dark:bg-slate-950 flex flex-col font-sans overflow-hidden transition-colors duration-150">
       
       {/* Template Struk Tersembunyi (hanya terlihat saat cetak) */}
       <div className="hidden print:block">
@@ -145,22 +198,22 @@ export const TransactionHistory: React.FC = () => {
       </div>
 
       {/* Header Utama */}
-      <header className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between shrink-0 shadow-sm">
+      <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-6 py-4 flex items-center justify-between shrink-0 shadow-sm">
         <div className="flex items-center gap-3">
           <div className="bg-indigo-600 p-2 rounded-xl text-white shadow-md shadow-indigo-150">
             <History className="w-5 h-5" />
           </div>
           <div>
-            <h1 className="text-lg font-bold text-slate-800 leading-tight">UMKM POS</h1>
-            <p className="text-[10px] text-slate-400 font-medium tracking-wide uppercase">Riwayat Transaksi</p>
+            <h1 className="text-lg font-bold text-slate-800 dark:text-slate-100 leading-tight">UMKM POS</h1>
+            <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium tracking-wide uppercase">Riwayat Transaksi</p>
           </div>
         </div>
 
         {/* Menu Navigasi Global */}
-        <nav className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl border border-slate-200">
+        <nav className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
           <button
             onClick={() => navigate('/pos')}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-200/50 transition-all"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all"
           >
             <ShoppingBag className="w-3.5 h-3.5" />
             Kasir POS
@@ -174,14 +227,14 @@ export const TransactionHistory: React.FC = () => {
           </button>
           <button
             onClick={() => navigate('/admin/products')}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-200/50 transition-all"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all"
           >
             <Package className="w-3.5 h-3.5" />
             Master Produk
           </button>
           <button
             onClick={() => navigate('/admin/dashboard')}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-200/50 transition-all"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all"
           >
             <BarChart2 className="w-3.5 h-3.5" />
             Dashboard
@@ -190,20 +243,34 @@ export const TransactionHistory: React.FC = () => {
 
         {/* Informasi Akun & Logout */}
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2.5 bg-slate-50 px-3.5 py-1.5 rounded-xl border border-slate-100">
-            <div className="bg-slate-200 h-7 w-7 rounded-full flex items-center justify-center text-slate-600">
+          {/* Tombol Switcher Tema (Dark / Light) */}
+          <button
+            onClick={toggleTheme}
+            type="button"
+            className="p-2 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-all duration-150 active:scale-95"
+            title={theme === 'light' ? 'Mode Gelap' : 'Mode Terang'}
+          >
+            {theme === 'light' ? (
+              <Moon className="h-4 w-4 text-slate-600" />
+            ) : (
+              <Sun className="h-4 w-4 text-amber-400" />
+            )}
+          </button>
+
+          <div className="flex items-center gap-2.5 bg-slate-50 dark:bg-slate-800 px-3.5 py-1.5 rounded-xl border border-slate-100 dark:border-slate-700">
+            <div className="bg-slate-200 dark:bg-slate-700 h-7 w-7 rounded-full flex items-center justify-center text-slate-600 dark:text-slate-300">
               <User className="w-4 h-4" />
             </div>
             <div className="text-left">
-              <p className="text-xs font-bold text-slate-800 leading-none">{user?.name || 'User'}</p>
-              <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">
+              <p className="text-xs font-bold text-slate-800 dark:text-slate-100 leading-none">{user?.name || 'User'}</p>
+              <p className="text-[9px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider mt-0.5">
                 {user?.roles?.[0] || 'Staff'}
               </p>
             </div>
           </div>
           <button
             onClick={handleLogout}
-            className="flex items-center justify-center p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-100 transition-all"
+            className="flex items-center justify-center p-2 rounded-xl text-slate-400 dark:text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 border border-transparent hover:border-rose-100 transition-all"
             title="Keluar"
           >
             <LogOut className="w-5 h-5" />
@@ -212,10 +279,10 @@ export const TransactionHistory: React.FC = () => {
       </header>
 
       {/* Konten Utama */}
-      <main className="flex-1 overflow-hidden p-6 flex flex-col gap-6">
+      <main className="flex-1 overflow-hidden p-6 flex flex-col gap-6 bg-slate-50 dark:bg-slate-950">
         
         {/* Kontrol & Pencarian */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-200/60 shadow-sm flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4 shrink-0">
+        <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/60 dark:border-slate-800 shadow-sm flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4 shrink-0">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
             <input
@@ -223,13 +290,13 @@ export const TransactionHistory: React.FC = () => {
               placeholder="Cari berdasarkan nomor invoice..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+              className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
             />
           </div>
           <button
             onClick={fetchHistory}
             disabled={loading}
-            className="bg-slate-100 border border-slate-200 hover:bg-slate-200/60 active:scale-95 text-slate-700 px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 self-end sm:self-auto"
+            className="bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-200/60 dark:hover:bg-slate-700 active:scale-95 text-slate-700 dark:text-slate-300 px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 self-end sm:self-auto"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
             Segarkan Data
@@ -237,11 +304,11 @@ export const TransactionHistory: React.FC = () => {
         </div>
 
         {/* Tabel Riwayat */}
-        <div className="flex-1 bg-white rounded-2xl border border-slate-200/60 shadow-sm overflow-hidden flex flex-col">
+        <div className="flex-1 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/60 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col">
           {loading ? (
             <div className="flex-1 flex flex-col items-center justify-center gap-3 py-20">
               <RefreshCw className="h-8 w-8 text-indigo-600 animate-spin" />
-              <p className="text-xs font-bold text-slate-500">Memuat riwayat transaksi...</p>
+              <p className="text-xs font-bold text-slate-500 dark:text-slate-400">Memuat riwayat transaksi...</p>
             </div>
           ) : error ? (
             <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center py-20 px-6">
@@ -258,17 +325,17 @@ export const TransactionHistory: React.FC = () => {
             </div>
           ) : filteredTransactions.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center text-center py-20 px-6">
-              <div className="bg-slate-50 text-slate-400 p-4 rounded-full mb-3">
+              <div className="bg-slate-50 dark:bg-slate-800 text-slate-400 p-4 rounded-full mb-3">
                 <History className="h-8 w-8" />
               </div>
-              <p className="text-xs font-bold text-slate-500">Tidak ada transaksi ditemukan</p>
-              <p className="text-[11px] text-slate-400 mt-1">Belum ada riwayat transaksi yang tercatat di tenant Anda.</p>
+              <p className="text-xs font-bold text-slate-500 dark:text-slate-400">Tidak ada transaksi ditemukan</p>
+              <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">Belum ada riwayat transaksi yang tercatat di tenant Anda.</p>
             </div>
           ) : (
             <div className="flex-1 overflow-auto">
               <table className="w-full border-collapse text-left text-xs">
                 <thead>
-                  <tr className="bg-slate-50 text-slate-400 font-bold uppercase tracking-wider border-b border-slate-100">
+                  <tr className="bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider border-b border-slate-100 dark:border-slate-700">
                     <th className="py-4 px-6">Nomor Invoice</th>
                     <th className="py-4 px-6">Tanggal & Waktu</th>
                     <th className="py-4 px-6">Status</th>
@@ -276,18 +343,30 @@ export const TransactionHistory: React.FC = () => {
                     <th className="py-4 px-6 text-center">Aksi</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-150 font-medium text-slate-700">
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium text-slate-700 dark:text-slate-300">
                   {filteredTransactions.map((tx) => (
-                    <tr key={tx.id} className="hover:bg-slate-50/50 transition-all">
-                      <td className="py-4 px-6 font-bold text-slate-900 font-mono">{tx.invoiceNumber}</td>
-                      <td className="py-4 px-6 text-slate-500">
+                    <tr key={tx.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-all">
+                      <td className="py-4 px-6 font-bold text-slate-900 dark:text-slate-100 font-mono">{tx.invoiceNumber}</td>
+                      <td className="py-4 px-6 text-slate-500 dark:text-slate-400">
                         {new Date(tx.createdAt).toLocaleString('id-ID')}
                       </td>
                       <td className="py-4 px-6">
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black tracking-wide uppercase bg-emerald-50 text-emerald-800 border border-emerald-100">
-                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
-                          {tx.status}
-                        </span>
+                        {tx.status === 'COMPLETED' ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black tracking-wide uppercase bg-emerald-50 text-emerald-800 border border-emerald-100">
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-600"></span>
+                            COMPLETED
+                          </span>
+                        ) : tx.status === 'PENDING' ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black tracking-wide uppercase bg-amber-50 text-amber-800 border border-amber-100">
+                            <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                            PENDING
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black tracking-wide uppercase bg-rose-50 text-rose-800 border border-rose-100">
+                            <span className="h-1.5 w-1.5 rounded-full bg-rose-500"></span>
+                            VOID
+                          </span>
+                        )}
                       </td>
                       <td className="py-4 px-6 font-black text-indigo-600 text-[13px]">
                         Rp {Number(tx.grandTotal).toLocaleString('id-ID')}
@@ -296,7 +375,7 @@ export const TransactionHistory: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => setSelectedTransaction(tx)}
-                          className="inline-flex items-center gap-1.5 bg-slate-50 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 text-slate-600 hover:text-indigo-800 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all shadow-sm active:scale-97"
+                          className="inline-flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 border border-slate-200 dark:border-slate-700 hover:border-indigo-200 dark:hover:border-indigo-800 text-slate-600 dark:text-slate-300 hover:text-indigo-800 dark:hover:text-indigo-400 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all shadow-sm active:scale-97"
                         >
                           <Eye className="w-3.5 h-3.5" />
                           Detail / Cetak Ulang
@@ -314,7 +393,7 @@ export const TransactionHistory: React.FC = () => {
       {/* Modal Detail Transaksi & Cetak Ulang */}
       {selectedTransaction && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-100 flex flex-col transform transition-all duration-300 scale-100 animate-in fade-in zoom-in-95">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-100 dark:border-slate-800 flex flex-col transform transition-all duration-300 scale-100 animate-in fade-in zoom-in-95">
             
             {/* Header Modal */}
             <div className="bg-gradient-to-r from-slate-700 to-slate-800 px-6 py-5 flex items-center justify-between text-white shrink-0">
@@ -334,24 +413,32 @@ export const TransactionHistory: React.FC = () => {
             </div>
 
             {/* Konten Modal */}
-            <div className="p-6 space-y-6 flex-1 overflow-auto max-h-[60vh]">
+            <div className="p-6 space-y-6 flex-1 overflow-auto max-h-[60vh] bg-white dark:bg-slate-900">
               
               {/* Ringkasan Modal */}
-              <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 space-y-2.5">
-                <div className="flex justify-between items-center text-xs text-slate-500">
+              <div className="bg-slate-50 dark:bg-slate-800 rounded-2xl p-4 border border-slate-100 dark:border-slate-700 space-y-2.5">
+                <div className="flex justify-between items-center text-xs text-slate-500 dark:text-slate-400">
                   <span className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> Tanggal Transaksi</span>
-                  <span className="font-bold text-slate-700">
+                  <span className="font-bold text-slate-700 dark:text-slate-200">
                     {new Date(selectedTransaction.createdAt).toLocaleString('id-ID')}
                   </span>
                 </div>
-                <div className="flex justify-between items-center text-xs text-slate-500">
-                  <span className="flex items-center gap-1.5"><CreditCard className="w-3.5 h-3.5" /> Status Pembayaran</span>
-                  <span className="font-bold text-slate-700 uppercase">{selectedTransaction.status}</span>
-                </div>
+                <div className="flex justify-between items-center text-xs text-slate-500 dark:text-slate-400">
+                   <span className="flex items-center gap-1.5"><CreditCard className="w-3.5 h-3.5" /> Status Pembayaran</span>
+                   <span className="font-bold uppercase">
+                     {selectedTransaction.status === 'COMPLETED' ? (
+                       <span className="text-emerald-600 font-extrabold">COMPLETED</span>
+                     ) : selectedTransaction.status === 'PENDING' ? (
+                       <span className="text-amber-500 font-extrabold animate-pulse">PENDING</span>
+                     ) : (
+                       <span className="text-rose-600 font-extrabold">VOID</span>
+                     )}
+                   </span>
+                 </div>
                 
-                <div className="border-t border-slate-200/60 pt-2.5 space-y-1.5">
+                <div className="border-t border-slate-200/60 dark:border-slate-700 pt-2.5 space-y-1.5">
                   {selectedTransaction.subTotal !== undefined && (
-                    <div className="flex justify-between items-center text-xs text-slate-500">
+                    <div className="flex justify-between items-center text-xs text-slate-500 dark:text-slate-400">
                       <span>Subtotal</span>
                       <span className="font-bold text-slate-700">
                         Rp {Number(selectedTransaction.subTotal).toLocaleString('id-ID')}
@@ -367,14 +454,14 @@ export const TransactionHistory: React.FC = () => {
                     </div>
                   )}
                   {selectedTransaction.tax !== undefined && Number(selectedTransaction.tax) > 0 && (
-                    <div className="flex justify-between items-center text-xs text-slate-500">
+                    <div className="flex justify-between items-center text-xs text-slate-500 dark:text-slate-400">
                       <span>PPN (11%)</span>
                       <span className="font-bold text-slate-700">
                         Rp {Number(selectedTransaction.tax).toLocaleString('id-ID')}
                       </span>
                     </div>
                   )}
-                  <div className="flex justify-between items-center text-sm font-extrabold text-slate-800 pt-2 border-t border-dashed border-slate-200">
+                  <div className="flex justify-between items-center text-sm font-extrabold text-slate-800 dark:text-slate-100 pt-2 border-t border-dashed border-slate-200 dark:border-slate-700">
                     <span>Total Transaksi</span>
                     <span className="text-indigo-600 text-base">
                       Rp {Number(selectedTransaction.grandTotal).toLocaleString('id-ID')}
@@ -383,21 +470,44 @@ export const TransactionHistory: React.FC = () => {
                 </div>
               </div>
 
+              {/* Box QRIS jika status masih PENDING dan menggunakan metode QRIS */}
+              {selectedTransaction.status === 'PENDING' && selectedTransaction.paymentMethod === 'QRIS' && selectedTransaction.qrisUrl && (
+                <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-5 flex flex-col items-center gap-3">
+                  <div className="text-center">
+                    <span className="text-[10px] font-black text-indigo-500 uppercase tracking-wider block">Scan QRIS untuk Melunasi</span>
+                    <span className="text-lg font-black text-indigo-900 block mt-0.5">
+                      Rp {Number(selectedTransaction.grandTotal).toLocaleString('id-ID')}
+                    </span>
+                  </div>
+                  <div className="p-3 bg-white rounded-xl border border-indigo-100 shadow-sm flex items-center justify-center w-40 h-40">
+                    <img 
+                      src={selectedTransaction.qrisUrl} 
+                      alt="QRIS Code" 
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[10px] font-bold text-indigo-700">
+                    <RefreshCw className="h-3 w-3 animate-spin" />
+                    <span className="animate-pulse">Menunggu Pembayaran (Polling)...</span>
+                  </div>
+                </div>
+              )}
+
               {/* Rincian Produk Belanja */}
               <div className="space-y-3">
-                <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Daftar Produk Belanja</h4>
-                <div className="border border-slate-150 rounded-2xl overflow-hidden divide-y divide-slate-150">
+                <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Daftar Produk Belanja</h4>
+                <div className="border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden divide-y divide-slate-100 dark:divide-slate-700">
                   {selectedTransaction.items.map((item) => (
-                    <div key={item.id} className="p-4 flex items-center justify-between gap-4 bg-white hover:bg-slate-50/30 transition-all">
+                    <div key={item.id} className="p-4 flex items-center justify-between gap-4 bg-white dark:bg-slate-900 hover:bg-slate-50/30 dark:hover:bg-slate-800/30 transition-all">
                       <div className="space-y-1 min-w-0">
-                        <p className="text-xs font-bold text-slate-800 truncate">{item.product?.name || 'Produk'}</p>
-                        <p className="text-[10px] text-slate-400 font-mono tracking-wider">{item.product?.sku || 'SKU'}</p>
+                        <p className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">{item.product?.name || 'Produk'}</p>
+                        <p className="text-[10px] text-slate-400 dark:text-slate-500 font-mono tracking-wider">{item.product?.sku || 'SKU'}</p>
                       </div>
                       <div className="text-right shrink-0">
-                        <p className="text-xs font-black text-slate-800">
+                        <p className="text-xs font-black text-slate-800 dark:text-slate-100">
                           Rp {Number(item.subtotal).toLocaleString('id-ID')}
                         </p>
-                        <p className="text-[10px] text-slate-400 mt-0.5">
+                        <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
                           {item.quantity} x Rp {Number(item.priceAtTransaction).toLocaleString('id-ID')}
                         </p>
                       </div>
@@ -408,11 +518,11 @@ export const TransactionHistory: React.FC = () => {
             </div>
 
             {/* Footer Modal / Tombol Aksi */}
-            <div className="p-6 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-3 shrink-0">
+            <div className="p-6 bg-slate-50 dark:bg-slate-800 border-t border-slate-100 dark:border-slate-700 flex items-center justify-end gap-3 shrink-0">
               <button
                 type="button"
                 onClick={() => setSelectedTransaction(null)}
-                className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-xs font-bold hover:bg-slate-150 active:scale-97 transition-all shadow-sm"
+                className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-600 active:scale-97 transition-all shadow-sm"
               >
                 Tutup
               </button>

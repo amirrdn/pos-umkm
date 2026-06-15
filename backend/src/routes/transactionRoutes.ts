@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { checkout, getHistory } from '../controllers/transactionController';
+import { checkout, getHistory, handleMidtransWebhook, getTransactionStatus } from '../controllers/transactionController';
 import { authMiddleware } from '../middlewares/authMiddleware';
 import { tenantMiddleware } from '../middlewares/tenantMiddleware';
 import { requirePermission } from '../middlewares/roleMiddleware';
@@ -27,6 +27,26 @@ router.get(
   authMiddleware,
   tenantMiddleware,
   getHistory
+);
+
+/**
+ * Route POST /api/transactions/midtrans-webhook
+ * Deskripsi: Callback notification global dari Midtrans (Public/Tanpa Auth).
+ */
+router.post(
+  '/midtrans-webhook',
+  handleMidtransWebhook
+);
+
+/**
+ * Route GET /api/transactions/status/:invoiceNumber
+ * Deskripsi: Pengecekan status lunas/pending untuk polling kasir POS.
+ */
+router.get(
+  '/status/:invoiceNumber',
+  authMiddleware,
+  tenantMiddleware,
+  getTransactionStatus
 );
 
 export default router;
