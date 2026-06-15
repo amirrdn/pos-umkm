@@ -1,0 +1,53 @@
+import { Request, Response, NextFunction } from 'express';
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
+
+/**
+ * Middleware untuk mengidentifikasi dan memvalidasi Tenant dari request.
+ * Informasi tenant dapat dikirim via header custom 'x-tenant-id' atau diekstrak dari payload JWT.
+ */
+export async function tenantMiddleware(req: Request, res: Response, next: NextFunction) {
+  try {
+    let tenantId = req.header('x-tenant-id') || req.header('X-Tenant-Id');
+
+    if (!tenantId && req.user) {
+      tenantId = req.user.tenantId;
+    }
+
+    if (!tenantId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Akses Ditolak: Header tenant (x-tenant-id) atau konteks tenant tidak ditemukan.'
+      });
+    }
+
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: tenantId }
+    });
+
+    if (!tenant) {
+      return res.status(404).json({
+        success: false,
+        message: 'Tenant tidak terdaftar di sistem kami.'
+      });
+    }
+
+    if (tenant.status !== 'ACTIVE' || tenant.deletedAt !== null) {
+      return res.status(403).json({
+        success: false,
+        message: 'Tenant ditangguhkan atau tidak lagi aktif. Silakan hubungi administrator.'
+      });
+    }
+
+    req.tenantId = tenant.id;
+
+    return next();
+  } catch (error) {
+    console.error('Error pada Tenant Middleware:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Terjadi kesalahan internal server saat memproses identifikasi tenant.'
+    });
+  }
+}

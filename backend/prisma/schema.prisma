@@ -1,0 +1,280 @@
+// Ini adalah file skema Prisma Anda.
+// Pelajari lebih lanjut di dokumentasi: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==========================================
+// ENUMS
+// ==========================================
+
+// Status untuk Tenant
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+// Status untuk Transaksi Penjualan
+enum TransactionStatus {
+  COMPLETED
+  VOID
+}
+
+// Status untuk Shift Kerja Kasir
+enum ShiftStatus {
+  OPEN
+  CLOSED
+}
+
+// ==========================================
+// MODEL DATABASE
+// ==========================================
+
+// 1. Tenant (Multi-Tenant Core)
+model Tenant {
+  id          String       @id @default(uuid())
+  name        String
+  slug        String       @unique // Slug unik untuk sub-domain atau pengenal URL
+  email       String
+  phone       String
+  status      TenantStatus @default(ACTIVE)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  deletedAt   DateTime?    // Indikator Soft Delete
+
+  // Relasi
+  users        User[]
+  roles        Role[]
+  categories   Category[]
+  products     Product[]
+  transactions Transaction[]
+  shifts       Shift[]
+  stockLedgers StockLedger[]
+
+  @@map("tenants")
+}
+
+// 2. User (Pengguna dalam Tenant)
+model User {
+  id        String    @id @default(uuid())
+  tenantId  String
+  name      String
+  email     String    @unique
+  password  String
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime? // Indikator Soft Delete
+
+  // Relasi
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userRoles    UserRole[]
+  transactions Transaction[]
+  shifts       Shift[]
+  stockLedgers StockLedger[]
+
+  @@map("users")
+}
+
+// 3. Permission (Tabel Global / Sistem)
+model Permission {
+  id          String   @id @default(uuid())
+  moduleName  String   // Nama modul, contoh: "products", "transactions"
+  name        String   @unique // Nama permission, contoh: "create:products", "view:transactions"
+  description String?  // Deskripsi tentang apa yang diizinkan oleh permission ini
+
+  // Relasi
+  rolePermissions RolePermission[]
+
+  @@map("permissions")
+}
+
+// 4. Role (Peran Pengguna, bisa kustom per tenant atau global sistem)
+model Role {
+  id          String   @id @default(uuid())
+  tenantId    String?  // Nullable untuk role bawaan sistem/global
+  name        String
+  description String?
+
+  // Relasi
+  tenant          Tenant?          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  rolePermissions RolePermission[]
+  userRoles       UserRole[]
+
+  // Nama role harus unik di dalam tenant yang sama
+  @@unique([tenantId, name])
+  @@map("roles")
+}
+
+// 5. UserRole (Pivot untuk Relasi Many-to-Many antara User dan Role)
+model UserRole {
+  id     String @id @default(uuid())
+  userId String
+  roleId String
+
+  // Relasi
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  // Kombinasi User dan Role harus unik
+  @@unique([userId, roleId])
+  @@map("user_roles")
+}
+
+// 6. RolePermission (Pivot untuk Relasi Many-to-Many antara Role dan Permission)
+model RolePermission {
+  id           String @id @default(uuid())
+  roleId       String
+  permissionId String
+
+  // Relasi
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  // Kombinasi Role dan Permission harus unik
+  @@unique([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+// 7. Category (Kategori Produk per Tenant)
+model Category {
+  id       String @id @default(uuid())
+  tenantId String
+  name     String
+  slug     String
+
+  // Relasi
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  products Product[]
+
+  // Slug kategori harus unik dalam satu tenant
+  @@unique([tenantId, slug])
+  @@map("categories")
+}
+
+// 8. Product (Produk/Barang Jualan per Tenant)
+model Product {
+  id            String    @id @default(uuid())
+  tenantId      String
+  categoryId    String
+  name          String
+  sku           String    // Stock Keeping Unit (Kode Barang)
+  purchasePrice Decimal   @db.Decimal(12, 2) // Harga beli untuk perhitungan margin/HPP
+  sellingPrice  Decimal   @db.Decimal(12, 2) // Harga jual
+  stock         Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime? // Indikator Soft Delete
+
+  // Relasi
+  tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  category         Category          @relation(fields: [categoryId], references: [id], onDelete: Restrict) // Tidak boleh hapus kategori jika ada produk aktif
+  transactionItems TransactionItem[]
+  stockLedgers     StockLedger[]
+
+  // SKU harus unik di dalam tenant yang sama
+  @@unique([tenantId, sku])
+  @@map("products")
+}
+
+// 9. Transaction (Transaksi Penjualan per Tenant)
+model Transaction {
+  id            String            @id @default(uuid())
+  tenantId      String
+  userId        String            // Kasir atau user yang melakukan transaksi
+  shiftId       String?           // Shift kerja saat transaksi terjadi (opsional/backward-compat)
+  invoiceNumber String            // Nomor Invoice unik per tenant
+  subTotal      Decimal           @db.Decimal(12, 2) @default(0)
+  discount      Decimal           @db.Decimal(12, 2) @default(0)
+  tax           Decimal           @db.Decimal(12, 2) @default(0)
+  grandTotal    Decimal           @db.Decimal(12, 2)
+  paymentMethod String            @default("CASH")   // CASH atau QRIS
+  status        TransactionStatus @default(COMPLETED)
+  createdAt     DateTime          @default(now())
+
+  // Relasi
+  tenant Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User              @relation(fields: [userId], references: [id], onDelete: Restrict)
+  shift  Shift?            @relation(fields: [shiftId], references: [id], onDelete: SetNull)
+  items  TransactionItem[]
+
+  // Nomor invoice harus unik di dalam tenant yang sama
+  @@unique([tenantId, invoiceNumber])
+  @@map("transactions")
+}
+
+// 10. TransactionItem (Item Detail dari Transaksi)
+model TransactionItem {
+  id                 String   @id @default(uuid())
+  transactionId      String
+  productId          String
+  quantity           Int
+  priceAtTransaction Decimal  @db.Decimal(12, 2) // Harga jual produk saat transaksi (snapshot harga)
+  costAtTransaction  Decimal? @db.Decimal(12, 2) // Harga beli / HPP produk saat transaksi (snapshot HPP untuk laba bersih)
+  subtotal           Decimal  @db.Decimal(12, 2)
+
+  // Relasi
+  transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade) // Hapus item jika transaksi utama dihapus
+  product     Product     @relation(fields: [productId], references: [id], onDelete: Restrict) // Tidak boleh hapus produk jika sudah ada transaksi
+
+  @@map("transaction_items")
+}
+
+// 11. Shift Kerja Kasir
+model Shift {
+  id           String      @id @default(uuid())
+  tenantId     String
+  userId       String
+  startTime    DateTime    @default(now())
+  endTime      DateTime?
+  cashStart    Decimal     @db.Decimal(12, 2)           // Modal awal yang dimasukkan kasir saat buka shift
+  cashExpected Decimal     @db.Decimal(12, 2) @default(0) // Total kas yang seharusnya ada (modal + penjualan tunai)
+  cashActual   Decimal?    @db.Decimal(12, 2)           // Uang fisik aktual yang dihitung kasir saat tutup shift
+  difference   Decimal?    @db.Decimal(12, 2)           // Selisih antara cashExpected dan cashActual
+  status       ShiftStatus @default(OPEN)
+  createdAt    DateTime    @default(now())
+
+  // Relasi
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user         User          @relation(fields: [userId], references: [id], onDelete: Restrict)
+  transactions Transaction[]
+
+  @@map("shifts")
+}
+
+// 12. Stock Ledger (Kartu Stok / Mutasi Barang)
+// Jenis Mutasi Stok
+enum MutationType {
+  SALE             // Penjualan (otomatis dari checkout)
+  RESTOCK          // Penambahan stok dari pembelian
+  ADJUSTMENT_PLUS  // Penyesuaian stok tambah (ditemukan)
+  ADJUSTMENT_MINUS // Penyesuaian stok kurang (rusak/hilang)
+  RETURN           // Retur barang dari pelanggan
+}
+
+model StockLedger {
+  id            String       @id @default(uuid())
+  tenantId      String
+  productId     String
+  userId        String       // User yang melakukan mutasi
+  transactionId String?      // Opsional: terhubung ke transaksi penjualan
+  type          MutationType
+  quantity      Int          // Positif = stok masuk, Negatif = stok keluar
+  stockBefore   Int          // Saldo stok sebelum mutasi
+  stockAfter    Int          // Saldo stok setelah mutasi
+  note          String?      // Keterangan tambahan
+  createdAt     DateTime     @default(now())
+
+  // Relasi
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@map("stock_ledgers")
+}

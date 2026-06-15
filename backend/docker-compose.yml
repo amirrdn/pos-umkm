@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  # Service Database PostgreSQL
+  postgres_db:
+    image: postgres:16-alpine
+    container_name: saas_pos_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: pos_secure_pwd_2026
+      POSTGRES_DB: saas_pos
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - pos_network
+
+# Definisi Volume untuk persistensi data database
+volumes:
+  postgres_data:
+    driver: local
+
+# Jaringan internal docker
+networks:
+  pos_network:
+    driver: bridge
