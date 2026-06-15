@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { PrismaClient, Prisma } from '@prisma/client';
 import { z } from 'zod';
+import { MidtransService } from '../services/midtransService';
 
 const prisma = new PrismaClient();
 
@@ -14,6 +15,7 @@ export const checkoutSchema = z.object({
   discountType: z.enum(['PERCENT', 'NOMINAL']).optional(),
   discountValue: z.number().nonnegative('Nilai diskon tidak boleh negatif').optional(),
   applyTax: z.boolean().optional(),
+  customerId: z.string().nullable().optional(),
   items: z.array(
     z.object({
       productId: z.string().uuid('ID Produk harus berupa format UUID yang valid'),
@@ -40,7 +42,7 @@ export async function checkout(req: Request, res: Response) {
       });
     }
 
-    const { items, discountType, discountValue, applyTax, paymentMethod } = validation.data;
+    const { items, discountType, discountValue, applyTax, paymentMethod, customerId } = validation.data;
 
     const tenantId = req.tenantId!;
     const userId = req.user!.id;
@@ -137,18 +139,37 @@ export async function checkout(req: Request, res: Response) {
 
       const grandTotal = taxableAmount.add(taxAmount);
 
+      let earnedPoints = 0;
+      if (customerId) {
+        const customer = await tx.customer.findFirst({
+          where: { id: customerId, tenantId }
+        });
+        if (!customer) {
+          throw new Error('Pelanggan tidak ditemukan di tenant Anda.');
+        }
+
+        earnedPoints = Math.floor(grandTotal.toNumber() / 10000);
+        if (earnedPoints > 0) {
+          await tx.customer.update({
+            where: { id: customerId },
+            data: { points: { increment: earnedPoints } }
+          });
+        }
+      }
+
       const transaction = await tx.transaction.create({
         data: {
           tenantId,
           userId,
           shiftId: req.body.shiftId ?? null,
+          customerId: customerId || null,
           paymentMethod: paymentMethod ?? 'CASH',
           invoiceNumber,
           subTotal,
           discount: discountAmount,
           tax: taxAmount,
           grandTotal,
-          status: 'COMPLETED',
+          status: paymentMethod === 'QRIS' ? 'PENDING' : 'COMPLETED',
           items: {
             create: itemsToCreate.map(item => ({
               productId: item.productId,
@@ -158,17 +179,24 @@ export async function checkout(req: Request, res: Response) {
               subtotal: item.subtotal
             }))
           }
-        } as any,
+        },
         include: {
           items: {
             include: {
               product: { select: { name: true, sku: true } }
             }
+          },
+          customer: {
+            select: {
+              id: true,
+              name: true,
+              points: true
+            }
           }
         }
       });
 
-      if (stockLedgerEntries.length > 0) {
+      if (paymentMethod !== 'QRIS' && stockLedgerEntries.length > 0) {
         await tx.stockLedger.createMany({
           data: stockLedgerEntries.map(entry => ({
             ...entry,
@@ -181,10 +209,50 @@ export async function checkout(req: Request, res: Response) {
       return transaction;
     });
 
+    let finalResult = result;
+    let qrString = '';
+    if (paymentMethod === 'QRIS') {
+      try {
+        const chargeRes = await MidtransService.createQrisCharge(result.invoiceNumber, Number(result.grandTotal));
+        const qrisUrl = chargeRes.qrisUrl;
+        qrString = chargeRes.qrString;
+
+        finalResult = await prisma.transaction.update({
+          where: { id: result.id },
+          data: { qrisUrl },
+          include: {
+            items: {
+              include: {
+                product: { select: { name: true, sku: true } }
+              }
+            },
+            customer: {
+              select: {
+                id: true,
+                name: true,
+                points: true
+              }
+            }
+          }
+        });
+      } catch (midtransError: any) {
+        console.error('Midtrans API Charge Error:', midtransError);
+        return res.status(500).json({
+          success: false,
+          message: `Gagal membuat pembayaran QRIS: ${midtransError.message}`
+        });
+      }
+    }
+
     return res.status(200).json({
       success: true,
-      message: 'Transaksi berhasil diselesaikan.',
-      data: result
+      message: paymentMethod === 'QRIS'
+        ? 'Transaksi QRIS berhasil dibuat. Silakan selesaikan pembayaran.'
+        : 'Transaksi berhasil diselesaikan.',
+      data: {
+        ...finalResult,
+        qrString: qrString || undefined
+      }
     });
 
   } catch (error: any) {
@@ -251,5 +319,223 @@ export async function getHistory(req: Request, res: Response) {
       success: false,
       message: 'Terjadi kesalahan internal server saat mengambil riwayat transaksi.'
     });
+  }
+}
+
+/**
+ * Menangani callback webhook notifikasi global dari Midtrans.
+ */
+export async function handleMidtransWebhook(req: Request, res: Response) {
+  try {
+    console.log('--- MIDTRANS WEBHOOK RECEIVED ---');
+    console.log('Headers:', JSON.stringify(req.headers, null, 2));
+    console.log('Body:', JSON.stringify(req.body, null, 2));
+
+    const { order_id, status_code, gross_amount, signature_key, transaction_status } = req.body;
+
+    if (!order_id || !status_code || !gross_amount || !signature_key) {
+      console.warn('⚠️ Webhook Payload Tidak Lengkap:', req.body);
+      return res.status(400).json({ success: false, message: 'Payload webhook tidak lengkap.' });
+    }
+
+    const isSignatureValid = MidtransService.verifySignature(order_id, status_code, gross_amount, signature_key);
+    if (!isSignatureValid) {
+      console.warn(`🚨 Signature Key Webhook TIDAK VALID untuk order: ${order_id}`);
+      return res.status(403).json({ success: false, message: 'Verifikasi tanda tangan digital gagal.' });
+    }
+
+    const transaction = await prisma.transaction.findFirst({
+      where: { invoiceNumber: order_id },
+      include: { items: true }
+    });
+
+    if (!transaction) {
+      return res.status(404).json({ success: false, message: 'Transaksi tidak ditemukan di sistem POS.' });
+    }
+
+    if (transaction.status !== 'PENDING') {
+      return res.status(200).json({ success: true, message: 'Status transaksi sudah diproses sebelumnya.' });
+    }
+
+    if (transaction_status === 'settlement') {
+      await prisma.$transaction(async (tx) => {
+        await tx.transaction.update({
+          where: { id: transaction.id },
+          data: { status: 'COMPLETED' }
+        });
+
+        const stockLedgerEntries = [];
+        for (const item of transaction.items) {
+          const product = await tx.product.findUnique({
+            where: { id: item.productId }
+          });
+          const stockAfter = product ? product.stock : 0;
+          const stockBefore = stockAfter + item.quantity;
+
+          stockLedgerEntries.push({
+            tenantId: transaction.tenantId,
+            productId: item.productId,
+            userId: transaction.userId,
+            transactionId: transaction.id,
+            type: 'SALE' as const,
+            quantity: -item.quantity,
+            stockBefore,
+            stockAfter,
+            note: `Penjualan (QRIS Lunas) - Invoice ${order_id}`
+          });
+        }
+
+        if (stockLedgerEntries.length > 0) {
+          await tx.stockLedger.createMany({
+            data: stockLedgerEntries as any
+          });
+        }
+      });
+
+      return res.status(200).json({ success: true, message: 'Pembayaran settlement berhasil diproses.' });
+
+    } else if (['expire', 'cancel', 'deny'].includes(transaction_status)) {
+      await prisma.$transaction(async (tx) => {
+        await tx.transaction.update({
+          where: { id: transaction.id },
+          data: { status: 'VOID' }
+        });
+
+        for (const item of transaction.items) {
+          await tx.product.update({
+            where: { id: item.productId },
+            data: { stock: { increment: item.quantity } }
+          });
+        }
+      });
+
+      return res.status(200).json({ success: true, message: 'Pembayaran dibatalkan, stok dikembalikan.' });
+    }
+
+    return res.status(200).json({ success: true, message: `Status pending/lainnya: ${transaction_status}` });
+
+  } catch (error: any) {
+    console.error('Webhook Error:', error);
+    return res.status(500).json({ success: false, message: 'Terjadi kesalahan sistem saat memproses webhook.' });
+  }
+}
+
+/**
+ * Pengecekan status transaksi untuk polling frontend.
+ */
+export async function getTransactionStatus(req: Request, res: Response) {
+  try {
+    const { invoiceNumber } = req.params;
+    const tenantId = req.tenantId;
+
+    if (!tenantId) {
+      return res.status(400).json({ success: false, message: 'Konteks tenant tidak ditemukan.' });
+    }
+
+    const transaction = await prisma.transaction.findFirst({
+      where: { invoiceNumber, tenantId },
+      include: {
+        customer: {
+          select: {
+            id: true,
+            name: true,
+            points: true
+          }
+        }
+      }
+    });
+
+    if (!transaction) {
+      return res.status(404).json({ success: false, message: 'Transaksi tidak ditemukan.' });
+    }
+
+    let currentStatus = transaction.status;
+    if (currentStatus === 'PENDING') {
+      try {
+        const midtransStatus = await MidtransService.getTransactionStatus(invoiceNumber);
+
+        if (midtransStatus === 'settlement') {
+          await prisma.$transaction(async (tx) => {
+            await tx.transaction.update({
+              where: { id: transaction.id },
+              data: { status: 'COMPLETED' }
+            });
+
+            const transactionWithItems = await tx.transaction.findUnique({
+              where: { id: transaction.id },
+              include: { items: true }
+            });
+
+            if (transactionWithItems) {
+              const stockLedgerEntries = [];
+              for (const item of transactionWithItems.items) {
+                const product = await tx.product.findUnique({
+                  where: { id: item.productId }
+                });
+                const stockAfter = product ? product.stock : 0;
+                const stockBefore = stockAfter + item.quantity;
+
+                stockLedgerEntries.push({
+                  tenantId: transaction.tenantId,
+                  productId: item.productId,
+                  userId: transaction.userId,
+                  transactionId: transaction.id,
+                  type: 'SALE' as const,
+                  quantity: -item.quantity,
+                  stockBefore,
+                  stockAfter,
+                  note: `Penjualan (QRIS Lunas - Polling) - Invoice ${invoiceNumber}`
+                });
+              }
+
+              if (stockLedgerEntries.length > 0) {
+                await tx.stockLedger.createMany({
+                  data: stockLedgerEntries as any
+                });
+              }
+            }
+          });
+          currentStatus = 'COMPLETED';
+        } else if (['expire', 'cancel', 'deny'].includes(midtransStatus)) {
+          await prisma.$transaction(async (tx) => {
+            await tx.transaction.update({
+              where: { id: transaction.id },
+              data: { status: 'VOID' }
+            });
+
+            const transactionWithItems = await tx.transaction.findUnique({
+              where: { id: transaction.id },
+              include: { items: true }
+            });
+
+            if (transactionWithItems) {
+              for (const item of transactionWithItems.items) {
+                await tx.product.update({
+                  where: { id: item.productId },
+                  data: { stock: { increment: item.quantity } }
+                });
+              }
+            }
+          });
+          currentStatus = 'VOID';
+        }
+      } catch (midtransError: any) {
+        console.warn(`[Status Polling] ⚠️ Gagal sinkronisasi status dari Midtrans untuk ${invoiceNumber}:`, midtransError.message);
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        id: transaction.id,
+        invoiceNumber: transaction.invoiceNumber,
+        status: currentStatus,
+        grandTotal: transaction.grandTotal,
+        customer: transaction.customer
+      }
+    });
+  } catch (error: any) {
+    console.error('GetTransactionStatus Error:', error);
+    return res.status(500).json({ success: false, message: 'Terjadi kesalahan sistem saat mengecek status transaksi.' });
   }
 }

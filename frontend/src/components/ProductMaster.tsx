@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
+import { useThemeStore } from '../store/useThemeStore';
 import { API_BASE_URL } from '../config';
 import { 
   Plus, 
@@ -15,7 +16,9 @@ import {
   ShoppingBag,
   BarChart2,
   Users,
-  ArrowUpDown
+  ArrowUpDown,
+  Sun,
+  Moon
 } from 'lucide-react';
 
 interface Product {
@@ -33,6 +36,7 @@ export const ProductMaster: React.FC = () => {
   const navigate = useNavigate();
   const token = useAuthStore((state) => state.token);
   const user = useAuthStore((state) => state.user);
+  const { theme, toggleTheme } = useThemeStore();
 
   // States
   const [products, setProducts] = useState<Product[]>([]);
@@ -211,7 +215,7 @@ export const ProductMaster: React.FC = () => {
   };
 
   return (
-    <div className="h-screen w-screen bg-slate-50 flex flex-col font-sans overflow-hidden">
+    <div className="h-screen w-screen bg-slate-50 dark:bg-slate-950 flex flex-col font-sans overflow-hidden transition-colors duration-150">
       
       {/* Toast Notification */}
       {notification && (
@@ -231,22 +235,22 @@ export const ProductMaster: React.FC = () => {
       )}
 
       {/* HEADER UTAMA */}
-      <header className="bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center shrink-0 shadow-sm">
+      <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-6 py-4 flex justify-between items-center shrink-0 shadow-sm">
         <div className="flex items-center gap-3">
           <div className="bg-indigo-600 p-2.5 rounded-xl text-white shadow-md shadow-indigo-200">
             <Package className="h-6 w-6" />
           </div>
           <div>
-            <h1 className="text-lg font-bold text-slate-800 leading-tight">Master Produk</h1>
+            <h1 className="text-lg font-bold text-slate-800 dark:text-slate-100 leading-tight">Master Produk</h1>
             <p className="text-xs text-indigo-600 font-medium mt-0.5">Pengelolaan Barang & Stok</p>
           </div>
         </div>
 
         {/* Menu Navigasi Global */}
-        <nav className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
+        <nav className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
           <button
             onClick={() => navigate('/pos')}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-200/50 transition-all"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all"
           >
             <ShoppingBag className="w-3.5 h-3.5" />
             Kasir POS
@@ -260,50 +264,73 @@ export const ProductMaster: React.FC = () => {
           </button>
           <button
             onClick={() => navigate('/admin/inventory')}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-200/50 transition-all"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all"
           >
             <ArrowUpDown className="w-3.5 h-3.5" />
             Stok
           </button>
           <button
             onClick={() => navigate('/admin/staff')}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-200/50 transition-all"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all"
           >
             <Users className="w-3.5 h-3.5" />
             Staf
           </button>
           <button
+            onClick={() => navigate('/admin/customers')}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all"
+          >
+            <Users className="w-3.5 h-3.5" />
+            Pelanggan
+          </button>
+          <button
             onClick={() => navigate('/admin/dashboard')}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-200/50 transition-all"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all"
           >
             <BarChart2 className="w-3.5 h-3.5" />
             Dashboard
           </button>
         </nav>
 
-        <button
-          onClick={handleOpenCreate}
-          className="bg-indigo-600 hover:bg-indigo-700 active:scale-97 text-white px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 shadow-lg shadow-indigo-150 transition-all"
-        >
-          <Plus className="h-4 w-4" />
-          Tambah Produk Baru
-        </button>
+        <div className="flex items-center gap-3">
+          {/* Tombol Switcher Tema (Dark / Light) */}
+          <button
+            onClick={toggleTheme}
+            type="button"
+            className="p-2.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-all duration-150 active:scale-95"
+            title={theme === 'light' ? 'Mode Gelap' : 'Mode Terang'}
+          >
+            {theme === 'light' ? (
+              <Moon className="h-4 w-4 text-slate-600" />
+            ) : (
+              <Sun className="h-4 w-4 text-amber-400" />
+            )}
+          </button>
+
+          <button
+            onClick={handleOpenCreate}
+            className="bg-indigo-600 hover:bg-indigo-700 active:scale-97 text-white px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 shadow-lg shadow-indigo-150 transition-all"
+          >
+            <Plus className="h-4 w-4" />
+            Tambah Produk Baru
+          </button>
+        </div>
       </header>
 
       {/* AREA UTAMA / DAFTAR TABEL */}
-      <main className="flex-1 p-6 overflow-hidden flex flex-col">
+      <main className="flex-1 p-6 overflow-hidden flex flex-col bg-slate-50 dark:bg-slate-950">
         
         {/* Kontainer Utama Tabel */}
-        <div className="bg-white border border-slate-200 rounded-3xl shadow-sm flex-1 flex flex-col overflow-hidden">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-sm flex-1 flex flex-col overflow-hidden">
           
-          <div className="p-5 border-b border-slate-200 flex justify-between items-center shrink-0">
-            <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">
+          <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center shrink-0">
+            <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm flex items-center gap-2">
               <FileSpreadsheet className="h-4 w-4 text-indigo-600" />
               Master Produk Aktif ({products.length})
             </h3>
             <button 
               onClick={fetchProducts}
-              className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-slate-50 rounded-lg transition-all"
+              className="p-2 text-slate-400 dark:text-slate-500 hover:text-indigo-600 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg transition-all"
             >
               <RefreshCw className="h-4 w-4" />
             </button>
@@ -313,11 +340,11 @@ export const ProductMaster: React.FC = () => {
             {loading ? (
               <div className="h-full w-full flex flex-col items-center justify-center py-20">
                 <RefreshCw className="h-10 w-10 text-indigo-600 animate-spin mb-3" />
-                <p className="text-sm font-semibold text-slate-500">Memuat data produk...</p>
+                <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">Memuat data produk...</p>
               </div>
             ) : products.length > 0 ? (
               <table className="w-full text-left border-collapse">
-                <thead className="bg-slate-50 text-[10px] font-black text-slate-500 uppercase tracking-wider sticky top-0 z-10 border-b border-slate-200">
+                <thead className="bg-slate-50 dark:bg-slate-800 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider sticky top-0 z-10 border-b border-slate-200 dark:border-slate-700">
                   <tr>
                     <th className="py-4 px-6">SKU / Kode</th>
                     <th className="py-4 px-6">Nama Produk</th>
@@ -328,13 +355,13 @@ export const ProductMaster: React.FC = () => {
                     <th className="py-4 px-6 text-center">Aksi</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 text-xs font-semibold text-slate-700">
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300">
                   {products.map((product) => (
-                    <tr key={product.id} className="hover:bg-slate-50/50 transition-colors">
+                    <tr key={product.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition-colors">
                       <td className="py-4 px-6 font-bold text-indigo-600 uppercase">{product.sku}</td>
-                      <td className="py-4 px-6 text-slate-900">{product.name}</td>
+                      <td className="py-4 px-6 text-slate-900 dark:text-slate-100">{product.name}</td>
                       <td className="py-4 px-6">
-                        <span className="bg-slate-100 text-slate-600 px-2 py-1 rounded-md text-[10px] font-bold">
+                        <span className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2 py-1 rounded-md text-[10px] font-bold">
                           {product.categoryName}
                         </span>
                       </td>
@@ -355,14 +382,14 @@ export const ProductMaster: React.FC = () => {
                         <div className="flex justify-center gap-2">
                           <button
                             onClick={() => handleOpenEdit(product)}
-                            className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+                            className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 rounded-lg transition-all"
                             title="Edit"
                           >
                             <Edit className="h-4 w-4" />
                           </button>
                           <button
                             onClick={() => handleDelete(product.id)}
-                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
+                            className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg transition-all"
                             title="Hapus"
                           >
                             <Trash2 className="h-4 w-4" />
@@ -376,8 +403,8 @@ export const ProductMaster: React.FC = () => {
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-center py-20 px-4">
                 <Package className="h-12 w-12 text-slate-200 mb-3" />
-                <p className="font-bold text-slate-500 text-sm">Belum ada data produk</p>
-                <p className="text-slate-400 text-xs mt-1">Gunakan tombol "Tambah Produk Baru" di atas untuk mendaftarkan barang.</p>
+                <p className="font-bold text-slate-500 dark:text-slate-400 text-sm">Belum ada data produk</p>
+                <p className="text-slate-400 dark:text-slate-500 text-xs mt-1">Gunakan tombol "Tambah Produk Baru" di atas untuk mendaftarkan barang.</p>
               </div>
             )}
           </div>
@@ -389,47 +416,47 @@ export const ProductMaster: React.FC = () => {
       {/* MODAL POP-UP / DIALOG FORM */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-[2px]">
-          <div className="bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200 mx-4">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200 mx-4">
             
             {/* Header Modal */}
-            <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
-              <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">
+            <div className="px-6 py-4 bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
+              <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm flex items-center gap-2">
                 <Package className="h-4 w-4 text-indigo-600" />
                 {modalMode === 'create' ? 'Tambah Produk Baru' : 'Edit Informasi Produk'}
               </h3>
               <button 
                 onClick={() => setIsModalOpen(false)} 
-                className="text-slate-400 hover:text-slate-600 font-bold"
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 font-bold"
               >
                 ✕
               </button>
             </div>
 
             {/* Form Modal */}
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            <form onSubmit={handleSubmit} className="p-6 space-y-4 bg-white dark:bg-slate-900">
               
               {/* Grid 2 Column */}
               <div className="grid grid-cols-2 gap-4">
                 {/* SKU */}
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">SKU / Kode Barang</label>
+                  <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">SKU / Kode Barang</label>
                   <input
                     type="text"
                     placeholder="PROD-001"
                     value={sku}
                     onChange={(e) => setSku(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all text-slate-800"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white dark:focus:bg-slate-700 transition-all text-slate-800 dark:text-slate-100"
                     required
                   />
                 </div>
 
                 {/* Kategori */}
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Kategori Produk</label>
+                  <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Kategori Produk</label>
                   <select
                     value={categoryId}
                     onChange={(e) => setCategoryId(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all text-slate-800"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white dark:focus:bg-slate-700 transition-all text-slate-800 dark:text-slate-100"
                   >
                     <option value="cat-minuman-111">Minuman</option>
                     <option value="cat-makanan-222">Makanan</option>
@@ -439,7 +466,7 @@ export const ProductMaster: React.FC = () => {
 
               {/* Nama Produk */}
               <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Nama Lengkap Produk</label>
+                <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Nama Lengkap Produk</label>
                 <div className="relative">
                   <Tag className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                   <input
@@ -447,7 +474,7 @@ export const ProductMaster: React.FC = () => {
                     placeholder="Contoh: Kopi Latte Dingin"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all text-slate-800"
+                    className="w-full pl-9 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white dark:focus:bg-slate-700 transition-all text-slate-800 dark:text-slate-100"
                     required
                   />
                 </div>
@@ -458,7 +485,7 @@ export const ProductMaster: React.FC = () => {
                 
                 {/* Harga Beli */}
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Harga Beli</label>
+                  <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Harga Beli</label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">Rp</span>
                     <input
@@ -466,7 +493,7 @@ export const ProductMaster: React.FC = () => {
                       placeholder="10000"
                       value={purchasePrice || ''}
                       onChange={(e) => setPurchasePrice(Number(e.target.value))}
-                      className="w-full pl-8 pr-2 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all text-slate-800"
+                      className="w-full pl-8 pr-2 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white dark:focus:bg-slate-700 transition-all text-slate-800 dark:text-slate-100"
                       required
                     />
                   </div>
@@ -474,7 +501,7 @@ export const ProductMaster: React.FC = () => {
 
                 {/* Harga Jual */}
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Harga Jual</label>
+                  <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Harga Jual</label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">Rp</span>
                     <input
@@ -482,7 +509,7 @@ export const ProductMaster: React.FC = () => {
                       placeholder="18000"
                       value={sellingPrice || ''}
                       onChange={(e) => setSellingPrice(Number(e.target.value))}
-                      className="w-full pl-8 pr-2 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all text-slate-800"
+                      className="w-full pl-8 pr-2 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white dark:focus:bg-slate-700 transition-all text-slate-800 dark:text-slate-100"
                       required
                     />
                   </div>
@@ -490,13 +517,13 @@ export const ProductMaster: React.FC = () => {
 
                 {/* Stok */}
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Jumlah Stok</label>
+                  <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Jumlah Stok</label>
                   <input
                     type="number"
                     placeholder="50"
                     value={stock || ''}
                     onChange={(e) => setStock(Number(e.target.value))}
-                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all text-slate-800"
+                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white dark:focus:bg-slate-700 transition-all text-slate-800 dark:text-slate-100"
                     required
                   />
                 </div>
@@ -504,11 +531,11 @@ export const ProductMaster: React.FC = () => {
               </div>
 
               {/* Action Buttons */}
-              <div className="pt-4 border-t border-slate-100 flex justify-end gap-3 shrink-0">
+              <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-3 shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-xs font-bold hover:bg-slate-50 active:scale-95 transition-all"
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 active:scale-95 transition-all"
                 >
                   Batalkan
                 </button>

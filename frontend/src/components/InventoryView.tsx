@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
+import { useThemeStore } from '../store/useThemeStore';
 import { API_BASE_URL } from '../config';
 import { 
   Package, ArrowLeft, ArrowUpDown, History, 
-  Loader2, AlertCircle, CheckCircle2, X, Info, CornerDownRight 
+  Loader2, AlertCircle, CheckCircle2, X, Info, CornerDownRight,
+  Sun, Moon
 } from 'lucide-react';
 
 interface Product {
@@ -39,6 +41,7 @@ export function InventoryView() {
   const navigate = useNavigate();
   const token = useAuthStore((state) => state.token);
   const currentUser = useAuthStore((state) => state.user);
+  const { theme, toggleTheme } = useThemeStore();
 
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -175,67 +178,81 @@ export function InventoryView() {
   const isOwner = currentUser?.roles.includes('Owner') || currentUser?.roles.includes('TENANT_ADMIN');
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 flex flex-col font-sans transition-colors duration-150">
       {/* Header Premium */}
-      <header className="sticky top-0 z-40 bg-slate-900/80 backdrop-blur-md border-b border-slate-800 px-6 py-4 flex items-center justify-between">
+      <header className="sticky top-0 z-40 bg-white/95 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-6 py-4 flex items-center justify-between shadow-sm dark:shadow-none">
         <div className="flex items-center gap-4">
           <button 
             onClick={() => navigate('/pos')}
-            className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-all active:scale-95 duration-200"
+            className="p-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 rounded-lg transition-all active:scale-95 duration-200"
             title="Kembali ke POS"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-lg border border-emerald-500/20">
+            <div className="p-2 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-lg border border-emerald-500/20">
               <Package className="w-6 h-6" />
             </div>
             <div>
-              <h1 className="text-xl font-bold tracking-tight bg-gradient-to-r from-white via-slate-200 to-emerald-400 bg-clip-text text-transparent">
+              <h1 className="text-xl font-bold tracking-tight bg-gradient-to-r from-slate-900 via-emerald-950 to-emerald-650 dark:from-white dark:via-slate-200 dark:to-emerald-400 bg-clip-text text-transparent">
                 Kartu Stok & Mutasi Barang
               </h1>
-              <p className="text-xs text-slate-400">Pantau dan kelola perubahan inventaris real-time</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Pantau dan kelola perubahan inventaris real-time</p>
             </div>
           </div>
         </div>
+
+        {/* Tombol Switcher Tema (Dark / Light) */}
+        <button
+          onClick={toggleTheme}
+          type="button"
+          className="p-2.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-all duration-150 active:scale-95"
+          title={theme === 'light' ? 'Mode Gelap' : 'Mode Terang'}
+        >
+          {theme === 'light' ? (
+            <Moon className="h-4 w-4 text-slate-600" />
+          ) : (
+            <Sun className="h-4 w-4 text-amber-400" />
+          )}
+        </button>
       </header>
 
       {/* Main Content */}
       <main className="flex-1 p-6 max-w-7xl mx-auto w-full">
         {/* Alert Notifikasi */}
         {error && (
-          <div className="mb-6 flex items-center gap-3 p-4 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-300">
+          <div className="mb-6 flex items-center gap-3 p-4 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 rounded-xl text-rose-700 dark:text-rose-300">
             <AlertCircle className="w-5 h-5 flex-shrink-0" />
             <p className="text-sm font-medium">{error}</p>
           </div>
         )}
         {successMsg && (
-          <div className="mb-6 flex items-center gap-3 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-300 animate-pulse">
+          <div className="mb-6 flex items-center gap-3 p-4 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 rounded-xl text-emerald-700 dark:text-emerald-300 animate-pulse">
             <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
             <p className="text-sm font-medium">{successMsg}</p>
           </div>
         )}
 
         {/* Tabel Inventaris */}
-        <div className="bg-slate-900/50 border border-slate-800/80 rounded-2xl overflow-hidden backdrop-blur-sm shadow-xl">
+        <div className="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800/80 rounded-2xl overflow-hidden shadow-sm dark:shadow-xl">
           {loading ? (
             <div className="flex flex-col items-center justify-center py-20 gap-3">
               <Loader2 className="w-10 h-10 text-emerald-500 animate-spin" />
-              <p className="text-slate-400 text-sm">Memuat inventaris produk...</p>
+              <p className="text-slate-500 dark:text-slate-400 text-sm">Memuat inventaris produk...</p>
             </div>
           ) : products.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
               <Package className="w-16 h-16 text-slate-700" />
               <div>
-                <h3 className="text-lg font-semibold text-slate-300">Produk Kosong</h3>
-                <p className="text-sm text-slate-500 mt-1 max-w-md">Katalog produk belum terdaftar. Silakan tambahkan produk baru di menu Kelola Produk terlebih dahulu.</p>
+                <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-300">Produk Kosong</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-500 mt-1 max-w-md">Katalog produk belum terdaftar. Silakan tambahkan produk baru di menu Kelola Produk terlebih dahulu.</p>
               </div>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-slate-800 bg-slate-900/40 text-slate-400 text-xs font-semibold uppercase tracking-wider">
+                  <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/40 text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider">
                     <th className="px-6 py-4">Nama Produk / SKU</th>
                     <th className="px-6 py-4">Kategori</th>
                     <th className="px-6 py-4 text-right">Harga Beli (HPP)</th>
@@ -244,7 +261,7 @@ export function InventoryView() {
                     <th className="px-6 py-4 text-right">Aksi</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800/40 text-sm">
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/40 text-sm">
                   {products.map((prod) => {
                     const stockStatus = prod.stock <= 5 
                       ? 'text-rose-400 bg-rose-500/10 border-rose-500/20' 
@@ -253,20 +270,20 @@ export function InventoryView() {
                         : 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20';
 
                     return (
-                      <tr key={prod.id} className="hover:bg-slate-900/20 transition-colors">
+                      <tr key={prod.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/20 transition-colors">
                         <td className="px-6 py-4">
                           <div>
-                            <p className="font-semibold text-slate-200">{prod.name}</p>
-                            <p className="text-xs text-slate-500 font-mono tracking-wider">{prod.sku}</p>
+                            <p className="font-semibold text-slate-800 dark:text-slate-200">{prod.name}</p>
+                            <p className="text-xs text-slate-500 dark:text-slate-500 font-mono tracking-wider">{prod.sku}</p>
                           </div>
                         </td>
-                        <td className="px-6 py-4 text-slate-400">
+                        <td className="px-6 py-4 text-slate-600 dark:text-slate-400">
                           {prod.category?.name || '-'}
                         </td>
-                        <td className="px-6 py-4 text-right font-mono text-slate-300">
+                        <td className="px-6 py-4 text-right font-mono text-slate-700 dark:text-slate-300">
                           Rp {Number(prod.purchasePrice).toLocaleString('id-ID')}
                         </td>
-                        <td className="px-6 py-4 text-right font-mono text-slate-350">
+                        <td className="px-6 py-4 text-right font-mono text-slate-700 dark:text-slate-300">
                           Rp {Number(prod.sellingPrice).toLocaleString('id-ID')}
                         </td>
                         <td className="px-6 py-4 text-center">
@@ -279,7 +296,7 @@ export function InventoryView() {
                             {/* Kartu Stok */}
                             <button
                               onClick={() => openLedgerModal(prod)}
-                              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg border border-slate-700 transition-all duration-150 active:scale-95"
+                              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-700 transition-all duration-150 active:scale-95"
                               title="Riwayat Kartu Stok"
                             >
                               <History className="w-3.5 h-3.5" />
@@ -317,19 +334,19 @@ export function InventoryView() {
             onClick={() => !mutationSubmitting && setIsMutationModalOpen(false)}
           />
 
-          <div className="relative bg-slate-900 border border-slate-800 w-full max-w-md rounded-2xl overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-200">
-            <div className="px-6 py-4 border-b border-slate-850 flex items-center justify-between bg-slate-950/40">
+          <div className="relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 w-full max-w-md rounded-2xl overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-200">
+            <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-950/40">
               <div className="flex items-center gap-2">
                 <ArrowUpDown className="w-5 h-5 text-emerald-400" />
                 <div>
-                  <h3 className="font-bold text-slate-100">Mutasi Stok Manual</h3>
-                  <p className="text-[10px] text-slate-400 mt-0.5">{selectedProduct.name}</p>
+                  <h3 className="font-bold text-slate-800 dark:text-slate-100">Mutasi Stok Manual</h3>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">{selectedProduct.name}</p>
                 </div>
               </div>
               <button 
                 onClick={() => setIsMutationModalOpen(false)}
                 disabled={mutationSubmitting}
-                className="text-slate-400 hover:text-slate-200 p-1.5 hover:bg-slate-800 rounded-lg transition-colors"
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -338,25 +355,26 @@ export function InventoryView() {
             <form onSubmit={handleMutationSubmit}>
               <div className="p-6 space-y-4">
                 {mutationError && (
-                  <div className="flex items-center gap-2.5 p-3.5 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-300 text-xs font-semibold">
+                  <div className="flex items-center gap-2.5 p-3.5 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 rounded-xl text-rose-700 dark:text-rose-300 text-xs font-semibold">
+
                     <AlertCircle className="w-4 h-4 flex-shrink-0" />
                     <p>{mutationError}</p>
                   </div>
                 )}
 
                 {/* Info Stok Saat Ini */}
-                <div className="flex items-center gap-2.5 p-3 bg-slate-950 border border-slate-850 rounded-xl text-slate-400 text-xs">
+                <div className="flex items-center gap-2.5 p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-600 dark:text-slate-400 text-xs">
                   <Info className="w-4 h-4 text-indigo-400 flex-shrink-0" />
-                  <p>Stok produk saat ini di laci penyimpanan: <span className="font-bold text-slate-200 font-mono">{selectedProduct.stock} unit</span>.</p>
+                  <p>Stok produk saat ini di laci penyimpanan: <span className="font-bold text-slate-800 dark:text-slate-200 font-mono">{selectedProduct.stock} unit</span>.</p>
                 </div>
 
                 {/* Dropdown Tipe Mutasi */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-400">Tipe Penyesuaian</label>
+                  <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">Tipe Penyesuaian</label>
                   <select
                     value={mutationForm.type}
                     onChange={(e) => setMutationForm({ ...mutationForm, type: e.target.value })}
-                    className="w-full px-4 py-2.5 bg-slate-950 border border-slate-850 focus:border-emerald-500 rounded-xl text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/10 transition-all duration-200"
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-emerald-500 rounded-xl text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/10 transition-all duration-200"
                   >
                     <option value="RESTOCK">RESTOCK (+ Tambah Stok / Pasokan)</option>
                     <option value="ADJUSTMENT_PLUS">ADJUSTMENT_PLUS (+ Penyesuaian / Temuan Barang)</option>
@@ -367,37 +385,37 @@ export function InventoryView() {
 
                 {/* Input Kuantitas */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-400">Jumlah Penyesuaian (Unit)</label>
+                  <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">Jumlah Penyesuaian (Unit)</label>
                   <input 
                     type="number"
                     required
                     min={1}
                     value={mutationForm.quantity}
                     onChange={(e) => setMutationForm({ ...mutationForm, quantity: Math.max(1, parseInt(e.target.value) || 1) })}
-                    className="w-full px-4 py-2.5 bg-slate-950 border border-slate-850 focus:border-emerald-500 rounded-xl text-sm text-slate-100 font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500/10 transition-all duration-200"
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-emerald-500 rounded-xl text-sm text-slate-800 dark:text-slate-100 font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500/10 transition-all duration-200"
                   />
                 </div>
 
                 {/* Input Catatan */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-400">Catatan / Alasan Mutasi</label>
+                  <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">Catatan / Alasan Mutasi</label>
                   <textarea 
                     required
                     placeholder="Contoh: Barang rusak saat pengiriman, Restock mingguan dari supplier X"
                     value={mutationForm.note}
                     onChange={(e) => setMutationForm({ ...mutationForm, note: e.target.value })}
-                    className="w-full px-4 py-2.5 bg-slate-950 border border-slate-850 focus:border-emerald-500 rounded-xl text-sm text-slate-100 h-20 placeholder-slate-650 resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500/10 transition-all duration-200"
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-emerald-500 rounded-xl text-sm text-slate-800 dark:text-slate-100 h-20 placeholder-slate-400 dark:placeholder-slate-600 resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500/10 transition-all duration-200"
                   />
                 </div>
               </div>
 
               {/* Action Buttons */}
-              <div className="px-6 py-4 bg-slate-950/40 border-t border-slate-850 flex items-center justify-end gap-3">
+              <div className="px-6 py-4 bg-slate-50 dark:bg-slate-950/40 border-t border-slate-200 dark:border-slate-800 flex items-center justify-end gap-3">
                 <button
                   type="button"
                   onClick={() => setIsMutationModalOpen(false)}
                   disabled={mutationSubmitting}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-semibold rounded-xl border border-slate-700/80 transition-all"
+                  className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl border border-slate-200 dark:border-slate-700 transition-all"
                 >
                   Batal
                 </button>
@@ -431,19 +449,19 @@ export function InventoryView() {
           />
 
           {/* Drawer Container */}
-          <div className="relative bg-slate-900 border-l border-slate-800 w-full max-w-xl h-full flex flex-col shadow-2xl animate-in slide-in-from-right duration-200">
+          <div className="relative bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 w-full max-w-xl h-full flex flex-col shadow-2xl animate-in slide-in-from-right duration-200">
             {/* Header Drawer */}
-            <div className="px-6 py-5 border-b border-slate-850 flex items-center justify-between bg-slate-950/40">
+            <div className="px-6 py-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-950/40">
               <div className="flex items-center gap-2.5">
                 <History className="w-5 h-5 text-indigo-400" />
                 <div>
-                  <h3 className="font-bold text-slate-100 text-base">Kartu Stok Produk</h3>
-                  <p className="text-xs text-slate-450 mt-0.5">{ledgerProduct.name} (SKU: {ledgerProduct.sku})</p>
+                  <h3 className="font-bold text-slate-800 dark:text-slate-100 text-base">Kartu Stok Produk</h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{ledgerProduct.name} (SKU: {ledgerProduct.sku})</p>
                 </div>
               </div>
               <button 
                 onClick={() => setIsLedgerModalOpen(false)}
-                className="text-slate-400 hover:text-slate-200 p-1.5 hover:bg-slate-800 rounded-lg transition-colors"
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -454,15 +472,15 @@ export function InventoryView() {
               {ledgerLoading ? (
                 <div className="flex flex-col items-center justify-center py-20 gap-3">
                   <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
-                  <p className="text-slate-400 text-xs">Memuat riwayat mutasi stok...</p>
+                  <p className="text-slate-500 dark:text-slate-400 text-xs">Memuat riwayat mutasi stok...</p>
                 </div>
               ) : ledgerEntries.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-20 text-center gap-3">
                   <History className="w-12 h-12 text-slate-700" />
-                  <p className="text-slate-400 text-sm">Belum ada mutasi stok tercatat untuk produk ini.</p>
+                  <p className="text-slate-500 dark:text-slate-400 text-sm">Belum ada mutasi stok tercatat untuk produk ini.</p>
                 </div>
               ) : (
-                <div className="relative border-l border-slate-800 pl-4 space-y-6">
+                <div className="relative border-l border-slate-200 dark:border-slate-800 pl-4 space-y-6">
                   {ledgerEntries.map((entry) => {
                     const isPositive = entry.quantity > 0;
                     const sign = isPositive ? '+' : '';
@@ -475,7 +493,7 @@ export function InventoryView() {
                           isPositive ? 'bg-emerald-500' : 'bg-rose-500'
                         }`} />
 
-                        <div className="bg-slate-950/40 border border-slate-850/80 rounded-xl p-4 space-y-2 hover:border-slate-800 transition-colors">
+                        <div className="bg-slate-50 dark:bg-slate-950/40 border border-slate-200 dark:border-slate-800 rounded-xl p-4 space-y-2 hover:border-slate-300 dark:hover:border-slate-700 transition-colors">
                           <div className="flex items-center justify-between">
                             <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold tracking-wide uppercase ${
                               entry.type === 'SALE' 
@@ -486,32 +504,32 @@ export function InventoryView() {
                             }`}>
                               {entry.type}
                             </span>
-                            <span className="text-[10px] text-slate-500 font-mono">
+                            <span className="text-[10px] text-slate-500 dark:text-slate-500 font-mono">
                               {new Date(entry.createdAt).toLocaleString('id-ID')}
                             </span>
                           </div>
 
                           <div className="flex items-center justify-between text-sm">
                             <div className="flex items-center gap-1.5">
-                              <span className="text-slate-400">Mutasi:</span>
+                              <span className="text-slate-500 dark:text-slate-400">Mutasi:</span>
                               <span className={`font-bold font-mono px-2 py-0.5 rounded ${colorClass}`}>
                                 {sign}{entry.quantity} unit
                               </span>
                             </div>
-                            <div className="text-xs text-slate-450 font-mono">
-                              {entry.stockBefore} → <span className="text-slate-200 font-bold">{entry.stockAfter} unit</span>
+                            <div className="text-xs text-slate-500 dark:text-slate-400 font-mono">
+                              {entry.stockBefore} → <span className="text-slate-700 dark:text-slate-200 font-bold">{entry.stockAfter} unit</span>
                             </div>
                           </div>
 
                           {entry.note && (
-                            <div className="flex items-start gap-1 text-xs text-slate-400 bg-slate-900/30 p-2 rounded-lg border border-slate-850/50">
+                            <div className="flex items-start gap-1 text-xs text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-900/30 p-2 rounded-lg border border-slate-200 dark:border-slate-800">
                               <CornerDownRight className="w-3.5 h-3.5 text-slate-550 flex-shrink-0 mt-0.5" />
                               <p className="italic">"{entry.note}"</p>
                             </div>
                           )}
 
                           <div className="text-[10px] text-slate-500 text-right">
-                            Oleh: <span className="font-semibold text-slate-455">{entry.user?.name || 'Sistem'}</span>
+                            Oleh: <span className="font-semibold text-slate-600 dark:text-slate-400">{entry.user?.name || 'Sistem'}</span>
                           </div>
                         </div>
                       </div>
@@ -522,7 +540,7 @@ export function InventoryView() {
             </div>
 
             {/* Footer Drawer */}
-            <div className="p-6 bg-slate-950/40 border-t border-slate-850 flex items-center justify-between text-xs text-slate-450 font-mono">
+            <div className="p-6 bg-slate-50 dark:bg-slate-950/40 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 font-mono">
               <span>Total Entri: {ledgerEntries.length}</span>
               <span>Stok saat ini: {ledgerProduct.stock} unit</span>
             </div>
