@@ -10,15 +10,15 @@ import { CloseShiftModal } from './CloseShiftModal';
 import { useCustomerStore } from '../store/useCustomerStore';
 import { useThemeStore } from '../store/useThemeStore';
 import { API_BASE_URL } from '../config';
-import { 
-  ShoppingBag, 
-  Trash2, 
-  Plus, 
-  Minus, 
-  CreditCard, 
-  DollarSign, 
-  Package, 
-  Coffee, 
+import {
+  ShoppingBag,
+  Trash2,
+  Plus,
+  Minus,
+  CreditCard,
+  DollarSign,
+  Package,
+  Coffee,
   CheckCircle,
   AlertTriangle,
   RefreshCw,
@@ -34,7 +34,11 @@ import {
   Users,
   ArrowUpDown,
   Sun,
-  Moon
+  Moon,
+  Tag,
+  Maximize2,
+  Monitor,
+  X
 } from 'lucide-react';
 
 interface Product {
@@ -48,13 +52,13 @@ interface Product {
 }
 
 export const PosView: React.FC = () => {
-  const { 
-    cart, 
-    subTotal, 
-    grandTotal, 
-    addToCart, 
-    removeFromCart, 
-    updateQuantity, 
+  const {
+    cart,
+    subTotal,
+    grandTotal,
+    addToCart,
+    removeFromCart,
+    updateQuantity,
     clearCart,
     discountType,
     discountValue,
@@ -62,22 +66,18 @@ export const PosView: React.FC = () => {
     setDiscount,
     setApplyTax
   } = useCartStore();
-  
-  // Ambil data autentikasi dari Zustand Auth Store
+
   const token = useAuthStore((state) => state.token);
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
   const navigate = useNavigate();
   const { theme, toggleTheme } = useThemeStore();
 
-  // State Shift Kasir dari Zustand
   const { activeShift, isLoading: isShiftLoading, fetchActiveShift, openShift, closeShift: closeShiftAction, clearShift } = useShiftStore();
   const [showCloseShiftModal, setShowCloseShiftModal] = useState<boolean>(false);
 
-  // Ref untuk Cetak Struk
   const componentRef = useRef<HTMLDivElement>(null);
 
-  // State Komponen
   const [products, setProducts] = useState<Product[]>([]);
   const [loadingProducts, setLoadingProducts] = useState<boolean>(true);
   const [paymentMethod, setPaymentMethod] = useState<string>('CASH');
@@ -86,20 +86,19 @@ export const PosView: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string>('SEMUA');
 
-  // State Fitur Cetak Struk & Modal Sukses
   const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false);
   const [currentTransaction, setCurrentTransaction] = useState<any>(null);
   const [cashReceived, setCashReceived] = useState<number | ''>('');
 
-  // State E-Wallet QRIS Dinamis Midtrans
   const [showQrisModal, setShowQrisModal] = useState<boolean>(false);
   const [qrisUrl, setQrisUrl] = useState<string>('');
   const [qrisInvoiceNumber, setQrisInvoiceNumber] = useState<string>('');
   const [qrisGrandTotal, setQrisGrandTotal] = useState<number>(0);
-  const [qrisString, setQrisString] = useState<string>('');
+  const [_qrisString, setQrisString] = useState<string>('');
+  const [qrisFullscreen, setQrisFullscreen] = useState<boolean>(false);
+  const customerWindowRef = useRef<Window | null>(null);
   const pollingIntervalRef = useRef<any>(null);
 
-  // Bersihkan interval ketika component unmount
   useEffect(() => {
     return () => {
       if (pollingIntervalRef.current) {
@@ -108,9 +107,8 @@ export const PosView: React.FC = () => {
     };
   }, []);
 
-  // Kembalikan stok lokal di UI jika pembayaran QRIS dibatalkan/void
   const restoreLocalStock = () => {
-    setProducts(prevProducts => 
+    setProducts(prevProducts =>
       prevProducts.map(p => {
         const cartItem = cart.find(item => item.productId === p.id);
         if (cartItem) {
@@ -121,7 +119,6 @@ export const PosView: React.FC = () => {
     );
   };
 
-  // Fungsi polling status transaksi QRIS di backend
   const startQrisPolling = (invoiceNumber: string) => {
     if (pollingIntervalRef.current) {
       clearInterval(pollingIntervalRef.current);
@@ -149,7 +146,7 @@ export const PosView: React.FC = () => {
             clearInterval(pollingIntervalRef.current);
           }
           setShowQrisModal(false);
-          
+
           const transactionDataForReceipt = {
             ...resData.data,
             paymentMethod: 'QRIS',
@@ -175,18 +172,33 @@ export const PosView: React.FC = () => {
     }, 3000);
   };
 
-  // Batal Pembayaran QRIS oleh kasir
   const handleCancelQris = () => {
     if (pollingIntervalRef.current) {
       clearInterval(pollingIntervalRef.current);
     }
+    if (customerWindowRef.current && !customerWindowRef.current.closed) {
+      customerWindowRef.current.close();
+      customerWindowRef.current = null;
+    }
+    setQrisFullscreen(false);
     setShowQrisModal(false);
     restoreLocalStock();
     showToast('success', 'Pembayaran QRIS dibatalkan oleh kasir.');
   };
 
+  const handleOpenCustomerDisplay = () => {
+    const params = new URLSearchParams({
+      qrisUrl: qrisUrl,
+      amount: qrisGrandTotal.toString(),
+      invoice: qrisInvoiceNumber
+    });
+    const win = window.open(`/customer-display?${params.toString()}`, 'customer-display', 'width=900,height=700,menubar=no,toolbar=no,location=no,status=no');
+    if (win) {
+      customerWindowRef.current = win;
+    }
+  };
 
-  // State Pelanggan & Loyalty Points
+
   const { fetchCustomers, createCustomer } = useCustomerStore();
   const [selectedCustomer, setSelectedCustomer] = useState<any | null>(null);
   const [customerQuery, setCustomerQuery] = useState<string>('');
@@ -207,9 +219,6 @@ export const PosView: React.FC = () => {
     setSearchResults(useCustomerStore.getState().customers);
   };
 
-  // ==========================================
-  // FETCH PRODUK ASLI DARI BACKEND
-  // ==========================================
   useEffect(() => {
     const fetchProducts = async () => {
       setLoadingProducts(true);
@@ -218,7 +227,6 @@ export const PosView: React.FC = () => {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
-            // Gunakan token dan tenantId asli dari Auth Store
             'Authorization': `Bearer ${token}`,
             'x-tenant-id': user?.tenantId || ''
           }
@@ -230,9 +238,7 @@ export const PosView: React.FC = () => {
           throw new Error(data.message || 'Gagal mengambil data produk dari server.');
         }
 
-        // Mapping data produk dari backend (mengatasi decimal/tipe data dan fallback gambar)
         const mappedProducts = data.data.map((item: any, index: number) => {
-          // Buat URL Unsplash secara acak/statis berdasarkan indeks produk untuk mempercantik UI
           const fallbacks = [
             'https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&q=80&w=600',
             'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&q=80&w=600',
@@ -240,6 +246,12 @@ export const PosView: React.FC = () => {
             'https://images.unsplash.com/photo-1556679343-c7306c1976bc?auto=format&fit=crop&q=80&w=600',
             'https://images.unsplash.com/photo-1536256263959-770b48d82b0a?auto=format&fit=crop&q=80&w=600'
           ];
+          const mainImage = item.images && item.images.length > 0
+            ? (item.images.find((img: any) => img.isMain)?.url || item.images[0].url)
+            : null;
+          const finalImageUrl = mainImage && mainImage.startsWith('/uploads')
+            ? `${API_BASE_URL}${mainImage}`
+            : mainImage;
           return {
             id: item.id,
             sku: item.sku,
@@ -247,7 +259,7 @@ export const PosView: React.FC = () => {
             price: Number(item.sellingPrice),
             stock: item.stock,
             category: item.category?.name || 'Umum',
-            imageUrl: fallbacks[index % fallbacks.length]
+            imageUrl: finalImageUrl || fallbacks[index % fallbacks.length]
           };
         });
 
@@ -265,29 +277,23 @@ export const PosView: React.FC = () => {
     }
   }, [token, user]);
 
-  // Filter produk berdasarkan pencarian dan kategori
   const filteredProducts = products.filter(product => {
-    const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          product.sku.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      product.sku.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = selectedCategory === 'SEMUA' || product.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
 
-  // Ekstrak list kategori produk unik untuk filter
   const categoriesList = ['SEMUA', ...Array.from(new Set(products.map(p => p.category)))];
 
-  // Helper untuk menghitung sisa stok dinamis di UI katalog berdasarkan isi keranjang belanja
   const getRemainingStock = (productId: string, originalStock: number): number => {
     const cartItem = cart.find(item => item.productId === productId);
     return originalStock - (cartItem ? cartItem.quantity : 0);
   };
 
-  // Integrasi react-to-print v3+ (mendukung React 19)
   const handlePrint = useReactToPrint({
     contentRef: componentRef,
   });
-
-  // Handler Kirim Struk via WhatsApp
   const handleSendWhatsApp = (transaction: any) => {
     if (!transaction) return;
 
@@ -336,17 +342,15 @@ Terima kasih atas kunjungan Anda!`;
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
   };
 
-  // Handler Selesai & Tutup Modal Transaksi
   const handleFinishTransaction = () => {
     setShowSuccessModal(false);
-    clearCart(); // Baru dikosongkan saat tombol selesai ditekan
-    setPaymentMethod('CASH'); // Reset metode pembayaran
+    clearCart();
+    setPaymentMethod('CASH');
     setCurrentTransaction(null);
     setCashReceived('');
     setSelectedCustomer(null);
   };
 
-  // Handler Kirim Transaksi (Checkout) ke Backend API
   const handleCheckout = async () => {
     if (cart.length === 0) {
       showToast('error', 'Keranjang belanja masih kosong!');
@@ -356,7 +360,6 @@ Terima kasih atas kunjungan Anda!`;
     setIsSubmitting(true);
     setNotification(null);
 
-    // Format payload sesuai validasi Zod backend
     const payload = {
       paymentMethod,
       discountType,
@@ -370,12 +373,10 @@ Terima kasih atas kunjungan Anda!`;
     };
 
     try {
-      // Panggil API POST /api/transactions/checkout
       const response = await fetch(`${API_BASE_URL}/api/transactions/checkout`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          // Sertakan kredensial asli
           'x-tenant-id': user?.tenantId || '',
           'Authorization': `Bearer ${token}`
         },
@@ -388,8 +389,7 @@ Terima kasih atas kunjungan Anda!`;
         throw new Error(data.message || 'Gagal memproses transaksi.');
       }
 
-      // Update stok produk lokal di UI setelah checkout sukses
-      setProducts(prevProducts => 
+      setProducts(prevProducts =>
         prevProducts.map(p => {
           const cartItem = cart.find(item => item.productId === p.id);
           if (cartItem) {
@@ -408,7 +408,6 @@ Terima kasih atas kunjungan Anda!`;
         startQrisPolling(data.data.invoiceNumber);
         showToast('success', 'QRIS Dinamis berhasil dibuat. Silakan scan pembayaran.');
       } else {
-        // Berhasil CASH - Simpan data transaksi untuk Cetak Struk / WA
         const transactionDataForReceipt = {
           ...data.data,
           paymentMethod: paymentMethod,
@@ -431,20 +430,16 @@ Terima kasih atas kunjungan Anda!`;
     }
   };
 
-  // Handler Logout: bersihkan shift dan cart sebelum keluar
   const handleLogout = () => {
     clearCart();
     clearShift();
     logout();
   };
 
-  // Handler Buka Shift
   const handleOpenShift = async (cashStart: number) => {
     if (!token || !user?.tenantId) return;
     await openShift(token, user.tenantId, cashStart);
   };
-
-  // Handler Tutup Shift
   const handleCloseShift = async (cashActual: number) => {
     if (!token || !user?.tenantId || !activeShift) return;
     await closeShiftAction(token, user.tenantId, activeShift.id, cashActual);
@@ -452,7 +447,6 @@ Terima kasih atas kunjungan Anda!`;
     showToast('success', 'Shift berhasil ditutup. Sampai jumpa!');
   };
 
-  // Helper untuk memicu notifikasi Toast sementara
   const showToast = (type: 'success' | 'error', message: string) => {
     setNotification({ type, message });
     setTimeout(() => {
@@ -460,7 +454,6 @@ Terima kasih atas kunjungan Anda!`;
     }, 6000);
   };
 
-  // Fetch shift aktif saat komponen mount
   useEffect(() => {
     if (token && user?.tenantId) {
       fetchActiveShift(token, user.tenantId);
@@ -469,7 +462,7 @@ Terima kasih atas kunjungan Anda!`;
 
   return (
     <div className="h-screen w-screen bg-slate-50 dark:bg-slate-950 flex flex-col font-sans overflow-hidden transition-colors duration-150">
-      
+
       {/* Modal Buka Shift — diblokir jika belum ada shift aktif */}
       {!activeShift && !isShiftLoading && (
         <ShiftModal
@@ -496,18 +489,17 @@ Terima kasih atas kunjungan Anda!`;
 
       {/* Toast Notification */}
       {notification && (
-        <div className={`fixed top-4 right-4 z-50 flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg border transition-all duration-300 transform translate-y-0 ${
-          notification.type === 'success' 
-            ? 'bg-emerald-50 border-emerald-200 text-emerald-800' 
+        <div className={`fixed top-4 right-4 z-50 flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg border transition-all duration-300 transform translate-y-0 ${notification.type === 'success'
+            ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
             : 'bg-rose-50 border-rose-200 text-rose-800'
-        }`}>
+          }`}>
           {notification.type === 'success' ? (
             <CheckCircle className="h-5 w-5 text-emerald-600 shrink-0" />
           ) : (
             <AlertTriangle className="h-5 w-5 text-rose-600 shrink-0" />
           )}
           <span className="text-sm font-medium">{notification.message}</span>
-          <button 
+          <button
             onClick={() => setNotification(null)}
             className="ml-2 hover:opacity-75 text-xs font-bold"
           >
@@ -547,9 +539,9 @@ Terima kasih atas kunjungan Anda!`;
             <History className="w-3.5 h-3.5" />
             Riwayat
           </button>
-          
+
           {/* Menu Khusus Owner / Admin */}
-          {(user?.roles.includes('Owner') || user?.roles.includes('TENANT_ADMIN')) && (
+          {(user?.roles.includes('Owner') || user?.roles.includes('TENANT_ADMIN') || user?.roles.includes('Manager') || user?.roles.includes('Staf Gudang')) && (
             <>
               <button
                 onClick={() => navigate('/admin/products')}
@@ -559,33 +551,45 @@ Terima kasih atas kunjungan Anda!`;
                 Produk
               </button>
               <button
+                onClick={() => navigate('/admin/categories')}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all duration-150"
+              >
+                <Tag className="w-3.5 h-3.5" />
+                Kategori
+              </button>
+              <button
                 onClick={() => navigate('/admin/inventory')}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all duration-150"
               >
                 <ArrowUpDown className="w-3.5 h-3.5" />
                 Stok
               </button>
-              <button
-                onClick={() => navigate('/admin/staff')}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all duration-150"
-              >
-                <Users className="w-3.5 h-3.5" />
-                Staf
-              </button>
-              <button
-                onClick={() => navigate('/admin/customers')}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all duration-150"
-              >
-                <Users className="w-3.5 h-3.5" />
-                Pelanggan
-              </button>
-              <button
-                onClick={() => navigate('/admin/dashboard')}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all duration-150"
-              >
-                <BarChart2 className="w-3.5 h-3.5" />
-                Dashboard
-              </button>
+
+              {!user?.roles.includes('Staf Gudang') && (
+                <>
+                  <button
+                    onClick={() => navigate('/admin/staff')}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all duration-150"
+                  >
+                    <Users className="w-3.5 h-3.5" />
+                    Staf
+                  </button>
+                  <button
+                    onClick={() => navigate('/admin/customers')}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all duration-150"
+                  >
+                    <Users className="w-3.5 h-3.5" />
+                    Pelanggan
+                  </button>
+                  <button
+                    onClick={() => navigate('/admin/dashboard')}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all duration-150"
+                  >
+                    <BarChart2 className="w-3.5 h-3.5" />
+                    Dashboard
+                  </button>
+                </>
+              )}
             </>
           )}
         </nav>
@@ -639,10 +643,10 @@ Terima kasih atas kunjungan Anda!`;
 
       {/* KONTEN UTAMA */}
       <main className="flex-1 flex overflow-hidden">
-        
+
         {/* KOLOM KIRI (70%): Area Katalog Produk */}
         <section className="w-[70%] h-full flex flex-col p-6 overflow-hidden">
-          
+
           {/* Filter Kategori & Pencarian */}
           <div className="flex justify-between items-center mb-6 shrink-0 gap-4">
             <div className="flex gap-2 overflow-x-auto pb-1">
@@ -650,11 +654,10 @@ Terima kasih atas kunjungan Anda!`;
                 <button
                   key={cat}
                   onClick={() => setSelectedCategory(cat)}
-                  className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all whitespace-nowrap ${
-                    selectedCategory === cat
+                  className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all whitespace-nowrap ${selectedCategory === cat
                       ? 'bg-indigo-600 text-white shadow-md shadow-indigo-150'
                       : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-350 hover:bg-slate-50 dark:hover:bg-slate-800'
-                  }`}
+                    }`}
                 >
                   {cat}
                 </button>
@@ -688,7 +691,7 @@ Terima kasih atas kunjungan Anda!`;
                   const isOutOfStock = remainingStock <= 0;
 
                   return (
-                    <div 
+                    <div
                       key={product.id}
                       onClick={() => !isOutOfStock && addToCart({
                         productId: product.id,
@@ -697,15 +700,14 @@ Terima kasih atas kunjungan Anda!`;
                         sku: product.sku,
                         stock: product.stock
                       })}
-                      className={`bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm hover:shadow-md hover:border-indigo-200 dark:hover:border-indigo-800/80 transition-all cursor-pointer group flex flex-col relative ${
-                        isOutOfStock ? 'opacity-60 cursor-not-allowed' : ''
-                      }`}
+                      className={`bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm hover:shadow-md hover:border-indigo-200 dark:hover:border-indigo-800/80 transition-all cursor-pointer group flex flex-col relative ${isOutOfStock ? 'opacity-60 cursor-not-allowed' : ''
+                        }`}
                     >
                       {/* Gambar Produk */}
                       <div className="h-44 w-full bg-slate-100 dark:bg-slate-800 overflow-hidden relative shrink-0">
-                        <img 
-                          src={product.imageUrl} 
-                          alt={product.name} 
+                        <img
+                          src={product.imageUrl}
+                          alt={product.name}
                           className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
                         />
                         <span className="absolute top-2 left-2 bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm px-2.5 py-1 rounded-lg text-[10px] font-bold text-slate-700 dark:text-slate-350 tracking-wide">
@@ -726,14 +728,13 @@ Terima kasih atas kunjungan Anda!`;
                           <span className="font-extrabold text-slate-900 dark:text-slate-50 text-base">
                             Rp {product.price.toLocaleString('id-ID')}
                           </span>
-                          
-                          <span className={`text-[11px] font-bold flex items-center gap-1 ${
-                            isOutOfStock 
-                              ? 'text-rose-600' 
-                              : remainingStock <= 5 
-                                ? 'text-amber-600' 
+
+                          <span className={`text-[11px] font-bold flex items-center gap-1 ${isOutOfStock
+                              ? 'text-rose-600'
+                              : remainingStock <= 5
+                                ? 'text-amber-600'
                                 : 'text-slate-500 dark:text-slate-400'
-                          }`}>
+                            }`}>
                             <Package className="h-3.5 w-3.5" />
                             {isOutOfStock ? 'Habis' : `${remainingStock} Stok`}
                           </span>
@@ -762,12 +763,12 @@ Terima kasih atas kunjungan Anda!`;
 
         {/* KOLOM KANAN (30%): Panel Keranjang Belanja */}
         <section className="w-[30%] h-full bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden shadow-2xl relative z-10">
-          
+
           {/* Header Panel */}
           <div className="py-3 px-5 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center shrink-0">
             <h2 className="font-bold text-slate-800 dark:text-slate-100 text-sm flex items-center gap-2">
               <ShoppingBag className="h-4 w-4 text-indigo-600" />
-            Keranjang Belanja
+              Keranjang Belanja
             </h2>
             <span className="bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold px-2 py-0.5 rounded-full">
               {cart.reduce((sum, item) => sum + item.quantity, 0)} Item
@@ -776,12 +777,12 @@ Terima kasih atas kunjungan Anda!`;
 
           {/* Area Konten Scrollable: Daftar Barang & Form Input */}
           <div className="flex-1 overflow-y-auto">
-            
+
             {/* Daftar Barang */}
             <div className="p-4 space-y-3 border-b border-slate-100 dark:border-slate-800">
               {cart.length > 0 ? (
                 cart.map((item) => (
-                  <div 
+                  <div
                     key={item.productId}
                     className="flex items-center gap-3 bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 p-2.5 rounded-xl group hover:border-indigo-100 dark:hover:border-indigo-900/40 hover:bg-indigo-50/10 dark:hover:bg-slate-800/60 transition-all"
                   >
@@ -801,7 +802,7 @@ Terima kasih atas kunjungan Anda!`;
                       >
                         <Minus className="h-3.5 w-3.5" />
                       </button>
-                      
+
                       <input
                         type="number"
                         value={item.quantity}
@@ -843,7 +844,7 @@ Terima kasih atas kunjungan Anda!`;
 
             {/* Form Input Pembayaran */}
             <div className="p-4 bg-slate-50/50 dark:bg-slate-800/20 space-y-4">
-              
+
               {/* Opsi Metode Pembayaran */}
               <div className="space-y-1.5">
                 <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wide">Metode Pembayaran</label>
@@ -851,11 +852,10 @@ Terima kasih atas kunjungan Anda!`;
                   <button
                     type="button"
                     onClick={() => setPaymentMethod('CASH')}
-                    className={`flex items-center justify-center gap-1.5 py-2 rounded-xl border text-xs font-bold transition-all ${
-                      paymentMethod === 'CASH'
+                    className={`flex items-center justify-center gap-1.5 py-2 rounded-xl border text-xs font-bold transition-all ${paymentMethod === 'CASH'
                         ? 'bg-indigo-600 border-indigo-600 text-white shadow-md shadow-indigo-150'
                         : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
-                    }`}
+                      }`}
                   >
                     <DollarSign className="h-3.5 w-3.5" />
                     Tunai / Cash
@@ -863,11 +863,10 @@ Terima kasih atas kunjungan Anda!`;
                   <button
                     type="button"
                     onClick={() => setPaymentMethod('QRIS')}
-                    className={`flex items-center justify-center gap-1.5 py-2 rounded-xl border text-xs font-bold transition-all ${
-                      paymentMethod === 'QRIS'
+                    className={`flex items-center justify-center gap-1.5 py-2 rounded-xl border text-xs font-bold transition-all ${paymentMethod === 'QRIS'
                         ? 'bg-indigo-600 border-indigo-600 text-white shadow-md shadow-indigo-150'
                         : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
-                    }`}
+                      }`}
                   >
                     <CreditCard className="h-4 w-4" />
                     QRIS / E-Wallet
@@ -1024,14 +1023,14 @@ Terima kasih atas kunjungan Anda!`;
 
           {/* Footer Tagihan & Checkout (Fixed di Bawah) */}
           <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0 space-y-3 shadow-[0_-4px_12px_rgba(0,0,0,0.03)]">
-            
+
             {/* Ringkasan Harga */}
             <div className="space-y-1.5">
               <div className="flex justify-between items-center text-[11px] text-slate-500 dark:text-slate-400">
                 <span>Subtotal</span>
                 <span className="font-bold">Rp {subTotal.toLocaleString('id-ID')}</span>
               </div>
-              
+
               {/* Baris Diskon jika ada */}
               {discountValue > 0 && (
                 <div className="flex justify-between items-center text-[11px] text-rose-600">
@@ -1064,13 +1063,12 @@ Terima kasih atas kunjungan Anda!`;
             <button
               onClick={handleCheckout}
               disabled={cart.length === 0 || isSubmitting}
-              className={`w-full py-2.5 rounded-xl font-bold text-xs text-white flex items-center justify-center gap-1.5 shadow-lg transition-all ${
-                cart.length === 0
+              className={`w-full py-2.5 rounded-xl font-bold text-xs text-white flex items-center justify-center gap-1.5 shadow-lg transition-all ${cart.length === 0
                   ? 'bg-slate-300 dark:bg-slate-800 text-slate-500 dark:text-slate-400 shadow-none cursor-not-allowed'
                   : isSubmitting
                     ? 'bg-indigo-500 cursor-wait'
                     : 'bg-indigo-600 hover:bg-indigo-700 active:scale-99 shadow-indigo-200 dark:shadow-none'
-              }`}
+                }`}
             >
               {isSubmitting ? (
                 <RefreshCw className="h-3.5 w-3.5 animate-spin" />
@@ -1086,7 +1084,7 @@ Terima kasih atas kunjungan Anda!`;
       {showSuccessModal && currentTransaction && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
           <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-100 flex flex-col transform transition-all duration-300 scale-100 animate-in fade-in zoom-in-95">
-            
+
             {/* Header Modal */}
             <div className="bg-gradient-to-r from-emerald-500 to-teal-600 px-6 py-8 text-center text-white relative">
               <div className="mx-auto bg-white/20 h-16 w-16 rounded-2xl flex items-center justify-center mb-3 shadow-inner">
@@ -1098,7 +1096,7 @@ Terima kasih atas kunjungan Anda!`;
 
             {/* Konten Modal */}
             <div className="p-6 space-y-6 flex-1">
-              
+
               {/* Ringkasan Transaksi */}
               <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 space-y-2.5">
                 <div className="flex justify-between items-center text-xs text-slate-500">
@@ -1163,11 +1161,10 @@ Terima kasih atas kunjungan Anda!`;
                   {cashReceived !== '' && (
                     <div className="flex justify-between items-center p-4 rounded-2xl bg-amber-50/50 border border-amber-100">
                       <span className="text-xs font-bold text-amber-800 uppercase tracking-wide">Uang Kembalian</span>
-                      <span className={`text-lg font-black ${
-                        Number(cashReceived) - currentTransaction.grandTotal < 0 
-                          ? 'text-rose-600' 
+                      <span className={`text-lg font-black ${Number(cashReceived) - currentTransaction.grandTotal < 0
+                          ? 'text-rose-600'
                           : 'text-amber-700'
-                      }`}>
+                        }`}>
                         Rp {Math.max(0, Number(cashReceived) - currentTransaction.grandTotal).toLocaleString('id-ID')}
                       </span>
                     </div>
@@ -1186,47 +1183,100 @@ Terima kasih atas kunjungan Anda!`;
 
             {/* Footer Modal / Tombol Aksi */}
             <div className="p-6 bg-slate-50 border-t border-slate-100 space-y-3">
-               <div className="grid grid-cols-2 gap-3">
-                 {/* Cetak Struk */}
-                 <button
-                   type="button"
-                   onClick={() => handlePrint()}
-                   className="flex items-center justify-center gap-2 py-3 rounded-xl border border-slate-200 bg-white text-slate-700 text-xs font-bold hover:bg-slate-100 active:scale-97 transition-all shadow-sm"
-                 >
-                   <Printer className="h-4 w-4 text-slate-500" />
-                   Cetak Struk
-                 </button>
+              <div className="grid grid-cols-2 gap-3">
+                {/* Cetak Struk */}
+                <button
+                  type="button"
+                  onClick={() => handlePrint()}
+                  className="flex items-center justify-center gap-2 py-3 rounded-xl border border-slate-200 bg-white text-slate-700 text-xs font-bold hover:bg-slate-100 active:scale-97 transition-all shadow-sm"
+                >
+                  <Printer className="h-4 w-4 text-slate-500" />
+                  Cetak Struk
+                </button>
 
-                 {/* Kirim WhatsApp */}
-                 <button
-                   type="button"
-                   onClick={() => handleSendWhatsApp(currentTransaction)}
-                   className="flex items-center justify-center gap-2 py-3 rounded-xl border border-emerald-250 bg-emerald-50 text-emerald-800 text-xs font-bold hover:bg-emerald-100 active:scale-97 transition-all shadow-sm"
-                 >
-                   <MessageCircle className="h-4 w-4 text-emerald-600" />
-                   Kirim ke WA
-                 </button>
-               </div>
+                {/* Kirim WhatsApp */}
+                <button
+                  type="button"
+                  onClick={() => handleSendWhatsApp(currentTransaction)}
+                  className="flex items-center justify-center gap-2 py-3 rounded-xl border border-emerald-250 bg-emerald-50 text-emerald-800 text-xs font-bold hover:bg-emerald-100 active:scale-97 transition-all shadow-sm"
+                >
+                  <MessageCircle className="h-4 w-4 text-emerald-600" />
+                  Kirim ke WA
+                </button>
+              </div>
 
-               {/* Selesai */}
-               <button
-                 type="button"
-                 onClick={handleFinishTransaction}
-                 disabled={
-                   currentTransaction.paymentMethod === 'CASH' &&
-                   (cashReceived === '' || Number(cashReceived) - currentTransaction.grandTotal < 0)
-                 }
-                 className={`w-full py-3.5 rounded-xl font-bold text-xs text-white shadow-md flex items-center justify-center gap-1.5 transition-all ${
-                   currentTransaction.paymentMethod === 'CASH' &&
-                   (cashReceived === '' || Number(cashReceived) - currentTransaction.grandTotal < 0)
-                     ? 'bg-slate-300 text-slate-500 shadow-none cursor-not-allowed'
-                     : 'bg-indigo-600 hover:bg-indigo-700 active:scale-97 shadow-indigo-100'
-                 }`}
-               >
-                 Selesai & Transaksi Baru
-               </button>
-             </div>
+              {/* Selesai */}
+              <button
+                type="button"
+                onClick={handleFinishTransaction}
+                disabled={
+                  currentTransaction.paymentMethod === 'CASH' &&
+                  (cashReceived === '' || Number(cashReceived) - currentTransaction.grandTotal < 0)
+                }
+                className={`w-full py-3.5 rounded-xl font-bold text-xs text-white shadow-md flex items-center justify-center gap-1.5 transition-all ${currentTransaction.paymentMethod === 'CASH' &&
+                    (cashReceived === '' || Number(cashReceived) - currentTransaction.grandTotal < 0)
+                    ? 'bg-slate-300 text-slate-500 shadow-none cursor-not-allowed'
+                    : 'bg-indigo-600 hover:bg-indigo-700 active:scale-97 shadow-indigo-100'
+                  }`}
+              >
+                Selesai & Transaksi Baru
+              </button>
+            </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* QRIS Fullscreen Overlay (Opsi B) - Layar untuk diputar ke Customer */}
+      {showQrisModal && qrisFullscreen && (
+        <div className="fixed inset-0 z-[60] bg-slate-950 flex flex-col items-center justify-center gap-8 p-8">
+          {/* Exit Fullscreen button */}
+          <button
+            type="button"
+            onClick={() => setQrisFullscreen(false)}
+            className="absolute top-6 right-6 p-3 rounded-2xl bg-white/10 hover:bg-white/20 text-white transition-all"
+          >
+            <X className="h-6 w-6" />
+          </button>
+
+          {/* Store info */}
+          <div className="text-center">
+            <p className="text-white/50 text-sm font-bold uppercase tracking-widest mb-2">Scan untuk Membayar</p>
+            <p className="text-white/30 text-xs font-medium">Invoice: {qrisInvoiceNumber}</p>
+          </div>
+
+          {/* QR Code besar */}
+          <div className="bg-white rounded-3xl p-6 shadow-2xl shadow-indigo-500/20">
+            {qrisUrl ? (
+              <img
+                src={qrisUrl}
+                alt="QRIS Code"
+                className="w-72 h-72 object-contain"
+              />
+            ) : (
+              <div className="w-72 h-72 flex items-center justify-center">
+                <RefreshCw className="h-12 w-12 animate-spin text-indigo-500" />
+              </div>
+            )}
+          </div>
+
+          {/* Total tagihan besar */}
+          <div className="text-center">
+            <p className="text-white/50 text-sm font-bold uppercase tracking-widest mb-1">Total Tagihan</p>
+            <p className="text-5xl font-black text-white tracking-tight">
+              Rp {qrisGrandTotal.toLocaleString('id-ID')}
+            </p>
+          </div>
+
+          {/* Accepted apps */}
+          <p className="text-white/30 text-xs font-medium text-center max-w-xs leading-relaxed">
+            GoPay · OVO · Dana · LinkAja · ShopeePay · Mobile Banking
+          </p>
+
+          {/* Polling indicator */}
+          <div className="flex items-center gap-2 text-indigo-400 text-xs font-bold">
+            <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+            <span className="animate-pulse">Menunggu Pembayaran...</span>
           </div>
         </div>
       )}
@@ -1235,7 +1285,7 @@ Terima kasih atas kunjungan Anda!`;
       {showQrisModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
           <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full overflow-hidden border border-slate-100 flex flex-col transform transition-all duration-300 scale-100 animate-in fade-in zoom-in-95">
-            
+
             {/* Header Modal */}
             <div className="bg-gradient-to-r from-indigo-500 to-purple-600 px-6 py-6 text-center text-white relative">
               <div className="mx-auto bg-white/20 h-14 w-14 rounded-2xl flex items-center justify-center mb-3 shadow-inner">
@@ -1276,34 +1326,46 @@ Terima kasih atas kunjungan Anda!`;
                 <span className="animate-pulse">Menunggu Pembayaran...</span>
               </div>
 
-              {/* Tombol Salin untuk Simulator */}
-              <div className="flex flex-col gap-2 w-full px-4">
-                {qrisUrl && (
+              {/* Aksi Customer Display */}
+              {qrisUrl && (
+                <div className="flex gap-2 w-full">
+                  {/* Opsi B: Fullscreen - putar layar ke customer */}
                   <button
                     type="button"
-                    onClick={() => {
-                      navigator.clipboard.writeText(qrisUrl);
-                      showToast('success', 'Tautan Gambar QRIS disalin ke clipboard!');
-                    }}
-                    className="w-full py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[10px] font-black rounded-xl transition-all active:scale-97 flex items-center justify-center gap-1.5 shadow-sm border border-indigo-100"
+                    onClick={() => setQrisFullscreen(true)}
+                    title="Tampilkan fullscreen, lalu putar layar ke arah customer"
+                    className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-black rounded-xl transition-all active:scale-97 flex items-center justify-center gap-1.5 shadow-sm shadow-indigo-100"
                   >
-                    🔗 Salin Tautan Gambar QRIS (Untuk Simulator)
+                    <Maximize2 className="h-3.5 w-3.5" />
+                    Putar Layar
                   </button>
-                )}
 
-                {qrisString && (
+                  {/* Opsi A: Customer Display Window */}
                   <button
                     type="button"
-                    onClick={() => {
-                      navigator.clipboard.writeText(qrisString);
-                      showToast('success', 'Payload teks QRIS disalin ke clipboard!');
-                    }}
-                    className="w-full py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-600 text-[10px] font-black rounded-xl transition-all active:scale-97 flex items-center justify-center gap-1.5 shadow-sm border border-slate-200"
+                    onClick={handleOpenCustomerDisplay}
+                    title="Buka di window baru untuk layar customer / monitor kedua"
+                    className="flex-1 py-2.5 bg-slate-700 hover:bg-slate-800 text-white text-[10px] font-black rounded-xl transition-all active:scale-97 flex items-center justify-center gap-1.5 shadow-sm"
                   >
-                    📋 Salin Payload Teks QRIS
+                    <Monitor className="h-3.5 w-3.5" />
+                    Layar Customer
                   </button>
-                )}
-              </div>
+                </div>
+              )}
+
+              {/* Tombol Simulator */}
+              {qrisUrl && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(qrisUrl);
+                    showToast('success', 'Tautan Gambar QRIS disalin ke clipboard!');
+                  }}
+                  className="w-full py-2 bg-slate-50 hover:bg-slate-100 text-slate-500 text-[10px] font-bold rounded-xl transition-all active:scale-97 flex items-center justify-center gap-1.5 border border-slate-200"
+                >
+                  🔗 Salin Tautan QRIS (Simulator)
+                </button>
+              )}
 
               <p className="text-[10px] text-center text-slate-400 font-medium px-4 leading-relaxed">
                 Scan kode QR di atas menggunakan GoPay, OVO, Dana, LinkAja, ShopeePay, atau aplikasi Mobile Banking Anda.
@@ -1323,6 +1385,7 @@ Terima kasih atas kunjungan Anda!`;
           </div>
         </div>
       )}
+
 
       {/* Modal Tambah Pelanggan Baru Cepat */}
       {showAddCustomerModal && (
@@ -1346,7 +1409,7 @@ Terima kasih atas kunjungan Anda!`;
                 Tutup
               </button>
             </div>
-            
+
             <form onSubmit={async (e) => {
               e.preventDefault();
               if (!newCustName.trim()) {
@@ -1360,7 +1423,7 @@ Terima kasih atas kunjungan Anda!`;
                 email: newCustEmail || null
               });
               setIsCreatingCustomer(false);
-              
+
               if (res.success && res.data) {
                 setSelectedCustomer(res.data);
                 showToast('success', 'Pelanggan berhasil didaftarkan!');
