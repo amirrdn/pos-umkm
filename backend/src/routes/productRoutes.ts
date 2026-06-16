@@ -3,12 +3,25 @@ import { ProductController } from '../controllers/productController';
 import { authMiddleware } from '../middlewares/authMiddleware';
 import { tenantMiddleware } from '../middlewares/tenantMiddleware';
 import { requirePermission } from '../middlewares/roleMiddleware';
+import { uploadSingleImage } from '../middlewares/uploadMiddleware';
 
 const router = Router();
 const productController = new ProductController();
 
 router.use(authMiddleware);
 router.use(tenantMiddleware);
+
+/**
+ * Route POST /api/products/upload
+ * Deskripsi: Mengunggah file gambar ke server.
+ */
+router.post(
+  '/upload',
+  requirePermission('create:products'),
+  uploadSingleImage,
+  productController.uploadImage.bind(productController)
+);
+
 
 /**
  * Route GET /api/products/
