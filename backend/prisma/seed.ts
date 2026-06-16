@@ -157,6 +157,70 @@ async function main() {
   }
   console.log('Peran [Kasir] dan pemetaan Hak Akses berhasil di-seed.');
 
+  // Seeding Peran Manager
+  const roleManager = await prisma.role.upsert({
+    where: { id: 'role-manager-uuid-666' },
+    update: {},
+    create: {
+      id: 'role-manager-uuid-666',
+      tenantId: tenant.id,
+      name: 'Manager',
+      description: 'Pengelola operasional toko dengan hak penuh atas transaksi, produk, pelanggan, staf, dan laporan keuangan'
+    }
+  });
+
+  // Hubungkan Manager ke semua permissions
+  for (const perm of permissions) {
+    await prisma.rolePermission.upsert({
+      where: {
+        roleId_permissionId: {
+          roleId: roleManager.id,
+          permissionId: perm.id
+        }
+      },
+      update: {},
+      create: {
+        roleId: roleManager.id,
+        permissionId: perm.id
+      }
+    });
+  }
+  console.log('Peran [Manager] dan pemetaan Hak Akses berhasil di-seed.');
+
+  // Seeding Peran Staf Gudang
+  const roleStafGudang = await prisma.role.upsert({
+    where: { id: 'role-staf-gudang-uuid-777' },
+    update: {},
+    create: {
+      id: 'role-staf-gudang-uuid-777',
+      tenantId: tenant.id,
+      name: 'Staf Gudang',
+      description: 'Pengelola logistik, melihat/menambah/mengubah data produk serta mutasi stok'
+    }
+  });
+
+  // Hubungkan Staf Gudang ke permission 'view:products', 'create:products', 'update:products'
+  const gudangPermissions = ['view:products', 'create:products', 'update:products'];
+  for (const permName of gudangPermissions) {
+    const matchedPerm = permissions.find(p => p.name === permName);
+    if (matchedPerm) {
+      await prisma.rolePermission.upsert({
+        where: {
+          roleId_permissionId: {
+            roleId: roleStafGudang.id,
+            permissionId: matchedPerm.id
+          }
+        },
+        update: {},
+        create: {
+          roleId: roleStafGudang.id,
+          permissionId: matchedPerm.id
+        }
+      });
+    }
+  }
+  console.log('Peran [Staf Gudang] dan pemetaan Hak Akses berhasil di-seed.');
+
   // d. SEEDING USER (ADMIN/OWNER & KASIR)
   const hashedPassword = await bcrypt.hash('password123', 10);
   
@@ -231,23 +295,29 @@ async function main() {
   // 1. Kategori
   const catMinuman = await prisma.category.upsert({
     where: { id: 'cat-minuman-111' },
-    update: {},
+    update: {
+      prefix: 'MNM'
+    },
     create: {
       id: 'cat-minuman-111',
       tenantId: tenant.id,
       name: 'Minuman',
-      slug: 'minuman'
+      slug: 'minuman',
+      prefix: 'MNM'
     }
   });
 
   const catMakanan = await prisma.category.upsert({
     where: { id: 'cat-makanan-222' },
-    update: {},
+    update: {
+      prefix: 'MKN'
+    },
     create: {
       id: 'cat-makanan-222',
       tenantId: tenant.id,
       name: 'Makanan',
-      slug: 'makanan'
+      slug: 'makanan',
+      prefix: 'MKN'
     }
   });
   console.log('📂 Kategori produk [Makanan] & [Minuman] berhasil di-seed.');
@@ -318,6 +388,52 @@ async function main() {
     });
   }
   console.log(`📦 ${productsData.length} Data Produk berhasil di-seed.`);
+
+  // Seed default product images
+  const defaultImages = [
+    {
+      id: 'img-prod-001',
+      productId: 'e281bbcf-71d5-451e-9276-2e8df31cf81f',
+      url: 'https://images.unsplash.com/photo-1541167760496-1628856ab772?q=80&w=400&auto=format&fit=crop',
+      isMain: true
+    },
+    {
+      id: 'img-prod-002',
+      productId: 'e281bbcf-72d5-451e-9276-2e8df31cf82f',
+      url: 'https://images.unsplash.com/photo-1484723091739-30a097e8f929?q=80&w=400&auto=format&fit=crop',
+      isMain: true
+    },
+    {
+      id: 'img-prod-003',
+      productId: 'e281bbcf-73d5-451e-9276-2e8df31cf83f',
+      url: 'https://images.unsplash.com/photo-1555507036-ab1f4038808a?q=80&w=400&auto=format&fit=crop',
+      isMain: true
+    },
+    {
+      id: 'img-prod-004',
+      productId: 'e281bbcf-74d5-451e-9276-2e8df31cf84f',
+      url: 'https://images.unsplash.com/photo-1576092768241-dec231879fc3?q=80&w=400&auto=format&fit=crop',
+      isMain: true
+    },
+    {
+      id: 'img-prod-005',
+      productId: 'e281bbcf-75d5-451e-9276-2e8df31cf85f',
+      url: 'https://images.unsplash.com/photo-1536256263959-770b48d82b0a?q=80&w=400&auto=format&fit=crop',
+      isMain: true
+    }
+  ];
+
+  for (const img of defaultImages) {
+    await prisma.productImage.upsert({
+      where: { id: img.id },
+      update: {
+        url: img.url,
+        isMain: img.isMain
+      },
+      create: img
+    });
+  }
+  console.log('🖼️ Gambar default produk berhasil di-seed.');
 
   // f. SEEDING CUSTOMERS
   console.log('👥 Seeding data pelanggan...');
