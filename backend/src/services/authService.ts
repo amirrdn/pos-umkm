@@ -120,7 +120,7 @@ export class AuthService {
           name: input.tenantName,
           slug,
           email: input.email,
-          phone: '-' // default placeholder phone
+          phone: '-'
         }
       });
 
@@ -133,15 +133,56 @@ export class AuthService {
           description: 'Pemilik Toko dengan kontrol dan izin akses penuh'
         }
       });
-
-      const rolePermissionsData = permissions.map((perm) => ({
+      const ownerPermissionsData = permissions.map((perm) => ({
         roleId: roleOwner.id,
         permissionId: perm.id
       }));
+      await tx.rolePermission.createMany({ data: ownerPermissionsData });
 
-      await tx.rolePermission.createMany({
-        data: rolePermissionsData
+      const roleManager = await tx.role.create({
+        data: {
+          tenantId: tenant.id,
+          name: 'Manager',
+          description: 'Pengelola operasional toko dengan hak penuh atas transaksi, produk, pelanggan, staf, dan laporan keuangan'
+        }
       });
+      const managerPermissionsData = permissions.map((perm) => ({
+        roleId: roleManager.id,
+        permissionId: perm.id
+      }));
+      await tx.rolePermission.createMany({ data: managerPermissionsData });
+
+      const roleStafGudang = await tx.role.create({
+        data: {
+          tenantId: tenant.id,
+          name: 'Staf Gudang',
+          description: 'Pengelola logistik, melihat/menambah/mengubah data produk serta mutasi stok'
+        }
+      });
+      const gudangPermissions = ['view:products', 'create:products', 'update:products'];
+      const gudangPermissionsData = permissions
+        .filter(p => gudangPermissions.includes(p.name))
+        .map((perm) => ({
+          roleId: roleStafGudang.id,
+          permissionId: perm.id
+        }));
+      await tx.rolePermission.createMany({ data: gudangPermissionsData });
+
+      const roleKasir = await tx.role.create({
+        data: {
+          tenantId: tenant.id,
+          name: 'Kasir',
+          description: 'Kasir toko dengan izin membuat transaksi dan melihat katalog produk'
+        }
+      });
+      const kasirPermissions = ['create-transaction', 'view:products', 'view:customers', 'create:customers'];
+      const kasirPermissionsData = permissions
+        .filter(p => kasirPermissions.includes(p.name))
+        .map((perm) => ({
+          roleId: roleKasir.id,
+          permissionId: perm.id
+        }));
+      await tx.rolePermission.createMany({ data: kasirPermissionsData });
 
       const user = await tx.user.create({
         data: {

@@ -47,6 +47,11 @@ interface Transaction {
   tax?: number;
   paymentMethod?: string;
   qrisUrl?: string | null;
+  customer?: {
+    id: string;
+    name: string;
+    phone?: string | null;
+  } | null;
 }
 
 export const TransactionHistory: React.FC = () => {
@@ -56,17 +61,13 @@ export const TransactionHistory: React.FC = () => {
   const logout = useAuthStore((state) => state.logout);
   const { theme, toggleTheme } = useThemeStore();
 
-  // States
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
 
-  // Ref untuk Cetak Struk
   const componentRef = useRef<HTMLDivElement>(null);
-
-  // Polling status transaksi QRIS jika sedang melihat detail transaksi PENDING
   const pollingIntervalRef = useRef<any>(null);
 
   useEffect(() => {
@@ -90,12 +91,10 @@ export const TransactionHistory: React.FC = () => {
           if (response.ok) {
             const resData = await response.json();
             if (resData.data?.status !== 'PENDING') {
-              // Status telah berubah (COMPLETED / VOID)
               setSelectedTransaction(prev => {
                 if (!prev) return null;
                 return { ...prev, status: resData.data.status };
               });
-              // Refresh daftar riwayat
               fetchHistory();
               if (pollingIntervalRef.current) {
                 clearInterval(pollingIntervalRef.current);
@@ -113,12 +112,9 @@ export const TransactionHistory: React.FC = () => {
     }
   }, [selectedTransaction]);
 
-  // Hook react-to-print v3+
   const handlePrint = useReactToPrint({
     contentRef: componentRef,
   });
-
-  // Fetch data riwayat dari backend
   const fetchHistory = async () => {
     if (!token || !user?.tenantId) return;
     setLoading(true);
@@ -150,27 +146,20 @@ export const TransactionHistory: React.FC = () => {
     fetchHistory();
   }, [token, user]);
 
-  // Handler Logout
   const handleLogout = () => {
     logout();
     navigate('/');
   };
-
-  // Filter transaksi berdasarkan pencarian nomor invoice
   const filteredTransactions = transactions.filter((tx) =>
     tx.invoiceNumber.toLowerCase().includes(searchQuery.toLowerCase())
   );
-
-  // Format transaksi data untuk ReceiptTemplate
   const getReceiptData = () => {
     if (!selectedTransaction) return null;
     return {
       invoiceNumber: selectedTransaction.invoiceNumber,
       createdAt: selectedTransaction.createdAt,
       grandTotal: selectedTransaction.grandTotal,
-      // Karena database tidak menyimpan paymentMethod, kita asumsikan CASH sebagai fallback
-      // atau jika di masa depan disimpan di DB, bisa disesuaikan.
-      paymentMethod: 'CASH', 
+      paymentMethod: 'CASH',
       cashierName: user?.name,
       tenantName: user?.tenantId === 'tenant-uuid-xyz-123' ? 'Toko Utama' : 'UMKM POS',
       items: selectedTransaction.items.map(item => ({
@@ -191,7 +180,7 @@ export const TransactionHistory: React.FC = () => {
 
   return (
     <div className="h-screen w-screen bg-slate-50 dark:bg-slate-950 flex flex-col font-sans overflow-hidden transition-colors duration-150">
-      
+
       {/* Template Struk Tersembunyi (hanya terlihat saat cetak) */}
       <div className="hidden print:block">
         <ReceiptTemplate ref={componentRef} transactionData={getReceiptData()} />
@@ -280,7 +269,7 @@ export const TransactionHistory: React.FC = () => {
 
       {/* Konten Utama */}
       <main className="flex-1 overflow-hidden p-6 flex flex-col gap-6 bg-slate-50 dark:bg-slate-950">
-        
+
         {/* Kontrol & Pencarian */}
         <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/60 dark:border-slate-800 shadow-sm flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4 shrink-0">
           <div className="relative flex-1 max-w-md">
@@ -394,7 +383,7 @@ export const TransactionHistory: React.FC = () => {
       {selectedTransaction && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
           <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-100 dark:border-slate-800 flex flex-col transform transition-all duration-300 scale-100 animate-in fade-in zoom-in-95">
-            
+
             {/* Header Modal */}
             <div className="bg-gradient-to-r from-slate-700 to-slate-800 px-6 py-5 flex items-center justify-between text-white shrink-0">
               <div className="flex items-center gap-2.5">
@@ -414,7 +403,7 @@ export const TransactionHistory: React.FC = () => {
 
             {/* Konten Modal */}
             <div className="p-6 space-y-6 flex-1 overflow-auto max-h-[60vh] bg-white dark:bg-slate-900">
-              
+
               {/* Ringkasan Modal */}
               <div className="bg-slate-50 dark:bg-slate-800 rounded-2xl p-4 border border-slate-100 dark:border-slate-700 space-y-2.5">
                 <div className="flex justify-between items-center text-xs text-slate-500 dark:text-slate-400">
@@ -424,18 +413,35 @@ export const TransactionHistory: React.FC = () => {
                   </span>
                 </div>
                 <div className="flex justify-between items-center text-xs text-slate-500 dark:text-slate-400">
-                   <span className="flex items-center gap-1.5"><CreditCard className="w-3.5 h-3.5" /> Status Pembayaran</span>
-                   <span className="font-bold uppercase">
-                     {selectedTransaction.status === 'COMPLETED' ? (
-                       <span className="text-emerald-600 font-extrabold">COMPLETED</span>
-                     ) : selectedTransaction.status === 'PENDING' ? (
-                       <span className="text-amber-500 font-extrabold animate-pulse">PENDING</span>
-                     ) : (
-                       <span className="text-rose-600 font-extrabold">VOID</span>
-                     )}
-                   </span>
-                 </div>
-                
+                  <span className="flex items-center gap-1.5"><CreditCard className="w-3.5 h-3.5" /> Status Pembayaran</span>
+                  <span className="font-bold uppercase">
+                    {selectedTransaction.status === 'COMPLETED' ? (
+                      <span className="text-emerald-600 font-extrabold">COMPLETED</span>
+                    ) : selectedTransaction.status === 'PENDING' ? (
+                      <span className="text-amber-500 font-extrabold animate-pulse">PENDING</span>
+                    ) : (
+                      <span className="text-rose-600 font-extrabold">VOID</span>
+                    )}
+                  </span>
+                </div>
+
+                {/* Customer */}
+                <div className="flex justify-between items-center text-xs text-slate-500 dark:text-slate-400">
+                  <span className="flex items-center gap-1.5"><User className="w-3.5 h-3.5" /> Pelanggan</span>
+                  <span className="font-bold text-slate-700 dark:text-slate-200 text-right">
+                    {selectedTransaction.customer ? (
+                      <span className="flex flex-col items-end">
+                        <span>{selectedTransaction.customer.name}</span>
+                        {selectedTransaction.customer.phone && (
+                          <span className="text-[10px] text-slate-400 font-normal">{selectedTransaction.customer.phone}</span>
+                        )}
+                      </span>
+                    ) : (
+                      <span className="text-slate-400 font-normal italic">Umum / Walk-in</span>
+                    )}
+                  </span>
+                </div>
+
                 <div className="border-t border-slate-200/60 dark:border-slate-700 pt-2.5 space-y-1.5">
                   {selectedTransaction.subTotal !== undefined && (
                     <div className="flex justify-between items-center text-xs text-slate-500 dark:text-slate-400">
@@ -480,9 +486,9 @@ export const TransactionHistory: React.FC = () => {
                     </span>
                   </div>
                   <div className="p-3 bg-white rounded-xl border border-indigo-100 shadow-sm flex items-center justify-center w-40 h-40">
-                    <img 
-                      src={selectedTransaction.qrisUrl} 
-                      alt="QRIS Code" 
+                    <img
+                      src={selectedTransaction.qrisUrl}
+                      alt="QRIS Code"
                       className="w-full h-full object-contain"
                     />
                   </div>

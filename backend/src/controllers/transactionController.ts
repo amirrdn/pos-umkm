@@ -305,6 +305,13 @@ export async function getHistory(req: Request, res: Response) {
               }
             }
           }
+        },
+        customer: {
+          select: {
+            id: true,
+            name: true,
+            phone: true
+          }
         }
       }
     });

@@ -39,7 +39,7 @@ export default function LandingPage() {
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
             <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
           </span>
-          Sistem POS Cloud Multi-Tenant Terpercaya
+          Sistem Kasir Cloud Terpercaya & Canggih
         </div>
 
         <h1 className="text-4xl md:text-6xl font-black tracking-tight text-white max-w-3xl leading-tight mb-6">
@@ -76,9 +76,9 @@ export default function LandingPage() {
             <div className="p-3 bg-indigo-500/10 text-indigo-400 rounded-2xl w-fit mb-4">
               <Layers className="w-6 h-6" />
             </div>
-            <h3 className="text-lg font-bold text-white mb-2">Multi-Tenant Aman</h3>
+            <h3 className="text-lg font-bold text-white mb-2">Multi-Cabang & Outlet</h3>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Keamanan data terjamin dengan arsitektur multi-tenant modern. Data transaksi dan stok toko Anda terisolasi sempurna.
+              Keamanan data terjamin dengan teknologi cloud modern. Data transaksi dan stok toko Anda terisolasi aman secara mandiri.
             </p>
           </div>
 

@@ -48,16 +48,18 @@ model Tenant {
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
   deletedAt   DateTime?    // Indikator Soft Delete
+  requireStockApproval Boolean @default(false)
 
   // Relasi
-  users        User[]
-  roles        Role[]
-  categories   Category[]
-  products     Product[]
-  transactions Transaction[]
-  shifts       Shift[]
-  stockLedgers StockLedger[]
-  customers    Customer[]
+  users         User[]
+  roles         Role[]
+  categories    Category[]
+  products      Product[]
+  transactions  Transaction[]
+  shifts        Shift[]
+  stockLedgers  StockLedger[]
+  customers     Customer[]
+  stockRequests StockRequest[]
 
   @@map("tenants")
 }
@@ -75,11 +77,13 @@ model User {
   deletedAt DateTime? // Indikator Soft Delete
 
   // Relasi
-  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  userRoles    UserRole[]
-  transactions Transaction[]
-  shifts       Shift[]
-  stockLedgers StockLedger[]
+  tenant            Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userRoles         UserRole[]
+  transactions      Transaction[]
+  shifts            Shift[]
+  stockLedgers      StockLedger[]
+  submittedRequests StockRequest[] @relation("submittedRequests")
+  approvedRequests  StockRequest[] @relation("approvedRequests")
 
   @@map("users")
 }
@@ -150,6 +154,7 @@ model Category {
   tenantId String
   name     String
   slug     String
+  prefix   String @default("CAT")
 
   // Relasi
   tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -179,10 +184,26 @@ model Product {
   category         Category          @relation(fields: [categoryId], references: [id], onDelete: Restrict) // Tidak boleh hapus kategori jika ada produk aktif
   transactionItems TransactionItem[]
   stockLedgers     StockLedger[]
+  stockRequests    StockRequest[]
+  images           ProductImage[]
 
   // SKU harus unik di dalam tenant yang sama
   @@unique([tenantId, sku])
   @@map("products")
+}
+
+// 8.5 ProductImage (Gambar Produk)
+model ProductImage {
+  id        String   @id @default(uuid())
+  productId String
+  url       String
+  isMain    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@map("product_images")
 }
 
 // 9. Transaction (Transaksi Penjualan per Tenant)
@@ -300,4 +321,33 @@ model Customer {
 
   @@unique([tenantId, phone])
   @@map("customers")
+}
+
+// Status untuk StockRequest
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// Model StockRequest untuk antrean approval stok
+model StockRequest {
+  id            String        @id @default(uuid())
+  tenantId      String
+  productId     String
+  userId        String        // Pengaju (Staf Gudang)
+  approvedById  String?       // Penyetuju (Owner/Manager)
+  type          MutationType  // Sesuai enum MutationType yang sudah ada
+  quantity      Int
+  note          String?
+  status        RequestStatus @default(PENDING)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  product       Product       @relation(fields: [productId], references: [id], onDelete: Restrict)
+  user          User          @relation("submittedRequests", fields: [userId], references: [id], onDelete: Restrict)
+  approvedBy    User?         @relation("approvedRequests", fields: [approvedById], references: [id], onDelete: SetNull)
+
+  @@map("stock_requests")
 }

@@ -3,24 +3,25 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
 import { useThemeStore } from '../store/useThemeStore';
 import { useCustomerStore, type Customer } from '../store/useCustomerStore';
-import { 
-  Plus, 
-  Edit, 
-  Trash2, 
-  RefreshCw, 
-  Search, 
-  Users, 
-  Coffee, 
-  ShoppingBag, 
-  History, 
-  Package, 
-  ArrowUpDown, 
-  BarChart2, 
+import {
+  Plus,
+  Edit,
+  Trash2,
+  RefreshCw,
+  Search,
+  Users,
+  Coffee,
+  ShoppingBag,
+  History,
+  Package,
+  ArrowUpDown,
+  BarChart2,
   LogOut,
   AlertCircle,
   CheckCircle,
   Sun,
-  Moon
+  Moon,
+  Tag
 } from 'lucide-react';
 
 export const CustomerManagementView: React.FC = () => {
@@ -31,20 +32,17 @@ export const CustomerManagementView: React.FC = () => {
 
   const { customers, fetchCustomers, createCustomer, updateCustomer, deleteCustomer, loading, error } = useCustomerStore();
 
-  // Search & UI States
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
-  // Form States
   const [currentId, setCurrentId] = useState<string>('');
   const [name, setName] = useState<string>('');
   const [phone, setPhone] = useState<string>('');
   const [email, setEmail] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
-  // Load Customers on Mount
   useEffect(() => {
     fetchCustomers();
   }, []);
@@ -138,7 +136,7 @@ export const CustomerManagementView: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 flex flex-col font-sans transition-colors duration-150">
-      
+
       {/* HEADER NAVIGASI BAR */}
       <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-40 px-6 py-4 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-3">
@@ -167,9 +165,9 @@ export const CustomerManagementView: React.FC = () => {
             <History className="w-3.5 h-3.5" />
             Riwayat
           </button>
-          
+
           {/* Menu Khusus Owner / Admin */}
-          {(user?.roles.includes('Owner') || user?.roles.includes('TENANT_ADMIN')) && (
+          {(user?.roles.includes('Owner') || user?.roles.includes('TENANT_ADMIN') || user?.roles.includes('Manager') || user?.roles.includes('Staf Gudang')) && (
             <>
               <button
                 onClick={() => navigate('/admin/products')}
@@ -179,33 +177,45 @@ export const CustomerManagementView: React.FC = () => {
                 Produk
               </button>
               <button
+                onClick={() => navigate('/admin/categories')}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all duration-150"
+              >
+                <Tag className="w-3.5 h-3.5" />
+                Kategori
+              </button>
+              <button
                 onClick={() => navigate('/admin/inventory')}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all duration-150"
               >
                 <ArrowUpDown className="w-3.5 h-3.5" />
                 Stok
               </button>
-              <button
-                onClick={() => navigate('/admin/staff')}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all duration-150"
-              >
-                <Users className="w-3.5 h-3.5" />
-                Staf
-              </button>
-              <button
-                onClick={() => navigate('/admin/customers')}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-indigo-600 text-white shadow-sm transition-all duration-150"
-              >
-                <Users className="w-3.5 h-3.5" />
-                Pelanggan
-              </button>
-              <button
-                onClick={() => navigate('/admin/dashboard')}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all duration-150"
-              >
-                <BarChart2 className="w-3.5 h-3.5" />
-                Dashboard
-              </button>
+
+              {!user?.roles.includes('Staf Gudang') && (
+                <>
+                  <button
+                    onClick={() => navigate('/admin/staff')}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all duration-150"
+                  >
+                    <Users className="w-3.5 h-3.5" />
+                    Staf
+                  </button>
+                  <button
+                    onClick={() => navigate('/admin/customers')}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-indigo-600 text-white shadow-sm transition-all duration-150"
+                  >
+                    <Users className="w-3.5 h-3.5" />
+                    Pelanggan
+                  </button>
+                  <button
+                    onClick={() => navigate('/admin/dashboard')}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all duration-150"
+                  >
+                    <BarChart2 className="w-3.5 h-3.5" />
+                    Dashboard
+                  </button>
+                </>
+              )}
             </>
           )}
         </nav>
@@ -242,11 +252,10 @@ export const CustomerManagementView: React.FC = () => {
 
       {/* POPUP NOTIFIKASI */}
       {notification && (
-        <div className={`fixed bottom-5 right-5 z-50 flex items-center gap-2.5 px-4 py-3.5 rounded-xl shadow-xl text-xs font-bold border animate-in slide-in-from-bottom duration-200 ${
-          notification.type === 'success' 
-            ? 'bg-emerald-50 border-emerald-200 text-emerald-800' 
+        <div className={`fixed bottom-5 right-5 z-50 flex items-center gap-2.5 px-4 py-3.5 rounded-xl shadow-xl text-xs font-bold border animate-in slide-in-from-bottom duration-200 ${notification.type === 'success'
+            ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
             : 'bg-rose-50 border-rose-250 text-rose-800'
-        }`}>
+          }`}>
           {notification.type === 'success' ? <CheckCircle className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
           <span>{notification.message}</span>
         </div>
@@ -254,7 +263,7 @@ export const CustomerManagementView: React.FC = () => {
 
       {/* KONTEN UTAMA */}
       <main className="flex-1 p-6 md:p-8 max-w-7xl w-full mx-auto space-y-6">
-        
+
         {/* Header Halaman */}
         <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
           <div>
@@ -302,7 +311,7 @@ export const CustomerManagementView: React.FC = () => {
               </button>
             )}
           </form>
-          
+
           <button
             onClick={() => fetchCustomers(searchQuery)}
             className="text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 p-2 text-xs font-bold rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors flex items-center justify-center gap-1.5 self-start md:self-auto"

@@ -69,6 +69,14 @@ export async function createStockMutation(req: Request, res: Response): Promise<
       note,
     });
 
+    if (result.isPendingApproval) {
+      return res.status(201).json({
+        success: true,
+        message: `Permintaan mutasi stok berhasil diajukan dan menunggu persetujuan Owner/Manager.`,
+        data: result,
+      });
+    }
+
     return res.status(201).json({
       success: true,
       message: `Mutasi stok berhasil dicatat. Stok baru: ${result.product.stock} unit.`,
@@ -81,5 +89,109 @@ export async function createStockMutation(req: Request, res: Response): Promise<
     }
     console.error('[StockLedgerController.createStockMutation]', error);
     return res.status(500).json({ success: false, message: 'Terjadi kesalahan saat melakukan mutasi stok.' });
+  }
+}
+
+/**
+ * GET /api/inventory/requests
+ * Mengambil semua StockRequest berstatus PENDING.
+ */
+export async function getStockRequests(req: Request, res: Response): Promise<Response> {
+  try {
+    const tenantId = req.tenantId!;
+    const data = await stockLedgerService.listStockRequests(tenantId);
+    return res.status(200).json({ success: true, data });
+  } catch (error: unknown) {
+    console.error('[StockLedgerController.getStockRequests]', error);
+    return res.status(500).json({ success: false, message: 'Terjadi kesalahan saat mengambil daftar permintaan persetujuan stok.' });
+  }
+}
+
+/**
+ * POST /api/inventory/requests/:id/approve
+ * Menyetujui StockRequest.
+ */
+export async function approveRequest(req: Request, res: Response): Promise<Response> {
+  try {
+    const tenantId = req.tenantId!;
+    const approvedById = req.user!.id;
+    const { id } = req.params;
+
+    const data = await stockLedgerService.approveStockRequest(tenantId, id, approvedById);
+    return res.status(200).json({
+      success: true,
+      message: `Permintaan stok disetujui. Stok baru: ${data.product.stock} unit.`,
+      data
+    });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Terjadi kesalahan internal server.';
+    console.error('[StockLedgerController.approveRequest]', error);
+    return res.status(400).json({ success: false, message });
+  }
+}
+
+/**
+ * POST /api/inventory/requests/:id/reject
+ * Menolak StockRequest.
+ */
+export async function rejectRequest(req: Request, res: Response): Promise<Response> {
+  try {
+    const tenantId = req.tenantId!;
+    const approvedById = req.user!.id;
+    const { id } = req.params;
+
+    const data = await stockLedgerService.rejectStockRequest(tenantId, id, approvedById);
+    return res.status(200).json({
+      success: true,
+      message: 'Permintaan mutasi stok berhasil ditolak.',
+      data
+    });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Terjadi kesalahan internal server.';
+    console.error('[StockLedgerController.rejectRequest]', error);
+    return res.status(400).json({ success: false, message });
+  }
+}
+
+/**
+ * PUT /api/inventory/settings
+ * Mengubah pengaturan requireStockApproval milik tenant.
+ */
+export async function updateSettings(req: Request, res: Response): Promise<Response> {
+  try {
+    const tenantId = req.tenantId!;
+    const { requireStockApproval } = req.body;
+
+    if (typeof requireStockApproval !== 'boolean') {
+      return res.status(400).json({ success: false, message: 'Nilai requireStockApproval harus boolean.' });
+    }
+
+    const data = await stockLedgerService.updateTenantSettings(tenantId, requireStockApproval);
+    return res.status(200).json({
+      success: true,
+      message: `Pengaturan persetujuan stok berhasil diperbarui menjadi ${requireStockApproval ? 'aktif' : 'nonaktif'}.`,
+      data
+    });
+  } catch (error: unknown) {
+    console.error('[StockLedgerController.updateSettings]', error);
+    return res.status(500).json({ success: false, message: 'Terjadi kesalahan saat memperbarui pengaturan.' });
+  }
+}
+
+/**
+ * GET /api/inventory/settings
+ * Mengambil pengaturan requireStockApproval milik tenant.
+ */
+export async function getSettings(req: Request, res: Response): Promise<Response> {
+  try {
+    const tenantId = req.tenantId!;
+    const data = await stockLedgerService.getTenantSettings(tenantId);
+    if (!data) {
+      return res.status(404).json({ success: false, message: 'Tenant tidak ditemukan.' });
+    }
+    return res.status(200).json({ success: true, data });
+  } catch (error: unknown) {
+    console.error('[StockLedgerController.getSettings]', error);
+    return res.status(500).json({ success: false, message: 'Terjadi kesalahan saat mengambil pengaturan.' });
   }
 }

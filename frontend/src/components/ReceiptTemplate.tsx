@@ -1,6 +1,5 @@
 import { forwardRef } from 'react';
 
-// Antarmuka data item transaksi
 interface TransactionItemData {
   id?: string;
   quantity: number;
@@ -10,11 +9,10 @@ interface TransactionItemData {
     name: string;
     sku: string;
   };
-  name?: string; // Fallback jika langsung memakai data item dari cart
-  price?: number; // Fallback jika langsung memakai data item dari cart
+  name?: string;
+  price?: number;
 }
 
-// Antarmuka data transaksi utama
 interface TransactionData {
   invoiceNumber: string;
   createdAt: string;
@@ -203,7 +201,7 @@ export const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptTemplateProps>(
         <div className="text-center mt-3 space-y-0.5 text-[9px] text-slate-700">
           <p className="font-bold">Terima Kasih</p>
           <p>Selamat Belanja Kembali</p>
-          <p className="text-[7px] text-slate-400 mt-2">Sistem POS oleh Antigravity</p>
+          <p className="text-[7px] text-slate-400 mt-2">Sistem POS</p>
         </div>
       </div>
     );

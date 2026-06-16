@@ -144,4 +144,33 @@ export class ProductController {
       });
     }
   }
+
+  /**
+   * Mengunggah gambar produk.
+   */
+  async uploadImage(req: Request, res: Response) {
+    try {
+      if (!req.file) {
+        return res.status(400).json({
+          success: false,
+          message: 'Tidak ada file yang diunggah.'
+        });
+      }
+
+      const fileUrl = `/uploads/${req.file.filename}`;
+
+      return res.status(200).json({
+        success: true,
+        message: 'Gambar berhasil diunggah.',
+        url: fileUrl
+      });
+    } catch (error: any) {
+      console.error('UploadImage Controller Error:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Terjadi kesalahan internal server saat mengunggah gambar.'
+      });
+    }
+  }
 }
+

@@ -8,7 +8,7 @@ const router = Router();
 
 router.use(authMiddleware);
 router.use(tenantMiddleware);
-router.use(requireRole(['Owner', 'TENANT_ADMIN']));
+router.use(requireRole(['Owner', 'TENANT_ADMIN', 'Manager']));
 
 /**
  * GET /api/staff

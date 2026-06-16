@@ -3,14 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
 import { useThemeStore } from '../store/useThemeStore';
 import { API_BASE_URL } from '../config';
-import { 
-  TrendingUp, 
-  DollarSign, 
-  ShoppingCart, 
-  LogOut, 
-  Store, 
-  Package, 
-  RefreshCw, 
+import {
+  TrendingUp,
+  DollarSign,
+  ShoppingCart,
+  LogOut,
+  Store,
+  Package,
+  RefreshCw,
   Award,
   BarChart2,
   Users,
@@ -22,15 +22,16 @@ import {
   AlertCircle,
   Loader2,
   Sun,
-  Moon
+  Moon,
+  Tag
 } from 'lucide-react';
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
   ResponsiveContainer,
   Cell,
   AreaChart,
@@ -78,7 +79,6 @@ export default function DashboardAdmin() {
     setLoading(true);
     setError(null);
     try {
-      // Fetch Summary
       const summaryRes = await fetch(`${API_BASE_URL}/api/analytics/summary`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -88,7 +88,6 @@ export default function DashboardAdmin() {
       if (!summaryRes.ok) throw new Error('Gagal mengambil data ringkasan analitik.');
       const summaryJson = await summaryRes.json();
 
-      // Fetch Best Sellers
       const bestSellersRes = await fetch(`${API_BASE_URL}/api/analytics/best-sellers`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -98,7 +97,6 @@ export default function DashboardAdmin() {
       if (!bestSellersRes.ok) throw new Error('Gagal mengambil data produk terlaris.');
       const bestSellersJson = await bestSellersRes.json();
 
-      // Fetch Trend
       const trendRes = await fetch(`${API_BASE_URL}/api/analytics/trend`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -136,12 +134,11 @@ export default function DashboardAdmin() {
     }).format(value);
   };
 
-  // Kalkulasi Margin Laba Bersih
-  const todayMargin = summary?.revenueToday 
-    ? Math.round((summary.profitToday / summary.revenueToday) * 100) 
+  const todayMargin = summary?.revenueToday
+    ? Math.round((summary.profitToday / summary.revenueToday) * 100)
     : 0;
-  const monthMargin = summary?.revenueMonth 
-    ? Math.round((summary.profitMonth / summary.revenueMonth) * 100) 
+  const monthMargin = summary?.revenueMonth
+    ? Math.round((summary.profitMonth / summary.revenueMonth) * 100)
     : 0;
 
   return (
@@ -178,33 +175,45 @@ export default function DashboardAdmin() {
               Master Produk
             </button>
             <button
+              onClick={() => navigate('/admin/categories')}
+              className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-800 transition-all duration-150"
+            >
+              <Tag className="w-3.5 h-3.5" />
+              Kategori
+            </button>
+            <button
               onClick={() => navigate('/admin/inventory')}
               className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-800 transition-all duration-150"
             >
               <ArrowUpDown className="w-3.5 h-3.5" />
               Kelola Stok
             </button>
-            <button
-              onClick={() => navigate('/admin/staff')}
-              className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-800 transition-all duration-150"
-            >
-              <Users className="w-3.5 h-3.5" />
-              Kelola Staf
-            </button>
-            <button
-              onClick={() => navigate('/admin/customers')}
-              className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-800 transition-all duration-150"
-            >
-              <Users className="w-3.5 h-3.5" />
-              Kelola Pelanggan
-            </button>
-            <button
-              onClick={() => navigate('/admin/dashboard')}
-              className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-lg bg-indigo-600 text-white shadow-md shadow-indigo-500/20 transition-all duration-150"
-            >
-              <BarChart2 className="w-3.5 h-3.5" />
-              Dashboard
-            </button>
+
+            {!user?.roles.includes('Staf Gudang') && (
+              <>
+                <button
+                  onClick={() => navigate('/admin/staff')}
+                  className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-800 transition-all duration-150"
+                >
+                  <Users className="w-3.5 h-3.5" />
+                  Kelola Staf
+                </button>
+                <button
+                  onClick={() => navigate('/admin/customers')}
+                  className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-800 transition-all duration-150"
+                >
+                  <Users className="w-3.5 h-3.5" />
+                  Kelola Pelanggan
+                </button>
+                <button
+                  onClick={() => navigate('/admin/dashboard')}
+                  className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-lg bg-indigo-600 text-white shadow-md shadow-indigo-500/20 transition-all duration-150"
+                >
+                  <BarChart2 className="w-3.5 h-3.5" />
+                  Dashboard
+                </button>
+              </>
+            )}
           </nav>
 
           {/* Profil & Logout */}
@@ -384,27 +393,27 @@ export default function DashboardAdmin() {
                 >
                   <defs>
                     <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#6366f1" stopOpacity={0.2}/>
-                      <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
+                      <stop offset="5%" stopColor="#6366f1" stopOpacity={0.2} />
+                      <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
                     </linearGradient>
                     <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.2}/>
-                      <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.2} />
+                      <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke={theme === 'light' ? '#e2e8f0' : '#334155'} opacity={0.2} />
-                  <XAxis 
-                    dataKey="date" 
-                    stroke={theme === 'light' ? '#475569' : '#94a3b8'} 
+                  <XAxis
+                    dataKey="date"
+                    stroke={theme === 'light' ? '#475569' : '#94a3b8'}
                     fontSize={10}
                     tickLine={false}
                     tickFormatter={(date) => date.split('-')[2] + '/' + date.split('-')[1]}
                   />
-                  <YAxis 
-                    stroke={theme === 'light' ? '#475569' : '#94a3b8'} 
+                  <YAxis
+                    stroke={theme === 'light' ? '#475569' : '#94a3b8'}
                     fontSize={10}
                     tickLine={false}
-                    tickFormatter={(val) => 'Rp ' + (val >= 1000000 ? (val/1000000).toFixed(1) + 'jt' : (val/1000).toFixed(0) + 'k')}
+                    tickFormatter={(val) => 'Rp ' + (val >= 1000000 ? (val / 1000000).toFixed(1) + 'jt' : (val / 1000).toFixed(0) + 'k')}
                   />
                   <Tooltip
                     contentStyle={{
@@ -418,23 +427,23 @@ export default function DashboardAdmin() {
                     formatter={(value: any) => [formatRupiah(value), '']}
                   />
                   <Legend verticalAlign="top" height={36} iconType="circle" wrapperStyle={{ fontSize: '11px', fontWeight: 'semibold' }} />
-                  <Area 
-                    type="monotone" 
-                    dataKey="revenue" 
-                    name="Omset Penjualan" 
-                    stroke="#6366f1" 
+                  <Area
+                    type="monotone"
+                    dataKey="revenue"
+                    name="Omset Penjualan"
+                    stroke="#6366f1"
                     strokeWidth={2}
-                    fillOpacity={1} 
-                    fill="url(#colorRevenue)" 
+                    fillOpacity={1}
+                    fill="url(#colorRevenue)"
                   />
-                  <Area 
-                    type="monotone" 
-                    dataKey="profit" 
-                    name="Laba Bersih" 
-                    stroke="#10b981" 
+                  <Area
+                    type="monotone"
+                    dataKey="profit"
+                    name="Laba Bersih"
+                    stroke="#10b981"
                     strokeWidth={2}
-                    fillOpacity={1} 
-                    fill="url(#colorProfit)" 
+                    fillOpacity={1}
+                    fill="url(#colorProfit)"
                   />
                 </AreaChart>
               </ResponsiveContainer>
@@ -468,14 +477,14 @@ export default function DashboardAdmin() {
                     margin={{ top: 20, right: 10, left: -20, bottom: 5 }}
                   >
                     <CartesianGrid strokeDasharray="3 3" stroke={theme === 'light' ? '#e2e8f0' : '#334155'} opacity={0.2} />
-                    <XAxis 
-                      dataKey="name" 
-                      stroke={theme === 'light' ? '#475569' : '#94a3b8'} 
+                    <XAxis
+                      dataKey="name"
+                      stroke={theme === 'light' ? '#475569' : '#94a3b8'}
                       fontSize={10}
                       tickLine={false}
                     />
-                    <YAxis 
-                      stroke={theme === 'light' ? '#475569' : '#94a3b8'} 
+                    <YAxis
+                      stroke={theme === 'light' ? '#475569' : '#94a3b8'}
                       fontSize={10}
                       tickLine={false}
                       allowDecimals={false}
@@ -490,9 +499,9 @@ export default function DashboardAdmin() {
                       }}
                       cursor={{ fill: theme === 'light' ? '#cbd5e1' : '#334155', opacity: 0.1 }}
                     />
-                    <Bar 
-                      dataKey="totalQuantity" 
-                      name="Unit Terjual" 
+                    <Bar
+                      dataKey="totalQuantity"
+                      name="Unit Terjual"
                       radius={[6, 6, 0, 0]}
                     >
                       {bestSellers.map((_, index) => (
@@ -525,8 +534,8 @@ export default function DashboardAdmin() {
             ) : (
               <div className="space-y-4 flex-1">
                 {bestSellers.map((product, index) => (
-                  <div 
-                    key={product.productId} 
+                  <div
+                    key={product.productId}
                     className="flex items-center gap-4 p-4 bg-slate-50 dark:bg-slate-950/40 hover:bg-slate-100 dark:hover:bg-slate-900/40 border border-slate-150 dark:border-slate-800 rounded-2xl transition-all"
                   >
                     <div className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-bold text-slate-600 dark:text-slate-350 text-xs">

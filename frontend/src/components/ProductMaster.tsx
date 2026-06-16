@@ -3,13 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
 import { useThemeStore } from '../store/useThemeStore';
 import { API_BASE_URL } from '../config';
-import { 
-  Plus, 
-  Edit, 
-  Trash2, 
-  RefreshCw, 
-  Package, 
-  Tag, 
+import {
+  Plus,
+  Edit,
+  Trash2,
+  RefreshCw,
+  Package,
+  Tag,
   AlertCircle,
   CheckCircle,
   FileSpreadsheet,
@@ -18,8 +18,16 @@ import {
   Users,
   ArrowUpDown,
   Sun,
-  Moon
+  Moon,
+  LogOut,
+  Upload
 } from 'lucide-react';
+
+interface ProductImage {
+  id?: string;
+  url: string;
+  isMain: boolean;
+}
 
 interface Product {
   id: string;
@@ -30,33 +38,40 @@ interface Product {
   stock: number;
   categoryId: string;
   categoryName: string;
+  images?: ProductImage[];
 }
 
 export const ProductMaster: React.FC = () => {
   const navigate = useNavigate();
   const token = useAuthStore((state) => state.token);
   const user = useAuthStore((state) => state.user);
+  const logout = useAuthStore((state) => state.logout);
   const { theme, toggleTheme } = useThemeStore();
 
-  // States
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
-  
-  // Notification States
+
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
-  // Form States
   const [currentId, setCurrentId] = useState<string>('');
   const [name, setName] = useState<string>('');
   const [sku, setSku] = useState<string>('');
-  const [categoryId, setCategoryId] = useState<string>('cat-minuman-111'); // Default ke Kategori Minuman
+  const [categoryId, setCategoryId] = useState<string>('cat-minuman-111');
   const [purchasePrice, setPurchasePrice] = useState<number>(0);
   const [sellingPrice, setSellingPrice] = useState<number>(0);
   const [stock, setStock] = useState<number>(0);
+  const [images, setImages] = useState<{ url: string; isMain: boolean }[]>([]);
+  const [uploading, setUploading] = useState<boolean>(false);
+  const [categories, setCategories] = useState<{ id: string; name: string; prefix: string }[]>([]);
+  const [isAutoSku, setIsAutoSku] = useState<boolean>(true);
 
-  // Load products
   const fetchProducts = async () => {
     setLoading(true);
     try {
@@ -74,7 +89,6 @@ export const ProductMaster: React.FC = () => {
         throw new Error(data.message || 'Gagal mengambil data produk.');
       }
 
-      // Map backend products
       const mapped = data.data.map((item: any) => ({
         id: item.id,
         sku: item.sku,
@@ -83,7 +97,8 @@ export const ProductMaster: React.FC = () => {
         sellingPrice: Number(item.sellingPrice),
         stock: item.stock,
         categoryId: item.categoryId,
-        categoryName: item.category?.name || 'Umum'
+        categoryName: item.category?.name || 'Umum',
+        images: item.images || []
       }));
 
       setProducts(mapped);
@@ -95,26 +110,65 @@ export const ProductMaster: React.FC = () => {
     }
   };
 
+  const fetchCategories = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/categories`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'x-tenant-id': user?.tenantId || ''
+        }
+      });
+      const data = await response.json();
+      if (response.ok && data.success) {
+        setCategories(data.data || []);
+      }
+    } catch (err) {
+      console.error('Gagal mengambil kategori:', err);
+    }
+  };
+
+  const fetchNextSku = async (catId: string) => {
+    if (!catId) return;
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/categories/${catId}/next-sku`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await response.json();
+      if (response.ok && data.success) {
+        setSku(data.data.nextSku);
+      }
+    } catch (err) {
+      console.error('Gagal mengambil SKU otomatis:', err);
+    }
+  };
+
   useEffect(() => {
     if (token) {
       fetchProducts();
+      fetchCategories();
     }
   }, [token]);
 
-  // Open Modal for Create
   const handleOpenCreate = () => {
     setModalMode('create');
     setCurrentId('');
     setName('');
+    const defaultCatId = categories.length > 0 ? categories[0].id : '';
+    setCategoryId(defaultCatId);
     setSku('');
-    setCategoryId('cat-minuman-111');
     setPurchasePrice(0);
     setSellingPrice(0);
     setStock(0);
+    setImages([]);
+    setIsAutoSku(true);
+    if (defaultCatId) {
+      fetchNextSku(defaultCatId);
+    }
     setIsModalOpen(true);
   };
 
-  // Open Modal for Edit
   const handleOpenEdit = (product: Product) => {
     setModalMode('edit');
     setCurrentId(product.id);
@@ -124,10 +178,53 @@ export const ProductMaster: React.FC = () => {
     setPurchasePrice(product.purchasePrice);
     setSellingPrice(product.sellingPrice);
     setStock(product.stock);
+    setImages(product.images ? product.images.map(img => ({ url: img.url, isMain: img.isMain })) : []);
+    setIsAutoSku(false);
     setIsModalOpen(true);
   };
 
-  // Handle Submit (Create / Edit)
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      showToast('error', 'Ukuran file terlalu besar. Maksimal adalah 5 MB.');
+      return;
+    }
+
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      showToast('error', 'Format file tidak didukung. Hanya diperbolehkan JPG, PNG, GIF, atau WEBP.');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('image', file);
+
+    setUploading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/products/upload`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      const data = await response.json();
+      if (response.ok && data.success) {
+        showToast('success', 'Gambar berhasil diunggah.');
+        setImages([...images, { url: data.url, isMain: images.length === 0 }]);
+      } else {
+        showToast('error', data.message || 'Gagal mengunggah gambar.');
+      }
+    } catch (err) {
+      console.error('Image Upload Error:', err);
+      showToast('error', 'Terjadi kesalahan jaringan saat mengunggah gambar.');
+    } finally {
+      setUploading(false);
+      e.target.value = '';
+    }
+  };
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -136,19 +233,30 @@ export const ProductMaster: React.FC = () => {
       return;
     }
 
-    const payload = {
-      categoryId,
-      name,
-      sku,
-      purchasePrice,
-      sellingPrice,
-      stock
-    };
+    const payload = modalMode === 'create'
+      ? {
+        categoryId,
+        name,
+        sku,
+        purchasePrice,
+        sellingPrice,
+        stock,
+        images: images.filter(img => img.url.trim() !== '')
+      }
+      : {
+        categoryId,
+        name,
+        sku,
+        purchasePrice,
+        sellingPrice,
+        stock,
+        images: images.filter(img => img.url.trim() !== '')
+      };
 
-    const url = modalMode === 'create' 
-      ? `${API_BASE_URL}/api/products` 
+    const url = modalMode === 'create'
+      ? `${API_BASE_URL}/api/products`
       : `${API_BASE_URL}/api/products/${currentId}`;
-    
+
     const method = modalMode === 'create' ? 'POST' : 'PUT';
 
     try {
@@ -169,7 +277,7 @@ export const ProductMaster: React.FC = () => {
 
       showToast('success', modalMode === 'create' ? 'Produk berhasil ditambahkan!' : 'Produk berhasil diperbarui!');
       setIsModalOpen(false);
-      fetchProducts(); // Refresh list
+      fetchProducts();
 
     } catch (err: any) {
       console.error(err);
@@ -177,7 +285,6 @@ export const ProductMaster: React.FC = () => {
     }
   };
 
-  // Handle Delete
   const handleDelete = async (productId: string) => {
     const confirmed = window.confirm('Apakah Anda yakin ingin menghapus produk ini?');
     if (!confirmed) return;
@@ -198,7 +305,7 @@ export const ProductMaster: React.FC = () => {
       }
 
       showToast('success', 'Produk berhasil dihapus.');
-      fetchProducts(); // Refresh list
+      fetchProducts();
 
     } catch (err: any) {
       console.error(err);
@@ -206,7 +313,6 @@ export const ProductMaster: React.FC = () => {
     }
   };
 
-  // Helper untuk menampilkan Toast
   const showToast = (type: 'success' | 'error', message: string) => {
     setNotification({ type, message });
     setTimeout(() => {
@@ -216,14 +322,13 @@ export const ProductMaster: React.FC = () => {
 
   return (
     <div className="h-screen w-screen bg-slate-50 dark:bg-slate-950 flex flex-col font-sans overflow-hidden transition-colors duration-150">
-      
+
       {/* Toast Notification */}
       {notification && (
-        <div className={`fixed top-4 right-4 z-50 flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg border transition-all duration-350 transform translate-y-0 ${
-          notification.type === 'success' 
-            ? 'bg-emerald-50 border-emerald-200 text-emerald-800' 
+        <div className={`fixed top-4 right-4 z-50 flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg border transition-all duration-350 transform translate-y-0 ${notification.type === 'success'
+            ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
             : 'bg-rose-50 border-rose-200 text-rose-800'
-        }`}>
+          }`}>
           {notification.type === 'success' ? (
             <CheckCircle className="h-5 w-5 text-emerald-600 shrink-0" />
           ) : (
@@ -248,13 +353,15 @@ export const ProductMaster: React.FC = () => {
 
         {/* Menu Navigasi Global */}
         <nav className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
-          <button
-            onClick={() => navigate('/pos')}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all"
-          >
-            <ShoppingBag className="w-3.5 h-3.5" />
-            Kasir POS
-          </button>
+          {user?.roles.some((role) => ['Owner', 'TENANT_ADMIN', 'Manager', 'Kasir'].includes(role)) && (
+            <button
+              onClick={() => navigate('/pos')}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all"
+            >
+              <ShoppingBag className="w-3.5 h-3.5" />
+              Kasir POS
+            </button>
+          )}
           <button
             onClick={() => navigate('/admin/products')}
             className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold rounded-lg bg-indigo-600 text-white shadow-sm"
@@ -263,33 +370,45 @@ export const ProductMaster: React.FC = () => {
             Produk
           </button>
           <button
+            onClick={() => navigate('/admin/categories')}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all"
+          >
+            <Tag className="w-3.5 h-3.5" />
+            Kategori
+          </button>
+          <button
             onClick={() => navigate('/admin/inventory')}
             className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all"
           >
             <ArrowUpDown className="w-3.5 h-3.5" />
             Stok
           </button>
-          <button
-            onClick={() => navigate('/admin/staff')}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all"
-          >
-            <Users className="w-3.5 h-3.5" />
-            Staf
-          </button>
-          <button
-            onClick={() => navigate('/admin/customers')}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all"
-          >
-            <Users className="w-3.5 h-3.5" />
-            Pelanggan
-          </button>
-          <button
-            onClick={() => navigate('/admin/dashboard')}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all"
-          >
-            <BarChart2 className="w-3.5 h-3.5" />
-            Dashboard
-          </button>
+
+          {!user?.roles.includes('Staf Gudang') && (
+            <>
+              <button
+                onClick={() => navigate('/admin/staff')}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all"
+              >
+                <Users className="w-3.5 h-3.5" />
+                Staf
+              </button>
+              <button
+                onClick={() => navigate('/admin/customers')}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all"
+              >
+                <Users className="w-3.5 h-3.5" />
+                Pelanggan
+              </button>
+              <button
+                onClick={() => navigate('/admin/dashboard')}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all"
+              >
+                <BarChart2 className="w-3.5 h-3.5" />
+                Dashboard
+              </button>
+            </>
+          )}
         </nav>
 
         <div className="flex items-center gap-3">
@@ -307,6 +426,18 @@ export const ProductMaster: React.FC = () => {
             )}
           </button>
 
+          <div className="text-right hidden sm:block">
+            <p className="text-xs font-bold text-slate-800 dark:text-slate-200">{user?.name}</p>
+            <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase">{user?.roles.join(', ') || 'Staff'}</p>
+          </div>
+          <button
+            onClick={handleLogout}
+            className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-xl transition-all duration-150"
+            title="Keluar"
+          >
+            <LogOut className="h-5 w-5" />
+          </button>
+
           <button
             onClick={handleOpenCreate}
             className="bg-indigo-600 hover:bg-indigo-700 active:scale-97 text-white px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 shadow-lg shadow-indigo-150 transition-all"
@@ -319,16 +450,16 @@ export const ProductMaster: React.FC = () => {
 
       {/* AREA UTAMA / DAFTAR TABEL */}
       <main className="flex-1 p-6 overflow-hidden flex flex-col bg-slate-50 dark:bg-slate-950">
-        
+
         {/* Kontainer Utama Tabel */}
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-sm flex-1 flex flex-col overflow-hidden">
-          
+
           <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center shrink-0">
             <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm flex items-center gap-2">
               <FileSpreadsheet className="h-4 w-4 text-indigo-600" />
               Master Produk Aktif ({products.length})
             </h3>
-            <button 
+            <button
               onClick={fetchProducts}
               className="p-2 text-slate-400 dark:text-slate-500 hover:text-indigo-600 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg transition-all"
             >
@@ -359,7 +490,28 @@ export const ProductMaster: React.FC = () => {
                   {products.map((product) => (
                     <tr key={product.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition-colors">
                       <td className="py-4 px-6 font-bold text-indigo-600 uppercase">{product.sku}</td>
-                      <td className="py-4 px-6 text-slate-900 dark:text-slate-100">{product.name}</td>
+                      <td className="py-4 px-6 text-slate-900 dark:text-slate-100">
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 overflow-hidden flex-shrink-0 flex items-center justify-center">
+                            {product.images && product.images.length > 0 ? (
+                              <img
+                                src={(() => {
+                                  const mainImg = product.images.find(img => img.isMain)?.url || product.images[0].url;
+                                  return mainImg.startsWith('/uploads') ? `${API_BASE_URL}${mainImg}` : mainImg;
+                                })()}
+                                alt={product.name}
+                                className="h-full w-full object-cover"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).src = 'https://placehold.co/100x100?text=No+Image';
+                                }}
+                              />
+                            ) : (
+                              <Package className="h-5 w-5 text-slate-400" />
+                            )}
+                          </div>
+                          <span className="font-bold">{product.name}</span>
+                        </div>
+                      </td>
                       <td className="py-4 px-6">
                         <span className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2 py-1 rounded-md text-[10px] font-bold">
                           {product.categoryName}
@@ -368,13 +520,12 @@ export const ProductMaster: React.FC = () => {
                       <td className="py-4 px-6 text-right">Rp {product.purchasePrice.toLocaleString('id-ID')}</td>
                       <td className="py-4 px-6 text-right font-bold">Rp {product.sellingPrice.toLocaleString('id-ID')}</td>
                       <td className="py-4 px-6 text-center">
-                        <span className={`px-2 py-1 rounded-md text-[10px] font-bold ${
-                          product.stock === 0 
-                            ? 'bg-rose-50 text-rose-700' 
-                            : product.stock <= 5 
-                              ? 'bg-amber-50 text-amber-700' 
+                        <span className={`px-2 py-1 rounded-md text-[10px] font-bold ${product.stock === 0
+                            ? 'bg-rose-50 text-rose-700'
+                            : product.stock <= 5
+                              ? 'bg-amber-50 text-amber-700'
                               : 'bg-emerald-50 text-emerald-700'
-                        }`}>
+                          }`}>
                           {product.stock} pcs
                         </span>
                       </td>
@@ -417,15 +568,15 @@ export const ProductMaster: React.FC = () => {
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-[2px]">
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200 mx-4">
-            
+
             {/* Header Modal */}
             <div className="px-6 py-4 bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
               <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm flex items-center gap-2">
                 <Package className="h-4 w-4 text-indigo-600" />
                 {modalMode === 'create' ? 'Tambah Produk Baru' : 'Edit Informasi Produk'}
               </h3>
-              <button 
-                onClick={() => setIsModalOpen(false)} 
+              <button
+                onClick={() => setIsModalOpen(false)}
                 className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 font-bold"
               >
                 ✕
@@ -434,18 +585,41 @@ export const ProductMaster: React.FC = () => {
 
             {/* Form Modal */}
             <form onSubmit={handleSubmit} className="p-6 space-y-4 bg-white dark:bg-slate-900">
-              
+
               {/* Grid 2 Column */}
               <div className="grid grid-cols-2 gap-4">
                 {/* SKU */}
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">SKU / Kode Barang</label>
+                  <div className="flex justify-between items-center">
+                    <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">SKU / Kode Barang</label>
+                    {modalMode === 'create' && (
+                      <label className="flex items-center gap-1 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={isAutoSku}
+                          onChange={(e) => {
+                            const checked = e.target.checked;
+                            setIsAutoSku(checked);
+                            if (checked && categoryId) {
+                              fetchNextSku(categoryId);
+                            }
+                          }}
+                          className="text-indigo-600 focus:ring-indigo-500 h-3.5 w-3.5 rounded border-slate-300"
+                        />
+                        <span className="text-[9px] font-bold text-indigo-600 dark:text-indigo-400">Otomatis</span>
+                      </label>
+                    )}
+                  </div>
                   <input
                     type="text"
-                    placeholder="PROD-001"
+                    placeholder="Contoh: MNM-001"
                     value={sku}
                     onChange={(e) => setSku(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white dark:focus:bg-slate-700 transition-all text-slate-800 dark:text-slate-100"
+                    disabled={modalMode === 'create' && isAutoSku}
+                    className={`w-full px-3.5 py-2.5 border rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all ${modalMode === 'create' && isAutoSku
+                        ? 'bg-slate-100 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed'
+                        : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-700'
+                      }`}
                     required
                   />
                 </div>
@@ -455,11 +629,19 @@ export const ProductMaster: React.FC = () => {
                   <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Kategori Produk</label>
                   <select
                     value={categoryId}
-                    onChange={(e) => setCategoryId(e.target.value)}
+                    onChange={(e) => {
+                      const newCatId = e.target.value;
+                      setCategoryId(newCatId);
+                      if (modalMode === 'create' && isAutoSku) {
+                        fetchNextSku(newCatId);
+                      }
+                    }}
                     className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white dark:focus:bg-slate-700 transition-all text-slate-800 dark:text-slate-100"
                   >
-                    <option value="cat-minuman-111">Minuman</option>
-                    <option value="cat-makanan-222">Makanan</option>
+                    <option value="">-- Pilih Kategori --</option>
+                    {categories.map((cat) => (
+                      <option key={cat.id} value={cat.id}>{cat.name}</option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -482,7 +664,7 @@ export const ProductMaster: React.FC = () => {
 
               {/* Grid 3 Column */}
               <div className="grid grid-cols-3 gap-4">
-                
+
                 {/* Harga Beli */}
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Harga Beli</label>
@@ -517,17 +699,131 @@ export const ProductMaster: React.FC = () => {
 
                 {/* Stok */}
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Jumlah Stok</label>
-                  <input
-                    type="number"
-                    placeholder="50"
-                    value={stock || ''}
-                    onChange={(e) => setStock(Number(e.target.value))}
-                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white dark:focus:bg-slate-700 transition-all text-slate-800 dark:text-slate-100"
-                    required
-                  />
+                  <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+                    {modalMode === 'create' ? 'Stok Awal' : 'Stok Saat Ini'}
+                  </label>
+
+                  {modalMode === 'create' ? (
+                    <input
+                      type="number"
+                      placeholder="50"
+                      value={stock || ''}
+                      onChange={(e) => setStock(Number(e.target.value))}
+                      className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white dark:focus:bg-slate-700 transition-all text-slate-800 dark:text-slate-100"
+                      required
+                    />
+                  ) : (
+                    <div className="flex items-center gap-3 px-3 py-2.5 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/50 rounded-xl">
+                      <div className="flex-shrink-0 h-7 w-7 rounded-lg bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center">
+                        <span className="text-amber-600 dark:text-amber-400 text-sm font-black">{stock}</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[10px] font-bold text-amber-700 dark:text-amber-400">Stok terkunci</p>
+                        <p className="text-[10px] text-amber-600/80 dark:text-amber-500/80 leading-tight">
+                          Ubah melalui <button type="button" onClick={() => { setIsModalOpen(false); navigate('/admin/inventory'); }} className="font-extrabold underline hover:no-underline">Mutasi Stok</button>
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
+              </div>
+
+              {/* Gambar Produk */}
+              <div className="space-y-3 pt-2">
+                <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide block">
+                  Gambar Produk ({images.length}/8)
+                </label>
+
+                <div className="grid grid-cols-4 gap-3 max-h-48 overflow-y-auto pr-1">
+                  {images.map((img, index) => {
+                    const displayUrl = img.url.startsWith('/uploads') ? `${API_BASE_URL}${img.url}` : img.url;
+                    return (
+                      <div
+                        key={index}
+                        className={`relative aspect-square rounded-xl border overflow-hidden group transition-all duration-200 ${img.isMain
+                            ? 'border-indigo-500 ring-2 ring-indigo-500/20'
+                            : 'border-slate-200 dark:border-slate-700 hover:border-slate-350 dark:hover:border-slate-600'
+                          }`}
+                      >
+                        <img
+                          src={displayUrl}
+                          alt="Pratinjau Produk"
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = 'https://placehold.co/100x100?text=Error';
+                          }}
+                        />
+
+                        {/* Utama badge / select */}
+                        <button
+                          type="button"
+                          title="Jadikan gambar utama"
+                          onClick={() => {
+                            const newImgs = images.map((im, idx) => ({
+                              ...im,
+                              isMain: idx === index
+                            }));
+                            setImages(newImgs);
+                          }}
+                          className={`absolute bottom-1.5 left-1.5 px-2 py-0.5 rounded-lg text-[9px] font-extrabold transition-all duration-200 shadow-sm ${img.isMain
+                              ? 'bg-indigo-600 text-white ring-2 ring-indigo-200 dark:ring-indigo-900'
+                              : 'bg-white/90 hover:bg-white dark:bg-slate-800/90 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
+                            }`}
+                        >
+                          {img.isMain ? 'Utama' : 'Set Utama'}
+                        </button>
+
+                        {/* Delete button */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newImgs = images.filter((_, idx) => idx !== index);
+                            if (img.isMain && newImgs.length > 0) {
+                              newImgs[0].isMain = true;
+                            }
+                            setImages(newImgs);
+                          }}
+                          className="absolute top-1.5 right-1.5 p-1 rounded-lg bg-rose-500 text-white opacity-0 group-hover:opacity-100 hover:bg-rose-600 transition-all duration-200 shadow-sm"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    );
+                  })}
+
+                  {/* Upload Card */}
+                  {images.length < 8 && (
+                    <label
+                      className={`relative aspect-square rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-indigo-400 dark:hover:border-indigo-500 cursor-pointer flex flex-col items-center justify-center gap-1 transition-all duration-200 group ${uploading ? 'opacity-50 pointer-events-none' : ''
+                        }`}
+                    >
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleImageUpload}
+                        disabled={uploading}
+                      />
+                      {uploading ? (
+                        <RefreshCw className="h-5 w-5 text-indigo-500 animate-spin" />
+                      ) : (
+                        <>
+                          <Upload className="h-5 w-5 text-slate-400 dark:text-slate-500 group-hover:text-indigo-500 transition-colors duration-200" />
+                          <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 group-hover:text-indigo-500 transition-colors duration-200">
+                            Unggah
+                          </span>
+                        </>
+                      )}
+                    </label>
+                  )}
+                </div>
+
+                {images.length === 0 && !uploading && (
+                  <p className="text-[10px] text-slate-400 dark:text-slate-500 italic">
+                    Belum ada gambar ditambahkan. Produk akan menampilkan placeholder default di POS.
+                  </p>
+                )}
               </div>
 
               {/* Action Buttons */}

@@ -1,14 +1,16 @@
 import { PrismaClient } from '@prisma/client';
+import { CategoryService } from './categoryService';
 
 const prisma = new PrismaClient();
 
 interface CreateProductInput {
   categoryId: string;
   name: string;
-  sku: string;
+  sku?: string;
   purchasePrice: number;
   sellingPrice: number;
   stock: number;
+  images?: { url: string; isMain?: boolean }[];
 }
 
 interface UpdateProductInput {
@@ -18,6 +20,7 @@ interface UpdateProductInput {
   purchasePrice?: number;
   sellingPrice?: number;
   stock?: number;
+  images?: { url: string; isMain?: boolean }[];
 }
 
 /**
@@ -40,6 +43,13 @@ export class ProductService {
             id: true,
             name: true,
             slug: true
+          }
+        },
+        images: {
+          select: {
+            id: true,
+            url: true,
+            isMain: true
           }
         }
       },
@@ -64,16 +74,22 @@ export class ProductService {
       throw new Error('Kategori produk tidak ditemukan atau tidak berada di bawah tenant yang sama.');
     }
 
-    const skuExists = await prisma.product.findFirst({
-      where: {
-        sku: data.sku,
-        tenantId: tenantId,
-        deletedAt: null
-      }
-    });
+    let sku = data.sku ? data.sku.trim() : '';
+    if (!sku) {
+      const categoryService = new CategoryService();
+      sku = await categoryService.getNextSkuForCategory(tenantId, data.categoryId);
+    } else {
+      const skuExists = await prisma.product.findFirst({
+        where: {
+          sku: sku,
+          tenantId: tenantId,
+          deletedAt: null
+        }
+      });
 
-    if (skuExists) {
-      throw new Error(`SKU [${data.sku}] sudah terdaftar untuk produk lain di toko Anda.`);
+      if (skuExists) {
+        throw new Error(`SKU [${sku}] sudah terdaftar untuk produk lain di toko Anda.`);
+      }
     }
 
     return prisma.product.create({
@@ -81,10 +97,32 @@ export class ProductService {
         tenantId: tenantId,
         categoryId: data.categoryId,
         name: data.name,
-        sku: data.sku,
+        sku: sku,
         purchasePrice: data.purchasePrice,
         sellingPrice: data.sellingPrice,
-        stock: data.stock
+        stock: data.stock,
+        images: data.images && data.images.length > 0 ? {
+          create: data.images.map((img: any) => ({
+            url: img.url,
+            isMain: img.isMain ?? false
+          }))
+        } : undefined
+      },
+      include: {
+        category: {
+          select: {
+            id: true,
+            name: true,
+            slug: true
+          }
+        },
+        images: {
+          select: {
+            id: true,
+            url: true,
+            isMain: true
+          }
+        }
       }
     });
   }
@@ -140,7 +178,29 @@ export class ProductService {
         sku: data.sku,
         purchasePrice: data.purchasePrice,
         sellingPrice: data.sellingPrice,
-        stock: data.stock
+        images: data.images ? {
+          deleteMany: {},
+          create: data.images.map((img: any) => ({
+            url: img.url,
+            isMain: img.isMain ?? false
+          }))
+        } : undefined
+      },
+      include: {
+        category: {
+          select: {
+            id: true,
+            name: true,
+            slug: true
+          }
+        },
+        images: {
+          select: {
+            id: true,
+            url: true,
+            isMain: true
+          }
+        }
       }
     });
   }

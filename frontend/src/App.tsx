@@ -1,9 +1,11 @@
+import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './store/useAuthStore';
 import { useThemeStore } from './store/useThemeStore';
 import { LoginView } from './components/LoginView';
 import { PosView } from './components/PosView';
 import { ProductMaster } from './components/ProductMaster';
+import { CategoryMaster } from './components/CategoryMaster';
 import DashboardAdmin from './components/DashboardAdmin';
 import LandingPage from './components/LandingPage';
 import RegisterView from './components/RegisterView';
@@ -11,18 +13,30 @@ import { TransactionHistory } from './components/TransactionHistory';
 import { StaffManagementView } from './components/StaffManagementView';
 import { InventoryView } from './components/InventoryView';
 import { CustomerManagementView } from './components/CustomerManagementView';
+import CustomerDisplay from './components/CustomerDisplay';
 
 
 /**
  * Komponen pembungkus Protected Route.
- * Menjamin hanya pengguna yang memiliki token JWT aktif yang bisa mengakses halaman POS.
+ * Menjamin hanya pengguna yang memiliki token JWT aktif yang bisa mengakses halaman.
+ * Opsional melakukan pengecekan hak akses berdasarkan Role.
  */
-const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode; allowedRoles?: string[] }) => {
   const token = useAuthStore((state) => state.token);
+  const user = useAuthStore((state) => state.user);
 
   if (!token) {
-    // Alihkan ke login jika token tidak ditemukan
     return <Navigate to="/login" replace />;
+  }
+
+  if (allowedRoles && user) {
+    const hasRole = user.roles.some((role) => allowedRoles.includes(role));
+    if (!hasRole) {
+      if (user.roles.includes('Staf Gudang')) {
+        return <Navigate to="/admin/inventory" replace />;
+      }
+      return <Navigate to="/pos" replace />;
+    }
   }
 
   return <>{children}</>;
@@ -30,106 +44,127 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
 function App() {
   const token = useAuthStore((state) => state.token);
-  useThemeStore();
+  const theme = useThemeStore((state) => state.theme);
+
+  useEffect(() => {
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [theme]);
 
   return (
     <BrowserRouter>
       <Routes>
         {/* Rute Utama (Landing Page jika belum login, POS jika sudah login) */}
-        <Route 
-          path="/" 
+        <Route
+          path="/"
           element={
             token ? <Navigate to="/pos" replace /> : <LandingPage />
-          } 
+          }
         />
 
         {/* Rute Register (dialihkan ke POS jika sudah login) */}
-        <Route 
-          path="/register" 
+        <Route
+          path="/register"
           element={
             token ? <Navigate to="/pos" replace /> : <RegisterView />
-          } 
+          }
         />
 
         {/* Rute Login (dialihkan ke POS jika sudah login) */}
-        <Route 
-          path="/login" 
+        <Route
+          path="/login"
           element={
             token ? <Navigate to="/pos" replace /> : <LoginView />
-          } 
+          }
         />
 
-        {/* Rute POS Terproteksi */}
-        <Route 
-          path="/pos" 
+        {/* Rute POS Terproteksi (Kasir, Manager, Owner) */}
+        <Route
+          path="/pos"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['Owner', 'TENANT_ADMIN', 'Manager', 'Kasir']}>
               <PosView />
             </ProtectedRoute>
-          } 
+          }
         />
 
-        {/* Rute Riwayat Transaksi Terproteksi */}
-        <Route 
-          path="/pos/history" 
+        {/* Rute Riwayat Transaksi Terproteksi (Kasir, Manager, Owner) */}
+        <Route
+          path="/pos/history"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['Owner', 'TENANT_ADMIN', 'Manager', 'Kasir']}>
               <TransactionHistory />
             </ProtectedRoute>
-          } 
+          }
         />
 
-        {/* Rute Master Produk Terproteksi */}
-        <Route 
-          path="/admin/products" 
+        {/* Rute Master Produk Terproteksi (Staf Gudang, Manager, Owner) */}
+        <Route
+          path="/admin/products"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['Owner', 'TENANT_ADMIN', 'Manager', 'Staf Gudang']}>
               <ProductMaster />
             </ProtectedRoute>
-          } 
+          }
         />
 
-        {/* Rute Dashboard Analitik Terproteksi */}
-        <Route 
-          path="/admin/dashboard" 
+        {/* Rute Master Kategori Terproteksi (Staf Gudang, Manager, Owner) */}
+        <Route
+          path="/admin/categories"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['Owner', 'TENANT_ADMIN', 'Manager', 'Staf Gudang']}>
+              <CategoryMaster />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Rute Dashboard Analitik Terproteksi (Manager, Owner) */}
+        <Route
+          path="/admin/dashboard"
+          element={
+            <ProtectedRoute allowedRoles={['Owner', 'TENANT_ADMIN', 'Manager']}>
               <DashboardAdmin />
             </ProtectedRoute>
-          } 
+          }
         />
 
-        {/* Rute Kelola Staf Terproteksi */}
-        <Route 
-          path="/admin/staff" 
+        {/* Rute Kelola Staf Terproteksi (Manager, Owner) */}
+        <Route
+          path="/admin/staff"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['Owner', 'TENANT_ADMIN', 'Manager']}>
               <StaffManagementView />
             </ProtectedRoute>
-          } 
+          }
         />
 
-        {/* Rute Kelola Inventaris Terproteksi */}
-        <Route 
-          path="/admin/inventory" 
+        {/* Rute Kelola Inventaris Terproteksi (Staf Gudang, Manager, Owner) */}
+        <Route
+          path="/admin/inventory"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['Owner', 'TENANT_ADMIN', 'Manager', 'Staf Gudang']}>
               <InventoryView />
             </ProtectedRoute>
-          } 
+          }
         />
 
-        {/* Rute Kelola Pelanggan Terproteksi */}
-        <Route 
-          path="/admin/customers" 
+        {/* Rute Kelola Pelanggan Terproteksi (Kasir, Manager, Owner) */}
+        <Route
+          path="/admin/customers"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['Owner', 'TENANT_ADMIN', 'Manager', 'Kasir']}>
               <CustomerManagementView />
             </ProtectedRoute>
-          } 
+          }
         />
 
-        
+
+        {/* Rute Customer Display - Layar kedua/monitor customer untuk QRIS (Publik, tanpa auth) */}
+        <Route path="/customer-display" element={<CustomerDisplay />} />
+
         {/* Rute tidak dikenal dialihkan ke root */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

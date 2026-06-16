@@ -1,6 +1,8 @@
 import express, { Request, Response } from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
+import path from 'path';
+import fs from 'fs';
 import { authMiddleware } from './middlewares/authMiddleware';
 import { tenantMiddleware } from './middlewares/tenantMiddleware';
 import { requireRole } from './middlewares/roleMiddleware';
@@ -12,15 +14,21 @@ import shiftRoutes from './routes/shiftRoutes';
 import staffRoutes from './routes/staffRoutes';
 import inventoryRoutes from './routes/inventoryRoutes';
 import customerRoutes from './routes/customerRoutes';
+import categoryRoutes from './routes/categoryRoutes';
 
 
-// Inisialisasi konfigurasi dari file .env
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Aktifkan CORS untuk mengizinkan request dari origin frontend (Vite)
+const uploadsDir = path.join(__dirname, '../uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+app.use('/uploads', express.static(uploadsDir));
+
 app.use(cors());
 app.use(express.json());
 
@@ -28,7 +36,6 @@ app.use(express.json());
 // DAFTAR ROUTE APLIKASI
 // ==========================================
 
-// 1. Health check endpoint (Tanpa proteksi tenant dan auth)
 app.get('/health', (_req: Request, res: Response) => {
   res.status(200).json({
     status: 'ok',
@@ -36,37 +43,30 @@ app.get('/health', (_req: Request, res: Response) => {
   });
 });
 
-// 2. Route Autentikasi Pengguna
 app.use('/api/auth', authRoutes);
 
-// 3. Route Pengelolaan Produk (CRUD lengkap)
 app.use('/api/products', productRoutes);
 
-// 4. Route Transaksi Checkout Kasir
 app.use('/api/transactions', transactionRoutes);
 
-// 5. Route Analitik Laporan
 app.use('/api/analytics', analyticsRoutes);
 
-// 6. Route Manajemen Shift Kasir
 app.use('/api/shifts', shiftRoutes);
 
-// 7. Route Manajemen Karyawan & Staf
 app.use('/api/staff', staffRoutes);
 
-// 8. Route Manajemen Inventaris (Kartu Stok & Mutasi)
 app.use('/api/inventory', inventoryRoutes);
 
-// 9. Route Manajemen Pelanggan (Database & Membership)
 app.use('/api/customers', customerRoutes);
 
+app.use('/api/categories', categoryRoutes);
 
-// 5. Route Admin khusus (Dashboard) - Menggunakan JWT auth dan role-checking
+
 app.get(
   '/api/admin/dashboard',
   authMiddleware,
   tenantMiddleware,
-  requireRole(['TENANT_ADMIN']),
+  requireRole(['Owner', 'TENANT_ADMIN', 'Manager']),
   (req: Request, res: Response) => {
     res.json({
       success: true,
@@ -77,7 +77,6 @@ app.get(
   }
 );
 
-// Mulai jalankan Express server
 app.listen(PORT, () => {
   console.log(`====================================================`);
   console.log(`🚀 Server POS Multi-Tenant berjalan di port: ${PORT}`);
