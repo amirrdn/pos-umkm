@@ -17,7 +17,7 @@ export const createStaffSchema = z.object({
     .min(6, 'Password minimal 6 karakter'),
   roleId: z
     .string({ message: 'Role wajib dipilih' })
-    .uuid('ID Role tidak valid'),
+    .min(1, 'ID Role tidak valid'),
 });
 
 /**
@@ -27,5 +27,5 @@ export const createStaffSchema = z.object({
 export const updateStaffSchema = z.object({
   name: z.string().min(2, 'Nama minimal 2 karakter').max(50, 'Nama maksimal 50 karakter').optional(),
   isActive: z.boolean().optional(),
-  roleId: z.string().uuid('ID Role tidak valid').optional(),
+  roleId: z.string().min(1, 'ID Role tidak valid').optional(),
 });
