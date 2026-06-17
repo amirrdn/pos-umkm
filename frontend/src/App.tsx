@@ -14,6 +14,7 @@ import { StaffManagementView } from './components/StaffManagementView';
 import { InventoryView } from './components/InventoryView';
 import { CustomerManagementView } from './components/CustomerManagementView';
 import CustomerDisplay from './components/CustomerDisplay';
+import { OutletManagementView } from './components/OutletManagementView';
 
 
 /**
@@ -157,6 +158,16 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={['Owner', 'TENANT_ADMIN', 'Manager', 'Kasir']}>
               <CustomerManagementView />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Rute Kelola Outlet Terproteksi (Owner, TENANT_ADMIN) */}
+        <Route
+          path="/admin/outlets"
+          element={
+            <ProtectedRoute allowedRoles={['Owner', 'TENANT_ADMIN']}>
+              <OutletManagementView />
             </ProtectedRoute>
           }
         />

@@ -20,7 +20,8 @@ import {
   Calendar,
   CreditCard,
   Sun,
-  Moon
+  Moon,
+  MessageCircle
 } from 'lucide-react';
 
 interface TransactionItem {
@@ -176,6 +177,61 @@ export const TransactionHistory: React.FC = () => {
       discount: selectedTransaction.discount ? Number(selectedTransaction.discount) : undefined,
       tax: selectedTransaction.tax ? Number(selectedTransaction.tax) : undefined,
     };
+  };
+
+  const handleSendWhatsApp = (transaction: Transaction | null) => {
+    if (!transaction) return;
+
+    const items = transaction.items || [];
+    const itemsText = items.length > 0
+      ? items.map((item: any) => {
+          const pName = item.product?.name || 'Produk';
+          const qty = item.quantity;
+          const sub = item.subtotal || (qty * (item.priceAtTransaction || 0));
+          return `- ${pName} x${qty}: Rp ${Number(sub).toLocaleString('id-ID')}`;
+        }).join('\n')
+      : '-';
+
+    const formattedDate = new Date(transaction.createdAt).toLocaleString('id-ID');
+    const tenantName = user?.tenantId === 'tenant-uuid-xyz-123' ? 'Toko Utama' : 'UMKM POS';
+    const invoiceNum = transaction.invoiceNumber;
+    const cashierName = user?.name || 'Kasir';
+    const totalTagihan = Number(transaction.grandTotal).toLocaleString('id-ID');
+
+    let paymentDetail = `Metode: ${transaction.paymentMethod === 'CASH' ? 'TUNAI' : 'QRIS'}`;
+
+    let customerDetail = '';
+    if (transaction.customer) {
+      customerDetail = `\n\nPelanggan: ${transaction.customer.name}`;
+    }
+
+    const text = `*INVOICE: ${invoiceNum}*
+Toko: ${tenantName}
+Tanggal: ${formattedDate}
+Kasir: ${cashierName}
+
+*Daftar Produk:*
+${itemsText}
+
+*Total Tagihan: Rp ${totalTagihan}*
+${paymentDetail}${customerDetail}
+
+Terima kasih atas kunjungan Anda!`;
+
+    let phoneParam = '';
+    if (transaction.customer?.phone) {
+      let cleanPhone = transaction.customer.phone.replace(/[^0-9]/g, '');
+      if (cleanPhone.startsWith('0')) {
+        cleanPhone = '62' + cleanPhone.slice(1);
+      }
+      phoneParam = cleanPhone;
+    }
+
+    if (phoneParam) {
+      window.open(`https://api.whatsapp.com/send?phone=${phoneParam}&text=${encodeURIComponent(text)}`, '_blank');
+    } else {
+      window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
+    }
   };
 
   return (
@@ -531,6 +587,14 @@ export const TransactionHistory: React.FC = () => {
                 className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-600 active:scale-97 transition-all shadow-sm"
               >
                 Tutup
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSendWhatsApp(selectedTransaction)}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-850 dark:text-emerald-300 text-xs font-bold hover:bg-emerald-100 dark:hover:bg-emerald-900/50 active:scale-97 transition-all shadow-sm shadow-emerald-50 dark:shadow-none"
+              >
+                <MessageCircle className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                Kirim ke WA
               </button>
               <button
                 type="button"
