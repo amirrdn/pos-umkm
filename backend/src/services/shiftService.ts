@@ -10,6 +10,7 @@ export interface OpenShiftInput {
   tenantId: string;
   userId: string;
   cashStart: number;
+  outletId?: string | null;
 }
 
 export interface CloseShiftInput {
@@ -27,7 +28,7 @@ export interface CloseShiftInput {
  * Membuka shift baru untuk kasir.
  * Memastikan tidak ada shift OPEN yang sedang aktif untuk kasir yang bersangkutan.
  */
-export async function openShift({ tenantId, userId, cashStart }: OpenShiftInput) {
+export async function openShift({ tenantId, userId, cashStart, outletId }: OpenShiftInput) {
   const existingActiveShift = await prisma.shift.findFirst({
     where: {
       tenantId,
@@ -46,6 +47,7 @@ export async function openShift({ tenantId, userId, cashStart }: OpenShiftInput)
       userId,
       cashStart: new Prisma.Decimal(cashStart),
       status: 'OPEN',
+      outletId: outletId || null
     },
     include: {
       user: {

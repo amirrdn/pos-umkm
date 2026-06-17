@@ -15,6 +15,7 @@ import staffRoutes from './routes/staffRoutes';
 import inventoryRoutes from './routes/inventoryRoutes';
 import customerRoutes from './routes/customerRoutes';
 import categoryRoutes from './routes/categoryRoutes';
+import outletRoutes from './routes/outletRoutes';
 
 
 dotenv.config();
@@ -60,6 +61,8 @@ app.use('/api/inventory', inventoryRoutes);
 app.use('/api/customers', customerRoutes);
 
 app.use('/api/categories', categoryRoutes);
+
+app.use('/api/outlets', outletRoutes);
 
 
 app.get(

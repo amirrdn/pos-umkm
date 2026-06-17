@@ -13,12 +13,14 @@ export interface CreateStaffInput {
   email: string;
   password: string;
   roleId: string;
+  outletId?: string | null;
 }
 
 export interface UpdateStaffInput {
   name?: string;
   isActive?: boolean;
   roleId?: string;
+  outletId?: string | null;
 }
 
 // ==========================================
@@ -41,6 +43,10 @@ export async function getStaffList(tenantId: string) {
       name: true,
       email: true,
       isActive: true,
+      outletId: true,
+      outlet: {
+        select: { id: true, name: true }
+      },
       createdAt: true,
       userRoles: {
         include: {
@@ -58,7 +64,7 @@ export async function getStaffList(tenantId: string) {
  * Owner memilih role langsung saat membuat akun.
  * Email harus unik secara global di seluruh sistem.
  */
-export async function createStaff({ tenantId, name, email, password, roleId }: CreateStaffInput) {
+export async function createStaff({ tenantId, name, email, password, roleId, outletId }: CreateStaffInput) {
   const existing = await prisma.user.findFirst({
     where: { email, deletedAt: null },
   });
@@ -85,6 +91,7 @@ export async function createStaff({ tenantId, name, email, password, roleId }: C
         email,
         password: hashedPassword,
         isActive: true,
+        outletId: outletId || null
       },
     });
 
@@ -98,6 +105,7 @@ export async function createStaff({ tenantId, name, email, password, roleId }: C
       email: user.email,
       isActive: user.isActive,
       role: role.name,
+      outletId: user.outletId
     };
   });
 }
@@ -116,12 +124,13 @@ export async function updateStaff(staffId: string, tenantId: string, data: Updat
   }
 
   return prisma.$transaction(async (tx) => {
-    if (data.name !== undefined || data.isActive !== undefined) {
+    if (data.name !== undefined || data.isActive !== undefined || data.outletId !== undefined) {
       await tx.user.update({
         where: { id: staffId },
         data: {
           ...(data.name !== undefined && { name: data.name }),
           ...(data.isActive !== undefined && { isActive: data.isActive }),
+          ...(data.outletId !== undefined && { outletId: data.outletId }),
         },
       });
     }
@@ -145,6 +154,10 @@ export async function updateStaff(staffId: string, tenantId: string, data: Updat
         name: true,
         email: true,
         isActive: true,
+        outletId: true,
+        outlet: {
+          select: { id: true, name: true }
+        },
         userRoles: {
           include: {
             role: { select: { id: true, name: true } },

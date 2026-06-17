@@ -9,7 +9,7 @@ const prisma = new PrismaClient();
 /**
  * Mengambil riwayat mutasi stok (kartu stok) untuk sebuah produk.
  */
-export async function getStockLedger(tenantId: string, productId: string) {
+export async function getStockLedger(tenantId: string, productId: string, outletId?: string | null) {
   const product = await prisma.product.findFirst({
     where: { id: productId, tenantId, deletedAt: null },
     select: { id: true, name: true, sku: true, stock: true },
@@ -19,8 +19,20 @@ export async function getStockLedger(tenantId: string, productId: string) {
     throw new Error('Produk tidak ditemukan.');
   }
 
+  if (outletId) {
+    const outletStockRecord = await prisma.outletStock.findFirst({
+      where: { tenantId, outletId, productId }
+    });
+    product.stock = outletStockRecord ? outletStockRecord.stock : 0;
+  }
+
+  const whereClause: any = { tenantId, productId };
+  if (outletId) {
+    whereClause.outletId = outletId;
+  }
+
   const ledger = await prisma.stockLedger.findMany({
-    where: { tenantId, productId },
+    where: whereClause,
     orderBy: { createdAt: 'desc' },
     include: {
       user: { select: { id: true, name: true } },
@@ -38,7 +50,8 @@ export async function getStockLedger(tenantId: string, productId: string) {
 export async function createStockMutation(
   tenantId: string,
   userId: string,
-  input: { productId: string; type: MutationType; quantity: number; note?: string }
+  input: { productId: string; type: MutationType; quantity: number; note?: string },
+  outletId?: string | null
 ) {
   const { productId, type, quantity, note } = input;
 
@@ -85,6 +98,7 @@ export async function createStockMutation(
         tenantId,
         productId,
         userId,
+        outletId: outletId || null,
         type,
         quantity,
         note: note ?? null,
@@ -114,23 +128,40 @@ export async function createStockMutation(
 
     const isDeltaPositive = type === 'RESTOCK' || type === 'ADJUSTMENT_PLUS' || type === 'RETURN';
     const delta = isDeltaPositive ? quantity : -quantity;
-    const stockBefore = product.stock;
+    let stockBefore = product.stock;
+
+    if (outletId) {
+      const outletStockRecord = await tx.outletStock.findFirst({
+        where: { tenantId, outletId, productId }
+      });
+      stockBefore = outletStockRecord ? outletStockRecord.stock : 0;
+    }
+
     const stockAfter = stockBefore + delta;
 
     if (stockAfter < 0) {
       throw new Error(`Stok tidak mencukupi untuk penyesuaian ini. Stok saat ini: ${stockBefore}, pengurangan diminta: ${quantity}.`);
     }
 
-    await tx.product.update({
-      where: { id: productId },
-      data: { stock: stockAfter },
-    });
+    if (outletId) {
+      await tx.outletStock.upsert({
+        where: { outletId_productId: { outletId, productId } },
+        create: { tenantId, outletId, productId, stock: stockAfter },
+        update: { stock: stockAfter }
+      });
+    } else {
+      await tx.product.update({
+        where: { id: productId },
+        data: { stock: stockAfter },
+      });
+    }
 
     const ledgerEntry = await tx.stockLedger.create({
       data: {
         tenantId,
         productId,
         userId,
+        outletId: outletId || null,
         type,
         quantity: delta,
         stockBefore,
@@ -155,15 +186,28 @@ export async function createStockMutation(
  * Mengambil ringkasan stok semua produk tenant dengan saldo stok terkini.
  * Digunakan untuk halaman Overview Inventaris.
  */
-export async function getInventorySummary(tenantId: string) {
+export async function getInventorySummary(tenantId: string, outletId?: string | null) {
   const products = await prisma.product.findMany({
     where: { tenantId, deletedAt: null },
     orderBy: { name: 'asc' },
     include: {
       category: { select: { name: true } },
+      outletStocks: {
+        where: outletId ? { outletId } : undefined
+      },
       _count: { select: { stockLedgers: true } },
     },
   });
+
+  if (outletId) {
+    return products.map(p => {
+      const os = (p as any).outletStocks?.[0];
+      return {
+        ...p,
+        stock: os ? os.stock : 0
+      };
+    });
+  }
 
   return products;
 }
@@ -171,15 +215,43 @@ export async function getInventorySummary(tenantId: string) {
 /**
  * Mengambil seluruh daftar StockRequest berstatus PENDING.
  */
-export async function listStockRequests(tenantId: string) {
-  return prisma.stockRequest.findMany({
-    where: { tenantId, status: 'PENDING' },
+export async function listStockRequests(tenantId: string, outletId?: string | null) {
+  const whereClause: any = { tenantId, status: 'PENDING' };
+  if (outletId) {
+    whereClause.outletId = outletId;
+  }
+
+  const requests = await prisma.stockRequest.findMany({
+    where: whereClause,
     orderBy: { createdAt: 'desc' },
     include: {
-      product: { select: { id: true, name: true, sku: true, stock: true } },
+      product: {
+        select: {
+          id: true,
+          name: true,
+          sku: true,
+          stock: true,
+          outletStocks: outletId ? { where: { outletId } } : undefined
+        }
+      },
       user: { select: { id: true, name: true, email: true } },
     }
   });
+
+  if (outletId) {
+    return requests.map(req => {
+      const os = (req.product as any).outletStocks?.[0];
+      return {
+        ...req,
+        product: {
+          ...req.product,
+          stock: os ? os.stock : 0
+        }
+      };
+    });
+  }
+
+  return requests;
 }
 
 /**
@@ -196,26 +268,45 @@ export async function approveStockRequest(tenantId: string, requestId: string, a
       throw new Error('Permintaan persetujuan stok tidak ditemukan atau sudah diproses.');
     }
 
-    const { productId, type, quantity, note } = request;
+    const { productId, type, quantity, note, outletId } = request;
     const isDeltaPositive = type === 'RESTOCK' || type === 'ADJUSTMENT_PLUS' || type === 'RETURN';
     const delta = isDeltaPositive ? quantity : -quantity;
-    const stockBefore = request.product.stock;
+    let stockBefore = request.product.stock;
+
+    if (outletId) {
+      const outletStockRecord = await tx.outletStock.findFirst({
+        where: { tenantId, outletId, productId }
+      });
+      stockBefore = outletStockRecord ? outletStockRecord.stock : 0;
+    }
+
     const stockAfter = stockBefore + delta;
 
     if (stockAfter < 0) {
       throw new Error(`Stok tidak mencukupi untuk persetujuan ini. Stok saat ini: ${stockBefore}, pengurangan diminta: ${quantity}.`);
     }
 
-    const updatedProduct = await tx.product.update({
-      where: { id: productId },
-      data: { stock: stockAfter }
-    });
+    let updatedProductStock = stockAfter;
+
+    if (outletId) {
+      await tx.outletStock.upsert({
+        where: { outletId_productId: { outletId, productId } },
+        create: { tenantId, outletId, productId, stock: stockAfter },
+        update: { stock: stockAfter }
+      });
+    } else {
+      await tx.product.update({
+        where: { id: productId },
+        data: { stock: stockAfter }
+      });
+    }
 
     const ledgerEntry = await tx.stockLedger.create({
       data: {
         tenantId,
         productId,
         userId: request.userId,
+        outletId: outletId || null,
         type,
         quantity: delta,
         stockBefore,
@@ -235,7 +326,7 @@ export async function approveStockRequest(tenantId: string, requestId: string, a
     return {
       request: updatedRequest,
       ledgerEntry,
-      product: updatedProduct
+      product: { ...request.product, stock: updatedProductStock }
     };
   });
 }

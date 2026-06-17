@@ -14,7 +14,7 @@ export class ProductController {
   async getAllProducts(req: Request, res: Response) {
     try {
       const tenantId = req.tenantId!;
-      const products = await productService.getAllProducts(tenantId);
+      const products = await productService.getAllProducts(tenantId, req.user?.outletId);
 
       return res.status(200).json({
         success: true,

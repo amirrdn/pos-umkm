@@ -1,0 +1,125 @@
+import { Request, Response } from 'express';
+import { OutletService } from '../services/outletService';
+import { createOutletSchema, updateOutletSchema } from '../schemas/outletSchema';
+
+const outletService = new OutletService();
+
+export class OutletController {
+  async getAllOutlets(req: Request, res: Response) {
+    try {
+      const tenantId = req.tenantId!;
+      const outlets = await outletService.getAllOutlets(tenantId);
+
+      return res.status(200).json({
+        success: true,
+        message: 'Daftar outlet berhasil diambil.',
+        data: outlets
+      });
+    } catch (error: any) {
+      console.error('GetAllOutlets Controller Error:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Terjadi kesalahan internal server saat mengambil daftar outlet.'
+      });
+    }
+  }
+
+  async getOutletById(req: Request, res: Response) {
+    try {
+      const tenantId = req.tenantId!;
+      const id = req.params.id;
+      const outlet = await outletService.getOutletById(tenantId, id);
+
+      return res.status(200).json({
+        success: true,
+        message: 'Detail outlet berhasil diambil.',
+        data: outlet
+      });
+    } catch (error: any) {
+      console.error('GetOutletById Controller Error:', error);
+      return res.status(404).json({
+        success: false,
+        message: error.message || 'Outlet tidak ditemukan.'
+      });
+    }
+  }
+
+  async createOutlet(req: Request, res: Response) {
+    try {
+      const tenantId = req.tenantId!;
+      const validation = createOutletSchema.safeParse(req.body);
+
+      if (!validation.success) {
+        return res.status(400).json({
+          success: false,
+          message: 'Validasi data outlet gagal.',
+          errors: validation.error.format()
+        });
+      }
+
+      const outlet = await outletService.createOutlet(tenantId, validation.data);
+
+      return res.status(201).json({
+        success: true,
+        message: 'Outlet baru berhasil didaftarkan.',
+        data: outlet
+      });
+    } catch (error: any) {
+      console.error('CreateOutlet Controller Error:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Terjadi kesalahan internal server saat membuat outlet.'
+      });
+    }
+  }
+
+  async updateOutlet(req: Request, res: Response) {
+    try {
+      const tenantId = req.tenantId!;
+      const id = req.params.id;
+      const validation = updateOutletSchema.safeParse(req.body);
+
+      if (!validation.success) {
+        return res.status(400).json({
+          success: false,
+          message: 'Validasi pembaruan data outlet gagal.',
+          errors: validation.error.format()
+        });
+      }
+
+      const outlet = await outletService.updateOutlet(tenantId, id, validation.data);
+
+      return res.status(200).json({
+        success: true,
+        message: 'Informasi outlet berhasil diperbarui.',
+        data: outlet
+      });
+    } catch (error: any) {
+      console.error('UpdateOutlet Controller Error:', error);
+      return res.status(400).json({
+        success: false,
+        message: error.message || 'Gagal memperbarui data outlet.'
+      });
+    }
+  }
+
+  async deleteOutlet(req: Request, res: Response) {
+    try {
+      const tenantId = req.tenantId!;
+      const id = req.params.id;
+
+      await outletService.deleteOutlet(tenantId, id);
+
+      return res.status(200).json({
+        success: true,
+        message: 'Outlet berhasil dihapus secara halus.'
+      });
+    } catch (error: any) {
+      console.error('DeleteOutlet Controller Error:', error);
+      return res.status(400).json({
+        success: false,
+        message: error.message || 'Gagal menghapus data outlet.'
+      });
+    }
+  }
+}
