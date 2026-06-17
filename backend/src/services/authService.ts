@@ -18,6 +18,12 @@ export class AuthService {
         deletedAt: null
       },
       include: {
+        outlet: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
         userRoles: {
           include: {
             role: {
@@ -63,7 +69,8 @@ export class AuthService {
         name: user.name,
         email: user.email,
         roles,
-        permissions
+        permissions,
+        outletId: user.outletId
       },
       secretKey,
       { expiresIn: '1d' }
@@ -77,7 +84,9 @@ export class AuthService {
         name: user.name,
         email: user.email,
         roles,
-        permissions
+        permissions,
+        outletId: user.outletId,
+        outlet: user.outlet ? { id: user.outlet.id, name: user.outlet.name } : null
       }
     };
   }

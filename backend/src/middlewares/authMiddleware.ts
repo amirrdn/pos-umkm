@@ -9,6 +9,7 @@ interface UserPayload {
   email: string;
   roles: string[];
   permissions: string[];
+  outletId?: string | null;
 }
 
 /**
@@ -45,8 +46,10 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
       name: decoded.name,
       email: decoded.email,
       roles: decoded.roles,
-      permissions: decoded.permissions
+      permissions: decoded.permissions,
+      outletId: decoded.outletId
     };
+    req.outletId = decoded.outletId;
 
     return next();
 

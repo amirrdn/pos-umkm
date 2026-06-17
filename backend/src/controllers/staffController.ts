@@ -52,10 +52,10 @@ export async function createStaff(req: Request, res: Response): Promise<Response
       });
     }
 
-    const { name, email, password, roleId } = validation.data;
+    const { name, email, password, roleId, outletId } = validation.data;
     const tenantId = req.tenantId!;
 
-    const newStaff = await staffService.createStaff({ tenantId, name, email, password, roleId });
+    const newStaff = await staffService.createStaff({ tenantId, name, email, password, roleId, outletId });
     return res.status(201).json({
       success: true,
       message: `Karyawan [${name}] berhasil ditambahkan.`,

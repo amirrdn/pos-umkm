@@ -11,57 +11,55 @@ export class AnalyticsService {
    * - Total Laba Bersih hari ini
    * - Total Laba Bersih bulan ini
    */
-  async getSummary(tenantId: string) {
+  async getSummary(tenantId: string, outletId?: string | null) {
     const now = new Date();
 
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
+    const todayWhere: any = {
+      tenantId: tenantId,
+      status: 'COMPLETED',
+      createdAt: {
+        gte: startOfDay
+      }
+    };
+    if (outletId) {
+      todayWhere.outletId = outletId;
+    }
+
     const todayRevenueAggregate = await prisma.transaction.aggregate({
       _sum: {
         grandTotal: true
       },
-      where: {
-        tenantId: tenantId,
-        status: 'COMPLETED',
-        createdAt: {
-          gte: startOfDay
-        }
-      }
+      where: todayWhere
     });
+
+    const monthWhere: any = {
+      tenantId: tenantId,
+      status: 'COMPLETED',
+      createdAt: {
+        gte: startOfMonth
+      }
+    };
+    if (outletId) {
+      monthWhere.outletId = outletId;
+    }
 
     const monthRevenueAggregate = await prisma.transaction.aggregate({
       _sum: {
         grandTotal: true
       },
-      where: {
-        tenantId: tenantId,
-        status: 'COMPLETED',
-        createdAt: {
-          gte: startOfMonth
-        }
-      }
+      where: monthWhere
     });
 
     const todayTransactionsCount = await prisma.transaction.count({
-      where: {
-        tenantId: tenantId,
-        status: 'COMPLETED',
-        createdAt: {
-          gte: startOfDay
-        }
-      }
+      where: todayWhere
     });
 
     const todayTransactions = await prisma.transaction.findMany({
-      where: {
-        tenantId: tenantId,
-        status: 'COMPLETED',
-        createdAt: {
-          gte: startOfDay
-        }
-      },
+      where: todayWhere,
       include: {
         items: {
           select: {
@@ -74,13 +72,7 @@ export class AnalyticsService {
     });
 
     const monthTransactions = await prisma.transaction.findMany({
-      where: {
-        tenantId: tenantId,
-        status: 'COMPLETED',
-        createdAt: {
-          gte: startOfMonth
-        }
-      },
+      where: monthWhere,
       include: {
         items: {
           select: {
@@ -127,19 +119,24 @@ export class AnalyticsService {
   /**
    * Mengambil tren pendapatan dan laba bersih harian selama 30 hari terakhir.
    */
-  async getRevenueAndProfitTrend(tenantId: string) {
+  async getRevenueAndProfitTrend(tenantId: string, outletId?: string | null) {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29);
     thirtyDaysAgo.setHours(0, 0, 0, 0);
 
+    const whereClause: any = {
+      tenantId: tenantId,
+      status: 'COMPLETED',
+      createdAt: {
+        gte: thirtyDaysAgo
+      }
+    };
+    if (outletId) {
+      whereClause.outletId = outletId;
+    }
+
     const transactions = await prisma.transaction.findMany({
-      where: {
-        tenantId: tenantId,
-        status: 'COMPLETED',
-        createdAt: {
-          gte: thirtyDaysAgo
-        }
-      },
+      where: whereClause,
       include: {
         items: {
           select: {
@@ -192,14 +189,19 @@ export class AnalyticsService {
   /**
    * Mengambil 5 produk terlaris berdasarkan total kuantitas transaksi.
    */
-  async getBestSellers(tenantId: string) {
+  async getBestSellers(tenantId: string, outletId?: string | null) {
+    const transWhereClause: any = {
+      tenantId: tenantId,
+      status: 'COMPLETED'
+    };
+    if (outletId) {
+      transWhereClause.outletId = outletId;
+    }
+
     const bestSellersGroupBy = await prisma.transactionItem.groupBy({
       by: ['productId'],
       where: {
-        transaction: {
-          tenantId: tenantId,
-          status: 'COMPLETED'
-        }
+        transaction: transWhereClause
       },
       _sum: {
         quantity: true
@@ -238,6 +240,140 @@ export class AnalyticsService {
         name: product?.name || 'Produk Tidak Dikenal',
         sku: product?.sku || '',
         totalQuantity: item._sum.quantity || 0
+      };
+    });
+  }
+
+  async getCashierReports(tenantId: string, outletId?: string | null) {
+    const whereClause: any = {
+      tenantId,
+      status: 'COMPLETED',
+    };
+    if (outletId) {
+      whereClause.outletId = outletId;
+    }
+
+    const transactions = await prisma.transaction.findMany({
+      where: whereClause,
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          }
+        }
+      }
+    });
+
+    const reportMap = new Map<string, {
+      cashierId: string;
+      name: string;
+      email: string;
+      totalTransactions: number;
+      totalSales: number;
+      cashSales: number;
+      qrisSales: number;
+      debtSales: number;
+    }>();
+
+    for (const tx of transactions) {
+      const cashierId = tx.userId;
+      const cashierName = tx.user.name;
+      const cashierEmail = tx.user.email;
+      const amount = Number(tx.grandTotal);
+
+      const current = reportMap.get(cashierId) || {
+        cashierId,
+        name: cashierName,
+        email: cashierEmail,
+        totalTransactions: 0,
+        totalSales: 0,
+        cashSales: 0,
+        qrisSales: 0,
+        debtSales: 0,
+      };
+
+      current.totalTransactions += 1;
+      current.totalSales += amount;
+      if (tx.paymentMethod === 'CASH') {
+        current.cashSales += amount;
+      } else if (tx.paymentMethod === 'QRIS') {
+        current.qrisSales += amount;
+      } else if (tx.paymentMethod === 'DEBT') {
+        current.debtSales += amount;
+      }
+
+      reportMap.set(cashierId, current);
+    }
+
+    return Array.from(reportMap.values());
+  }
+
+  async getShiftReports(tenantId: string, outletId?: string | null) {
+    const whereClause: any = {
+      tenantId,
+    };
+    if (outletId) {
+      whereClause.outletId = outletId;
+    }
+
+    const shifts = await prisma.shift.findMany({
+      where: whereClause,
+      include: {
+        user: {
+          select: {
+            name: true,
+          }
+        },
+        transactions: {
+          where: {
+            status: 'COMPLETED',
+          },
+          select: {
+            grandTotal: true,
+            paymentMethod: true,
+          }
+        }
+      },
+      orderBy: {
+        startTime: 'desc',
+      }
+    });
+
+    return shifts.map((shift) => {
+      let totalSales = 0;
+      let cashSales = 0;
+      let qrisSales = 0;
+      let debtSales = 0;
+
+      for (const tx of shift.transactions) {
+        const amount = Number(tx.grandTotal);
+        totalSales += amount;
+        if (tx.paymentMethod === 'CASH') {
+          cashSales += amount;
+        } else if (tx.paymentMethod === 'QRIS') {
+          qrisSales += amount;
+        } else if (tx.paymentMethod === 'DEBT') {
+          debtSales += amount;
+        }
+      }
+
+      return {
+        id: shift.id,
+        cashierName: shift.user.name,
+        startTime: shift.startTime,
+        endTime: shift.endTime,
+        cashStart: Number(shift.cashStart),
+        cashExpected: Number(shift.cashExpected),
+        cashActual: shift.cashActual ? Number(shift.cashActual) : null,
+        difference: shift.difference ? Number(shift.difference) : null,
+        status: shift.status,
+        totalSales,
+        cashSales,
+        qrisSales,
+        debtSales,
+        transactionCount: shift.transactions.length,
       };
     });
   }

@@ -9,6 +9,8 @@ export interface AuthUser {
   roles: string[];
   permissions: string[];
   tenantId: string;
+  outletId?: string | null;
+  outlet?: { id: string; name: string } | null;
 }
 
 // Antarmuka untuk State dan Action Otentikasi

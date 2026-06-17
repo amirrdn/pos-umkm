@@ -31,8 +31,8 @@ export class ProductService {
   /**
    * Mengambil semua produk aktif milik tenant tertentu.
    */
-  async getAllProducts(tenantId: string) {
-    return prisma.product.findMany({
+  async getAllProducts(tenantId: string, outletId?: string | null) {
+    const products = await prisma.product.findMany({
       where: {
         tenantId: tenantId,
         deletedAt: null
@@ -51,12 +51,33 @@ export class ProductService {
             url: true,
             isMain: true
           }
+        },
+        outletStocks: {
+          where: {
+            outletId: outletId || undefined
+          },
+          select: {
+            stock: true,
+            outletId: true
+          }
         }
       },
       orderBy: {
         createdAt: 'desc'
       }
     });
+
+    if (outletId) {
+      return products.map((product) => {
+        const oStock = product.outletStocks[0]?.stock ?? 0;
+        return {
+          ...product,
+          stock: oStock
+        };
+      });
+    }
+
+    return products;
   }
 
   /**

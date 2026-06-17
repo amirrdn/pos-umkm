@@ -29,5 +29,17 @@ router.get('/best-sellers', analyticsController.getBestSellers.bind(analyticsCon
  */
 router.get('/trend', analyticsController.getTrend.bind(analyticsController));
 
+/**
+ * Route GET /api/analytics/cashiers
+ * Deskripsi: Mengambil laporan performa penjualan per kasir.
+ */
+router.get('/cashiers', analyticsController.getCashierReports.bind(analyticsController));
+
+/**
+ * Route GET /api/analytics/shifts
+ * Deskripsi: Mengambil riwayat dan laporan performa penjualan per shift.
+ */
+router.get('/shifts', analyticsController.getShiftReports.bind(analyticsController));
+
 export default router;
 

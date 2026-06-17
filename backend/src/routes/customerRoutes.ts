@@ -60,4 +60,14 @@ router.delete(
   customerController.deleteCustomer.bind(customerController)
 );
 
+/**
+ * Route POST /api/customers/:id/pay-debt
+ * Deskripsi: Mencatat pelunasan/pembayaran hutang pelanggan.
+ */
+router.post(
+  '/:id/pay-debt',
+  requirePermission('update:customers'),
+  customerController.payDebt.bind(customerController)
+);
+
 export default router;

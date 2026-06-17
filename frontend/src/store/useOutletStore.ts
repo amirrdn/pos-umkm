@@ -2,45 +2,38 @@ import { create } from 'zustand';
 import { API_BASE_URL } from '../config';
 import { useAuthStore } from './useAuthStore';
 
-export interface Customer {
+export interface Outlet {
   id: string;
   tenantId: string;
   name: string;
+  address: string | null;
   phone: string | null;
-  email: string | null;
-  points: number;
-  debtBalance: number;
   createdAt: string;
+  updatedAt: string;
 }
 
-interface CustomerState {
-  customers: Customer[];
+interface OutletState {
+  outlets: Outlet[];
   loading: boolean;
   error: string | null;
-  fetchCustomers: (search?: string) => Promise<void>;
-  createCustomer: (data: { name: string; phone?: string | null; email?: string | null }) => Promise<{ success: boolean; data?: Customer; message?: string }>;
-  updateCustomer: (id: string, data: { name?: string; phone?: string | null; email?: string | null }) => Promise<{ success: boolean; data?: Customer; message?: string }>;
-  deleteCustomer: (id: string) => Promise<{ success: boolean; message?: string }>;
-  payDebt: (id: string, amount: number, paymentMethod: string, note?: string) => Promise<{ success: boolean; message?: string }>;
+  fetchOutlets: () => Promise<void>;
+  createOutlet: (data: { name: string; address?: string | null; phone?: string | null }) => Promise<{ success: boolean; data?: Outlet; message?: string }>;
+  updateOutlet: (id: string, data: { name?: string; address?: string | null; phone?: string | null }) => Promise<{ success: boolean; data?: Outlet; message?: string }>;
+  deleteOutlet: (id: string) => Promise<{ success: boolean; message?: string }>;
 }
 
-export const useCustomerStore = create<CustomerState>((set) => ({
-  customers: [],
+export const useOutletStore = create<OutletState>((set) => ({
+  outlets: [],
   loading: false,
   error: null,
 
-  fetchCustomers: async (search) => {
+  fetchOutlets: async () => {
     const { token, user } = useAuthStore.getState();
     if (!token || !user) return;
 
     set({ loading: true, error: null });
     try {
-      const url = new URL(`${API_BASE_URL}/api/customers`);
-      if (search) {
-        url.searchParams.append('search', search);
-      }
-
-      const response = await fetch(url.toString(), {
+      const response = await fetch(`${API_BASE_URL}/api/outlets`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -50,23 +43,23 @@ export const useCustomerStore = create<CustomerState>((set) => ({
 
       const resData = await response.json();
       if (!response.ok) {
-        throw new Error(resData.message || 'Gagal mengambil data pelanggan.');
+        throw new Error(resData.message || 'Gagal mengambil data outlet.');
       }
 
-      set({ customers: resData.data || [], loading: false });
+      set({ outlets: resData.data || [], loading: false });
     } catch (err: any) {
       console.error(err);
       set({ error: err.message || 'Terjadi kesalahan.', loading: false });
     }
   },
 
-  createCustomer: async (data) => {
+  createOutlet: async (data) => {
     const { token, user } = useAuthStore.getState();
     if (!token || !user) return { success: false, message: 'Tidak diotorisasi' };
 
     set({ loading: true, error: null });
     try {
-      const response = await fetch(`${API_BASE_URL}/api/customers`, {
+      const response = await fetch(`${API_BASE_URL}/api/outlets`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -78,11 +71,11 @@ export const useCustomerStore = create<CustomerState>((set) => ({
 
       const resData = await response.json();
       if (!response.ok) {
-        throw new Error(resData.message || 'Gagal membuat pelanggan.');
+        throw new Error(resData.message || 'Gagal membuat outlet.');
       }
 
       set((state) => ({
-        customers: [resData.data, ...state.customers],
+        outlets: [resData.data, ...state.outlets],
         loading: false
       }));
 
@@ -94,13 +87,13 @@ export const useCustomerStore = create<CustomerState>((set) => ({
     }
   },
 
-  updateCustomer: async (id, data) => {
+  updateOutlet: async (id, data) => {
     const { token, user } = useAuthStore.getState();
     if (!token || !user) return { success: false, message: 'Tidak diotorisasi' };
 
     set({ loading: true, error: null });
     try {
-      const response = await fetch(`${API_BASE_URL}/api/customers/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/outlets/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -112,11 +105,11 @@ export const useCustomerStore = create<CustomerState>((set) => ({
 
       const resData = await response.json();
       if (!response.ok) {
-        throw new Error(resData.message || 'Gagal memperbarui pelanggan.');
+        throw new Error(resData.message || 'Gagal memperbarui outlet.');
       }
 
       set((state) => ({
-        customers: state.customers.map((c) => (c.id === id ? resData.data : c)),
+        outlets: state.outlets.map((o) => (o.id === id ? resData.data : o)),
         loading: false
       }));
 
@@ -128,13 +121,13 @@ export const useCustomerStore = create<CustomerState>((set) => ({
     }
   },
 
-  deleteCustomer: async (id) => {
+  deleteOutlet: async (id) => {
     const { token, user } = useAuthStore.getState();
     if (!token || !user) return { success: false, message: 'Tidak diotorisasi' };
 
     set({ loading: true, error: null });
     try {
-      const response = await fetch(`${API_BASE_URL}/api/customers/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/outlets/${id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -144,47 +137,11 @@ export const useCustomerStore = create<CustomerState>((set) => ({
 
       const resData = await response.json();
       if (!response.ok) {
-        throw new Error(resData.message || 'Gagal menghapus pelanggan.');
+        throw new Error(resData.message || 'Gagal menghapus outlet.');
       }
 
       set((state) => ({
-        customers: state.customers.filter((c) => c.id !== id),
-        loading: false
-      }));
-
-      return { success: true };
-    } catch (err: any) {
-      console.error(err);
-      set({ error: err.message || 'Terjadi kesalahan.', loading: false });
-      return { success: false, message: err.message || 'Terjadi kesalahan.' };
-    }
-  },
-
-  payDebt: async (id, amount, paymentMethod, note) => {
-    const { token, user } = useAuthStore.getState();
-    if (!token || !user) return { success: false, message: 'Tidak diotorisasi' };
-
-    set({ loading: true, error: null });
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/customers/${id}/pay-debt`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-          'x-tenant-id': user.tenantId
-        },
-        body: JSON.stringify({ amount, paymentMethod, note })
-      });
-
-      const resData = await response.json();
-      if (!response.ok) {
-        throw new Error(resData.message || 'Gagal membayar hutang.');
-      }
-
-      const updatedCustomer = resData.data.customer;
-
-      set((state) => ({
-        customers: state.customers.map((c) => (c.id === id ? { ...c, debtBalance: Number(updatedCustomer.debtBalance) } : c)),
+        outlets: state.outlets.filter((o) => o.id !== id),
         loading: false
       }));
 

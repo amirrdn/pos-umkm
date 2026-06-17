@@ -38,7 +38,8 @@ import {
   Tag,
   Maximize2,
   Monitor,
-  X
+  X,
+  Store
 } from 'lucide-react';
 
 interface Product {
@@ -315,9 +316,11 @@ export const PosView: React.FC = () => {
     const cashierName = transaction.cashierName || 'Kasir';
     const totalTagihan = Number(transaction.grandTotal).toLocaleString('id-ID');
 
-    let paymentDetail = `Metode: ${transaction.paymentMethod === 'CASH' ? 'TUNAI' : 'QRIS'}`;
+    let paymentDetail = `Metode: ${transaction.paymentMethod === 'CASH' ? 'TUNAI' : transaction.paymentMethod === 'DEBT' ? 'HUTANG' : 'QRIS'}`;
     if (transaction.paymentMethod === 'CASH') {
       paymentDetail += `\nBayar: Rp ${activeCashReceived.toLocaleString('id-ID')}\nKembali: Rp ${activeChange.toLocaleString('id-ID')}`;
+    } else if (transaction.paymentMethod === 'DEBT') {
+      paymentDetail += `\nSisa Hutang: Rp ${Number(transaction.customer?.debtBalance || 0).toLocaleString('id-ID')}`;
     }
 
     let customerDetail = '';
@@ -519,6 +522,7 @@ Terima kasih atas kunjungan Anda!`;
             <p className="text-xs text-indigo-600 dark:text-indigo-400 font-medium flex items-center gap-1.5 mt-0.5">
               <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
               Kasir: {user?.name || 'Operator'} ({user?.roles[0]})
+              {user?.outlet && <span className="bg-indigo-50 dark:bg-indigo-950/40 text-indigo-800 dark:text-indigo-300 px-2 py-0.5 rounded-md text-[10px] font-bold">Outlet: {user.outlet.name}</span>}
             </p>
           </div>
         </div>
@@ -581,6 +585,15 @@ Terima kasih atas kunjungan Anda!`;
                     <Users className="w-3.5 h-3.5" />
                     Pelanggan
                   </button>
+                  {(user?.roles.includes('Owner') || user?.roles.includes('TENANT_ADMIN')) && (
+                    <button
+                      onClick={() => navigate('/admin/outlets')}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all duration-150"
+                    >
+                      <Store className="w-3.5 h-3.5" />
+                      Outlet
+                    </button>
+                  )}
                   <button
                     onClick={() => navigate('/admin/dashboard')}
                     className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all duration-150"
@@ -848,28 +861,43 @@ Terima kasih atas kunjungan Anda!`;
               {/* Opsi Metode Pembayaran */}
               <div className="space-y-1.5">
                 <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wide">Metode Pembayaran</label>
-                <div className="grid grid-cols-2 gap-2.5">
+                <div className="grid grid-cols-3 gap-2">
                   <button
                     type="button"
                     onClick={() => setPaymentMethod('CASH')}
-                    className={`flex items-center justify-center gap-1.5 py-2 rounded-xl border text-xs font-bold transition-all ${paymentMethod === 'CASH'
+                    className={`flex items-center justify-center gap-1 py-2 rounded-xl border text-[10px] font-bold transition-all ${paymentMethod === 'CASH'
                         ? 'bg-indigo-600 border-indigo-600 text-white shadow-md shadow-indigo-150'
                         : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
                       }`}
                   >
                     <DollarSign className="h-3.5 w-3.5" />
-                    Tunai / Cash
+                    Tunai
                   </button>
                   <button
                     type="button"
                     onClick={() => setPaymentMethod('QRIS')}
-                    className={`flex items-center justify-center gap-1.5 py-2 rounded-xl border text-xs font-bold transition-all ${paymentMethod === 'QRIS'
+                    className={`flex items-center justify-center gap-1 py-2 rounded-xl border text-[10px] font-bold transition-all ${paymentMethod === 'QRIS'
                         ? 'bg-indigo-600 border-indigo-600 text-white shadow-md shadow-indigo-150'
                         : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
                       }`}
                   >
-                    <CreditCard className="h-4 w-4" />
-                    QRIS / E-Wallet
+                    <CreditCard className="h-3.5 w-3.5" />
+                    QRIS
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!selectedCustomer}
+                    onClick={() => setPaymentMethod('DEBT')}
+                    className={`flex items-center justify-center gap-1 py-2 rounded-xl border text-[10px] font-bold transition-all ${!selectedCustomer
+                        ? 'bg-slate-100 dark:bg-slate-850/60 border-slate-200 dark:border-slate-800 text-slate-400 dark:text-slate-655 cursor-not-allowed opacity-50'
+                        : paymentMethod === 'DEBT'
+                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-md shadow-indigo-150'
+                        : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+                      }`}
+                    title={!selectedCustomer ? 'Pilih pelanggan terlebih dahulu untuk metode HUTANG' : 'Metode Hutang'}
+                  >
+                    <Users className="h-3.5 w-3.5" />
+                    Hutang
                   </button>
                 </div>
               </div>
@@ -913,7 +941,12 @@ Terima kasih atas kunjungan Anda!`;
                     </div>
                     <button
                       type="button"
-                      onClick={() => setSelectedCustomer(null)}
+                      onClick={() => {
+                        setSelectedCustomer(null);
+                        if (paymentMethod === 'DEBT') {
+                          setPaymentMethod('CASH');
+                        }
+                      }}
                       className="text-slate-400 hover:text-rose-600 p-0.5 transition-colors"
                       title="Lepas Tautan Pelanggan"
                     >
@@ -1102,7 +1135,7 @@ Terima kasih atas kunjungan Anda!`;
                 <div className="flex justify-between items-center text-xs text-slate-500">
                   <span>Metode Pembayaran</span>
                   <span className="font-bold text-slate-700">
-                    {currentTransaction.paymentMethod === 'CASH' ? 'TUNAI' : 'QRIS'}
+                    {currentTransaction.paymentMethod === 'CASH' ? 'TUNAI' : currentTransaction.paymentMethod === 'DEBT' ? 'HUTANG' : 'QRIS'}
                   </span>
                 </div>
                 <div className="flex justify-between items-center text-xs text-slate-500">

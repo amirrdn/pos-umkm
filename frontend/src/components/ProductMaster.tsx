@@ -20,7 +20,8 @@ import {
   Sun,
   Moon,
   LogOut,
-  Upload
+  Upload,
+  Store
 } from 'lucide-react';
 
 interface ProductImage {
@@ -400,6 +401,15 @@ export const ProductMaster: React.FC = () => {
                 <Users className="w-3.5 h-3.5" />
                 Pelanggan
               </button>
+              {(user?.roles.includes('Owner') || user?.roles.includes('TENANT_ADMIN')) && (
+                <button
+                  onClick={() => navigate('/admin/outlets')}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all"
+                >
+                  <Store className="w-3.5 h-3.5" />
+                  Outlet
+                </button>
+              )}
               <button
                 onClick={() => navigate('/admin/dashboard')}
                 className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all"

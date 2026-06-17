@@ -68,6 +68,7 @@ export async function checkout(req: Request, res: Response) {
         quantity: number;
         stockBefore: number;
         stockAfter: number;
+        outletId?: string | null;
         note: string;
       }[] = [];
 
@@ -84,8 +85,21 @@ export async function checkout(req: Request, res: Response) {
           throw new Error(`Produk dengan ID ${item.productId} tidak ditemukan di tenant Anda.`);
         }
 
-        if (product.stock < item.quantity) {
-          throw new Error(`Stok produk "${product.name}" tidak mencukupi. Stok saat ini: ${product.stock}, diminta: ${item.quantity}.`);
+        let currentStock = product.stock;
+        let outletStockRecord = null;
+        if (req.user?.outletId) {
+          outletStockRecord = await tx.outletStock.findFirst({
+            where: {
+              tenantId,
+              outletId: req.user.outletId,
+              productId: product.id
+            }
+          });
+          currentStock = outletStockRecord ? outletStockRecord.stock : 0;
+        }
+
+        if (currentStock < item.quantity) {
+          throw new Error(`Stok produk "${product.name}" tidak mencukupi. Stok saat ini: ${currentStock}, diminta: ${item.quantity}.`);
         }
         const sellingPrice = new Prisma.Decimal(product.sellingPrice);
         const costPrice = new Prisma.Decimal(product.purchasePrice);
@@ -100,13 +114,25 @@ export async function checkout(req: Request, res: Response) {
           subtotal: itemSubtotal
         });
 
-        const stockBefore = product.stock;
+        const stockBefore = currentStock;
         const stockAfter = stockBefore - item.quantity;
 
-        await tx.product.update({
-          where: { id: product.id },
-          data: { stock: { decrement: item.quantity } }
-        });
+        if (req.user?.outletId) {
+          await tx.outletStock.update({
+            where: {
+              outletId_productId: {
+                outletId: req.user.outletId,
+                productId: product.id
+              }
+            },
+            data: { stock: { decrement: item.quantity } }
+          });
+        } else {
+          await tx.product.update({
+            where: { id: product.id },
+            data: { stock: { decrement: item.quantity } }
+          });
+        }
 
         stockLedgerEntries.push({
           tenantId,
@@ -116,6 +142,7 @@ export async function checkout(req: Request, res: Response) {
           quantity: -item.quantity,
           stockBefore,
           stockAfter,
+          outletId: req.user?.outletId || null,
           note: `Penjualan - Invoice`,
         });
       }
@@ -139,6 +166,10 @@ export async function checkout(req: Request, res: Response) {
 
       const grandTotal = taxableAmount.add(taxAmount);
 
+      if (paymentMethod === 'DEBT' && !customerId) {
+        throw new Error('Pelanggan wajib dipilih untuk metode pembayaran HUTANG.');
+      }
+
       let earnedPoints = 0;
       if (customerId) {
         const customer = await tx.customer.findFirst({
@@ -149,10 +180,19 @@ export async function checkout(req: Request, res: Response) {
         }
 
         earnedPoints = Math.floor(grandTotal.toNumber() / 10000);
+        
+        const updateData: Prisma.CustomerUpdateInput = {};
         if (earnedPoints > 0) {
+          updateData.points = { increment: earnedPoints };
+        }
+        if (paymentMethod === 'DEBT') {
+          updateData.debtBalance = { increment: grandTotal };
+        }
+
+        if (Object.keys(updateData).length > 0) {
           await tx.customer.update({
             where: { id: customerId },
-            data: { points: { increment: earnedPoints } }
+            data: updateData
           });
         }
       }
@@ -161,6 +201,7 @@ export async function checkout(req: Request, res: Response) {
         data: {
           tenantId,
           userId,
+          outletId: req.user?.outletId || null,
           shiftId: req.body.shiftId ?? null,
           customerId: customerId || null,
           paymentMethod: paymentMethod ?? 'CASH',
@@ -190,7 +231,9 @@ export async function checkout(req: Request, res: Response) {
             select: {
               id: true,
               name: true,
-              points: true
+              phone: true,
+              points: true,
+              debtBalance: true
             }
           }
         }
@@ -230,7 +273,9 @@ export async function checkout(req: Request, res: Response) {
               select: {
                 id: true,
                 name: true,
-                points: true
+                phone: true,
+                points: true,
+                debtBalance: true
               }
             }
           }
@@ -287,10 +332,16 @@ export async function getHistory(req: Request, res: Response) {
       });
     }
 
+    const whereClause: any = {
+      tenantId: tenantId
+    };
+
+    if (req.user?.outletId) {
+      whereClause.outletId = req.user.outletId;
+    }
+
     const transactions = await prisma.transaction.findMany({
-      where: {
-        tenantId: tenantId
-      },
+      where: whereClause,
       orderBy: {
         createdAt: 'desc'
       },
@@ -373,11 +424,23 @@ export async function handleMidtransWebhook(req: Request, res: Response) {
 
         const stockLedgerEntries = [];
         for (const item of transaction.items) {
-          const product = await tx.product.findUnique({
-            where: { id: item.productId }
-          });
-          const stockAfter = product ? product.stock : 0;
-          const stockBefore = stockAfter + item.quantity;
+          let stockBefore = 0;
+          let stockAfter = 0;
+          if (transaction.outletId) {
+            const outletStock = await tx.outletStock.findFirst({
+              where: { outletId: transaction.outletId, productId: item.productId }
+            });
+            const stock = outletStock ? outletStock.stock : 0;
+            stockAfter = stock;
+            stockBefore = stockAfter + item.quantity;
+          } else {
+            const product = await tx.product.findUnique({
+              where: { id: item.productId }
+            });
+            const stock = product ? product.stock : 0;
+            stockAfter = stock;
+            stockBefore = stockAfter + item.quantity;
+          }
 
           stockLedgerEntries.push({
             tenantId: transaction.tenantId,
@@ -388,6 +451,7 @@ export async function handleMidtransWebhook(req: Request, res: Response) {
             quantity: -item.quantity,
             stockBefore,
             stockAfter,
+            outletId: transaction.outletId || null,
             note: `Penjualan (QRIS Lunas) - Invoice ${order_id}`
           });
         }
@@ -409,10 +473,22 @@ export async function handleMidtransWebhook(req: Request, res: Response) {
         });
 
         for (const item of transaction.items) {
-          await tx.product.update({
-            where: { id: item.productId },
-            data: { stock: { increment: item.quantity } }
-          });
+          if (transaction.outletId) {
+            await tx.outletStock.update({
+              where: {
+                outletId_productId: {
+                  outletId: transaction.outletId,
+                  productId: item.productId
+                }
+              },
+              data: { stock: { increment: item.quantity } }
+            });
+          } else {
+            await tx.product.update({
+              where: { id: item.productId },
+              data: { stock: { increment: item.quantity } }
+            });
+          }
         }
       });
 
@@ -476,11 +552,23 @@ export async function getTransactionStatus(req: Request, res: Response) {
             if (transactionWithItems) {
               const stockLedgerEntries = [];
               for (const item of transactionWithItems.items) {
-                const product = await tx.product.findUnique({
-                  where: { id: item.productId }
-                });
-                const stockAfter = product ? product.stock : 0;
-                const stockBefore = stockAfter + item.quantity;
+                let stockBefore = 0;
+                let stockAfter = 0;
+                if (transaction.outletId) {
+                  const outletStock = await tx.outletStock.findFirst({
+                    where: { outletId: transaction.outletId, productId: item.productId }
+                  });
+                  const stock = outletStock ? outletStock.stock : 0;
+                  stockAfter = stock;
+                  stockBefore = stockAfter + item.quantity;
+                } else {
+                  const product = await tx.product.findUnique({
+                    where: { id: item.productId }
+                  });
+                  const stock = product ? product.stock : 0;
+                  stockAfter = stock;
+                  stockBefore = stockAfter + item.quantity;
+                }
 
                 stockLedgerEntries.push({
                   tenantId: transaction.tenantId,
@@ -491,6 +579,7 @@ export async function getTransactionStatus(req: Request, res: Response) {
                   quantity: -item.quantity,
                   stockBefore,
                   stockAfter,
+                  outletId: transaction.outletId || null,
                   note: `Penjualan (QRIS Lunas - Polling) - Invoice ${invoiceNumber}`
                 });
               }
@@ -517,10 +606,22 @@ export async function getTransactionStatus(req: Request, res: Response) {
 
             if (transactionWithItems) {
               for (const item of transactionWithItems.items) {
-                await tx.product.update({
-                  where: { id: item.productId },
-                  data: { stock: { increment: item.quantity } }
-                });
+                if (transaction.outletId) {
+                  await tx.outletStock.update({
+                    where: {
+                      outletId_productId: {
+                        outletId: transaction.outletId,
+                        productId: item.productId
+                      }
+                    },
+                    data: { stock: { increment: item.quantity } }
+                  });
+                } else {
+                  await tx.product.update({
+                    where: { id: item.productId },
+                    data: { stock: { increment: item.quantity } }
+                  });
+                }
               }
             }
           });
@@ -531,14 +632,36 @@ export async function getTransactionStatus(req: Request, res: Response) {
       }
     }
 
+    const updatedTransaction = await prisma.transaction.findFirst({
+      where: { id: transaction.id },
+      include: {
+        items: {
+          include: {
+            product: {
+              select: {
+                name: true,
+                sku: true
+              }
+            }
+          }
+        },
+        customer: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            points: true,
+            debtBalance: true
+          }
+        }
+      }
+    });
+
     return res.status(200).json({
       success: true,
-      data: {
-        id: transaction.id,
-        invoiceNumber: transaction.invoiceNumber,
-        status: currentStatus,
-        grandTotal: transaction.grandTotal,
-        customer: transaction.customer
+      data: updatedTransaction || {
+        ...transaction,
+        status: currentStatus
       }
     });
   } catch (error: any) {
