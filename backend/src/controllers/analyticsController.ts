@@ -10,7 +10,7 @@ export class AnalyticsController {
   async getSummary(req: Request, res: Response) {
     try {
       const tenantId = req.tenantId!;
-      const summary = await analyticsService.getSummary(tenantId);
+      const summary = await analyticsService.getSummary(tenantId, req.user?.outletId);
 
       return res.status(200).json({
         success: true,
@@ -32,7 +32,7 @@ export class AnalyticsController {
   async getBestSellers(req: Request, res: Response) {
     try {
       const tenantId = req.tenantId!;
-      const bestSellers = await analyticsService.getBestSellers(tenantId);
+      const bestSellers = await analyticsService.getBestSellers(tenantId, req.user?.outletId);
 
       return res.status(200).json({
         success: true,
@@ -54,7 +54,7 @@ export class AnalyticsController {
   async getTrend(req: Request, res: Response) {
     try {
       const tenantId = req.tenantId!;
-      const trend = await analyticsService.getRevenueAndProfitTrend(tenantId);
+      const trend = await analyticsService.getRevenueAndProfitTrend(tenantId, req.user?.outletId);
 
       return res.status(200).json({
         success: true,
@@ -66,6 +66,44 @@ export class AnalyticsController {
       return res.status(500).json({
         success: false,
         message: 'Terjadi kesalahan internal server saat mengambil data tren analitik.'
+      });
+    }
+  }
+
+  async getCashierReports(req: Request, res: Response) {
+    try {
+      const tenantId = req.tenantId!;
+      const reports = await analyticsService.getCashierReports(tenantId, req.user?.outletId);
+
+      return res.status(200).json({
+        success: true,
+        message: 'Laporan kasir berhasil diambil.',
+        data: reports
+      });
+    } catch (error: any) {
+      console.error('GetCashierReports Error:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Terjadi kesalahan saat mengambil laporan kasir.'
+      });
+    }
+  }
+
+  async getShiftReports(req: Request, res: Response) {
+    try {
+      const tenantId = req.tenantId!;
+      const reports = await analyticsService.getShiftReports(tenantId, req.user?.outletId);
+
+      return res.status(200).json({
+        success: true,
+        message: 'Laporan shift berhasil diambil.',
+        data: reports
+      });
+    } catch (error: any) {
+      console.error('GetShiftReports Error:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Terjadi kesalahan saat mengambil laporan shift.'
       });
     }
   }
