@@ -24,6 +24,20 @@ async function main() {
   });
   console.log('🏢 Tenant [Toko Utama] berhasil di-seed.');
 
+  // a.5 SEEDING DEFAULT OUTLET
+  await prisma.outlet.upsert({
+    where: { id: 'outlet-default-uuid-111' },
+    update: {},
+    create: {
+      id: 'outlet-default-uuid-111',
+      tenantId: tenant.id,
+      name: 'Toko Utama Pusat',
+      address: 'Jl. Jenderal Sudirman No. 1, Jakarta',
+      phone: '021-5551234'
+    }
+  });
+  console.log('🏪 Default Outlet [Toko Utama Pusat] berhasil di-seed.');
+
   // ==========================================
   // b. SEEDING PERMISSIONS (GLOBAL)
   // ==========================================
@@ -228,11 +242,13 @@ async function main() {
   const user = await prisma.user.upsert({
     where: { email: 'owner@tokoutama.com' },
     update: {
-      password: hashedPassword // Selalu reset password ke default saat seed
+      password: hashedPassword, // Selalu reset password ke default saat seed
+      outletId: 'outlet-default-uuid-111'
     },
     create: {
       id: 'user-admin-111',
       tenantId: tenant.id,
+      outletId: 'outlet-default-uuid-111',
       name: 'Budi Owner',
       email: 'owner@tokoutama.com',
       password: hashedPassword,
@@ -260,11 +276,13 @@ async function main() {
   const kasirUser = await prisma.user.upsert({
     where: { email: 'kasir@tokoutama.com' },
     update: {
-      password: hashedPassword // Reset password ke default saat seed
+      password: hashedPassword, // Reset password ke default saat seed
+      outletId: 'outlet-default-uuid-111'
     },
     create: {
       id: 'user-kasir-222',
       tenantId: tenant.id,
+      outletId: 'outlet-default-uuid-111',
       name: 'Asep Kasir',
       email: 'kasir@tokoutama.com',
       password: hashedPassword,
@@ -384,10 +402,38 @@ async function main() {
         purchasePrice: item.purchasePrice,
         sellingPrice: item.sellingPrice
       },
-      create: item
+      create: {
+        id: item.id,
+        tenantId: item.tenantId,
+        categoryId: item.categoryId,
+        name: item.name,
+        sku: item.sku,
+        purchasePrice: item.purchasePrice,
+        sellingPrice: item.sellingPrice,
+        stock: item.stock
+      }
+    });
+
+    // Seed OutletStock untuk outlet utama
+    await prisma.outletStock.upsert({
+      where: {
+        outletId_productId: {
+          outletId: 'outlet-default-uuid-111',
+          productId: item.id
+        }
+      },
+      update: {
+        stock: item.stock
+      },
+      create: {
+        tenantId: tenant.id,
+        outletId: 'outlet-default-uuid-111',
+        productId: item.id,
+        stock: item.stock
+      }
     });
   }
-  console.log(`📦 ${productsData.length} Data Produk berhasil di-seed.`);
+  console.log(`📦 ${productsData.length} Data Produk & OutletStock berhasil di-seed.`);
 
   // Seed default product images
   const defaultImages = [
