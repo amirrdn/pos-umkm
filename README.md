@@ -14,21 +14,26 @@ SaaSPOS UMKM adalah platform Point of Sale (POS) multi-tenant modern yang diranc
 Sistem ini telah dilengkapi dengan fitur-fitur esensial tingkat produksi:
 
 1. **Multi-Tenancy & Isolasi Data**: Isolasi data yang aman antar-tenant/toko menggunakan middleware dinamis (`x-tenant-id`) untuk keamanan operasional.
-2. **Role-Based Access Control (RBAC)**: Hak akses ketat yang memisahkan peran **Owner** (akses penuh laporan keuangan, inventaris, staf) dan **Kasir** (akses transaksi & riwayat dasar).
-3. **Point of Sale (POS) & Checkout ACID**: Pengurangan stok real-time yang aman menggunakan Prisma Interactive Transaction untuk menjamin integritas data penjualan.
-4. **Manajemen Shift Kerja & Laci Kas**: Kasir wajib mencatat modal awal sebelum transaksi dan melakukan rekonsiliasi uang fisik (kas aktual) saat tutup shift beserta deteksi selisih.
-5. **Perhitungan HPP (COGS) & Laba Bersih**: Pencatatan otomatis harga beli (*snapshot* HPP) saat transaksi untuk menyajikan laporan Laba Bersih yang akurat, di samping Omset kotor.
-6. **Kartu Stok & Mutasi Barang (Stock Ledger)**: Log terperinci dari setiap perubahan stok barang (SALE, RESTOCK, ADJUSTMENT, RETURN) untuk pemantauan rantai pasok.
-7. **Diskon Global & Pajak PPN**: Dukungan fleksibilitas promosi nominal/persen serta kalkulasi wajib pajak (PPN 11%).
-8. **Cetak Struk Thermal & Integrasi WhatsApp**: Template struk belanja thermal format 58mm untuk printer thermal fisik dan fitur kirim struk belanja digital otomatis via WhatsApp.
-9. **Dashboard Analitik & Laba Rugi**: Visualisasi tren harian Omset vs Laba Bersih selama 30 hari menggunakan Recharts AreaChart serta pemeringkat 5 produk terlaris.
+2. **Sistem Multi-Outlet (Multi-Store/Branch)**: Dukungan multi-cabang terisolasi per lokasi. Stok produk, riwayat transaksi, kartu stok/mutasi barang, shift kasir, dan staf terisolasi secara dinamis berdasarkan outlet aktif kasir/karyawan. Owner dan Manager memiliki dashboard global untuk pengawasan seluruh outlet.
+3. **Role-Based Access Control (RBAC)**: Hak akses ketat yang memisahkan peran **Owner** (akses penuh laporan keuangan, inventaris, outlet, staf) dan **Kasir** (akses transaksi & riwayat dasar).
+4. **Point of Sale (POS) & Checkout ACID**: Pengurangan stok real-time yang aman menggunakan Prisma Interactive Transaction untuk menjamin integritas data penjualan.
+5. **Sistem Hutang & Piutang Pelanggan**: Mendukung metode pembayaran **HUTANG** untuk pelanggan terdaftar. Mencatat saldo berjalan berjalan, limit hutang, riwayat cicilan (`DebtPayment`), dan modul pelunasan terintegrasi di Dashboard Admin.
+6. **E-Wallet & QRIS Dinamis (Midtrans)**: Integrasi dengan Midtrans Sandbox untuk generator QRIS dinamis otomatis, status polling pembayaran real-time, status lunas, dan auto-rollback/restock jika transaksi kedaluwarsa atau dibatalkan.
+7. **QRIS Customer Display & Layanan Layar Kedua**: Mode fullscreen QRIS untuk display ke customer, serta pembukaan window layar kedua (`/customer-display`) untuk monitor eksternal.
+8. **Manajemen Shift Kerja & Laci Kas**: Kasir wajib mencatat modal awal sebelum transaksi dan melakukan rekonsiliasi uang fisik (kas aktual) saat tutup shift beserta deteksi selisih.
+9. **Laporan Penjualan per Kasir & Shift**: Grafik, tabel, dan rekapitulasi data penjualan real-time terpilah berdasarkan kasir dan shift kerja aktif.
+10. **Perhitungan HPP (COGS) & Laba Bersih**: Pencatatan otomatis harga beli (*snapshot* HPP) saat transaksi untuk menyajikan laporan Laba Bersih yang akurat, di samping Omset kotor.
+11. **Kartu Stok & Mutasi Barang (Stock Ledger)**: Log terperinci dari setiap perubahan stok barang (SALE, RESTOCK, ADJUSTMENT, RETURN) untuk pemantauan rantai pasok.
+12. **Diskon Global & Pajak PPN**: Dukungan fleksibilitas promosi nominal/persen serta kalkulasi wajib pajak (PPN 11%).
+13. **Cetak Struk Thermal & Integrasi WhatsApp**: Template struk belanja thermal format 58mm untuk printer thermal fisik dan fitur kirim struk belanja digital otomatis via WhatsApp.
+14. **Dashboard Analitik & Laba Rugi**: Visualisasi tren harian Omset vs Laba Bersih selama 30 hari menggunakan Recharts AreaChart serta pemeringkat 5 produk terlaris.
 
 ---
 
 ## 🛠️ Stack Teknologi
 
 ### Frontend
-- **Framework & Build Tools**: React 18, Vite, TypeScript
+- **Framework & Build Tools**: React 19, Vite, TypeScript
 - **State Management**: Zustand (dengan persistence untuk sesi login)
 - **Styling**: Tailwind CSS
 - **Visualisasi Data**: Recharts (Line/Area/Bar charts)
@@ -41,6 +46,7 @@ Sistem ini telah dilengkapi dengan fitur-fitur esensial tingkat produksi:
 - **Database Engine**: PostgreSQL
 - **Validasi Schema**: Zod (type-safe validation)
 - **Keamanan**: Bcrypt (hashing sandi), JSON Web Token / JWT (otentikasi sesi)
+- **Media Upload**: Multer (untuk upload foto produk ke penyimpanan lokal)
 
 ---
 
@@ -59,7 +65,7 @@ SaaSPOS/
 ├── frontend/                 # Client SPA Application (React/Vite)
 │   ├── src/
 │   │   ├── components/       # Komponen UI Halaman (POS, Dashboard, dll)
-│   │   ├── store/            # Zustand Stores (Cart, Auth, Shift)
+│   │   ├── store/            # Zustand Stores (Cart, Auth, Shift, Outlet)
 │   │   └── config.ts         # Konfigurasi Endpoint Client
 └── README.md
 ```
@@ -118,8 +124,8 @@ Gunakan akun uji coba berikut setelah database berhasil di-seed:
 
 | Email | Kata Sandi | Peran |
 |---|---|---|
-| **owner@toko.com** | `password123` | Owner (Akses penuh) |
-| **kasir@toko.com** | `password123` | Kasir (Akses POS) |
+| **owner@tokoutama.com** | `password123` | Owner (Akses penuh seluruh sistem & outlet) |
+| **kasir@tokoutama.com** | `password123` | Kasir (Akses POS cabang pusat / Toko Utama Pusat) |
 
 ---
 
