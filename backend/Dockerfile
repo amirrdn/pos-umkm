@@ -1,5 +1,8 @@
 # Stage 1: Build & Compile TypeScript
-FROM node:20-alpine AS builder
+FROM node:20-slim AS builder
+
+# Install OpenSSL
+RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -23,7 +26,10 @@ RUN npm run build
 
 
 # Stage 2: Production Runner
-FROM node:20-alpine AS runner
+FROM node:20-slim AS runner
+
+# Install OpenSSL
+RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
