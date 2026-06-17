@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -148,6 +148,56 @@ export class CustomerService {
       where: {
         id: customerId
       }
+    });
+  }
+
+  /**
+   * Mencatat pembayaran/cicilan hutang pelanggan.
+   */
+  async payDebt(tenantId: string, customerId: string, amount: number, paymentMethod: string, note?: string) {
+    const customer = await prisma.customer.findFirst({
+      where: {
+        id: customerId,
+        tenantId: tenantId
+      }
+    });
+
+    if (!customer) {
+      throw new Error('Pelanggan tidak ditemukan atau Anda tidak memiliki akses ke data ini.');
+    }
+
+    const paymentAmount = new Prisma.Decimal(amount);
+    if (paymentAmount.lte(0)) {
+      throw new Error('Jumlah pembayaran harus lebih besar dari 0.');
+    }
+
+    const currentDebt = new Prisma.Decimal(customer.debtBalance);
+    if (paymentAmount.gt(currentDebt)) {
+      throw new Error(`Jumlah pembayaran Rp ${paymentAmount.toNumber().toLocaleString('id-ID')} melebihi sisa hutang Rp ${currentDebt.toNumber().toLocaleString('id-ID')}.`);
+    }
+
+    return prisma.$transaction(async (tx) => {
+      const updatedCustomer = await tx.customer.update({
+        where: { id: customerId },
+        data: {
+          debtBalance: { decrement: paymentAmount }
+        }
+      });
+
+      const paymentRecord = await tx.debtPayment.create({
+        data: {
+          tenantId,
+          customerId,
+          amount: paymentAmount,
+          paymentMethod,
+          note: note || null
+        }
+      });
+
+      return {
+        customer: updatedCustomer,
+        payment: paymentRecord
+      };
     });
   }
 }
