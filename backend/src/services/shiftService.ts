@@ -1,6 +1,5 @@
-import { PrismaClient, Prisma } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { Prisma } from '@prisma/client';
+import { prisma } from '../lib/prisma';
 
 // ==========================================
 // INTERFACE
@@ -10,7 +9,7 @@ export interface OpenShiftInput {
   tenantId: string;
   userId: string;
   cashStart: number;
-  outletId?: string | null;
+  outletId: string;
 }
 
 export interface CloseShiftInput {
@@ -47,7 +46,7 @@ export async function openShift({ tenantId, userId, cashStart, outletId }: OpenS
       userId,
       cashStart: new Prisma.Decimal(cashStart),
       status: 'OPEN',
-      outletId: outletId || null
+      outletId,
     },
     include: {
       user: {

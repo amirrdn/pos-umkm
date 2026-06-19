@@ -1,5 +1,5 @@
 import type { PrismaTx } from '../../lib/prisma';
-import { incrementOutletStock, snapshotStockAfterSale } from './stock.repository';
+import { decrementOutletStock, incrementOutletStock } from './stock.repository';
 
 interface TransactionItemRow {
   productId: string;
@@ -48,8 +48,9 @@ export async function buildQrisSaleLedgerEntries(
   const entries = [];
 
   for (const item of transaction.items) {
-    const { stockBefore, stockAfter } = await snapshotStockAfterSale(
+    const { stockBefore, stockAfter } = await decrementOutletStock(
       tx,
+      transaction.tenantId,
       transaction.outletId,
       item.productId,
       item.quantity
@@ -72,7 +73,7 @@ export async function buildQrisSaleLedgerEntries(
   return entries;
 }
 
-/** Kembalikan stok outlet saat transaksi QRIS dibatalkan / expired. */
+/** Kembalikan stok outlet saat transaksi QRIS legacy (stok dikurangi saat checkout) dibatalkan. */
 export async function restoreStockForVoidedTransaction(
   tx: PrismaTx,
   transaction: TransactionStockContext

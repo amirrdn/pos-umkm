@@ -1,5 +1,5 @@
-import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
+import { prisma } from '../lib/prisma';
 import jwt from 'jsonwebtoken';
 import {
   normalizeAuthEmail,
@@ -7,8 +7,6 @@ import {
   deliverRegistrationVerificationEmail,
 } from '../domain/auth/emailVerification.service';
 import { LoginError, LOGIN_ERROR_MESSAGES } from '../domain/auth/login.errors';
-
-const prisma = new PrismaClient();
 
 /**
  * Service Layer untuk Autentikasi Pengguna.
@@ -324,9 +322,27 @@ export class AuthService {
         });
       }
 
-      const userOutlets = input.outletIds.map(outletId => ({
+      if (input.outletIds.length === 0) {
+        throw new Error('Minimal satu outlet harus dipilih.');
+      }
+
+      const validOutlets = await tx.outlet.findMany({
+        where: {
+          id: { in: input.outletIds },
+          tenantId: tenant.id,
+          deletedAt: null,
+          isActive: true,
+        },
+        select: { id: true },
+      });
+
+      if (validOutlets.length !== input.outletIds.length) {
+        throw new Error('Salah satu outlet tidak valid untuk toko ini.');
+      }
+
+      const userOutlets = validOutlets.map((outlet) => ({
         userId: user.id,
-        outletId
+        outletId: outlet.id,
       }));
 
       await tx.userOutlet.createMany({

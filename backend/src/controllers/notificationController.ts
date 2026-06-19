@@ -1,5 +1,9 @@
 import { Request, Response } from 'express';
-import { getDraftTransferSnapshot, runDailyDraftTransferDigest } from '../domain/notification';
+import {
+  getDraftTransferSnapshot,
+  sendDraftTransferDigestForTenant,
+} from '../domain/notification';
+import { prisma } from '../lib/prisma';
 
 const SSE_INTERVAL_MS = 30_000;
 
@@ -55,9 +59,22 @@ export async function notificationStream(req: Request, res: Response): Promise<v
  * POST /api/notifications/digest/run
  * Trigger manual digest email (Owner/Admin platform ops).
  */
-export async function runDigestNow(_req: Request, res: Response): Promise<Response> {
+export async function runDigestNow(req: Request, res: Response): Promise<Response> {
   try {
-    const result = await runDailyDraftTransferDigest();
+    const tenantId = req.tenantId!;
+    const tenant = await prisma.tenant.findFirst({
+      where: { id: tenantId, deletedAt: null },
+      select: { id: true, name: true },
+    });
+
+    if (!tenant) {
+      return res.status(404).json({
+        success: false,
+        message: 'Tenant tidak ditemukan.',
+      });
+    }
+
+    const result = await sendDraftTransferDigestForTenant(tenant.id, tenant.name);
     return res.status(200).json({
       success: true,
       message: 'Digest email transfer DRAFT selesai diproses.',
