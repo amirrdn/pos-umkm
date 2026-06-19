@@ -20,10 +20,16 @@ export async function getStockLedger(tenantId: string, productId: string, outlet
   }
 
   if (outletId) {
-    const outletStockRecord = await prisma.outletStock.findFirst({
-      where: { tenantId, outletId, productId }
+    const outletStockRecord = await prisma.outletStock.findUnique({
+      where: { outletId_productId: { outletId, productId } }
     });
     product.stock = outletStockRecord ? outletStockRecord.stock : 0;
+  } else {
+    const totalStock = await prisma.outletStock.aggregate({
+      where: { tenantId, productId },
+      _sum: { stock: true }
+    });
+    product.stock = totalStock._sum.stock ?? 0;
   }
 
   const whereClause: any = { tenantId, productId };
@@ -126,42 +132,43 @@ export async function createStockMutation(
       throw new Error('Produk tidak ditemukan.');
     }
 
-    const isDeltaPositive = type === 'RESTOCK' || type === 'ADJUSTMENT_PLUS' || type === 'RETURN';
-    const delta = isDeltaPositive ? quantity : -quantity;
-    let stockBefore = product.stock;
-
-    if (outletId) {
-      const outletStockRecord = await tx.outletStock.findFirst({
-        where: { tenantId, outletId, productId }
+    let targetOutletId = outletId;
+    if (!targetOutletId) {
+      const firstOutlet = await tx.outlet.findFirst({
+        where: { tenantId, deletedAt: null },
+        orderBy: { createdAt: 'asc' }
       });
-      stockBefore = outletStockRecord ? outletStockRecord.stock : 0;
+      if (!firstOutlet) {
+        throw new Error('Tidak ada outlet aktif untuk tenant ini.');
+      }
+      targetOutletId = firstOutlet.id;
     }
 
+    const isDeltaPositive = type === 'RESTOCK' || type === 'ADJUSTMENT_PLUS' || type === 'RETURN';
+    const delta = isDeltaPositive ? quantity : -quantity;
+
+    const outletStockRecord = await tx.outletStock.findUnique({
+      where: { outletId_productId: { outletId: targetOutletId, productId } }
+    });
+    const stockBefore = outletStockRecord ? outletStockRecord.stock : 0;
     const stockAfter = stockBefore + delta;
 
     if (stockAfter < 0) {
       throw new Error(`Stok tidak mencukupi untuk penyesuaian ini. Stok saat ini: ${stockBefore}, pengurangan diminta: ${quantity}.`);
     }
 
-    if (outletId) {
-      await tx.outletStock.upsert({
-        where: { outletId_productId: { outletId, productId } },
-        create: { tenantId, outletId, productId, stock: stockAfter },
-        update: { stock: stockAfter }
-      });
-    } else {
-      await tx.product.update({
-        where: { id: productId },
-        data: { stock: stockAfter },
-      });
-    }
+    await tx.outletStock.upsert({
+      where: { outletId_productId: { outletId: targetOutletId, productId } },
+      create: { tenantId, outletId: targetOutletId, productId, stock: stockAfter },
+      update: { stock: stockAfter }
+    });
 
     const ledgerEntry = await tx.stockLedger.create({
       data: {
         tenantId,
         productId,
         userId,
-        outletId: outletId || null,
+        outletId: targetOutletId,
         type,
         quantity: delta,
         stockBefore,

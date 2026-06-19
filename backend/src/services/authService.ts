@@ -18,10 +18,11 @@ export class AuthService {
         deletedAt: null
       },
       include: {
-        outlet: {
-          select: {
-            id: true,
-            name: true
+        userOutlets: {
+          include: {
+            outlet: {
+              select: { id: true, name: true, type: true, code: true }
+            }
           }
         },
         userRoles: {
@@ -61,6 +62,9 @@ export class AuthService {
       )
     );
 
+    const outletIds = user.userOutlets.map((uo) => uo.outletId);
+    const outlets = user.userOutlets.map((uo) => uo.outlet);
+
     const secretKey = process.env.JWT_SECRET || 'fallback_secret_key_2026';
     const token = jwt.sign(
       {
@@ -70,7 +74,7 @@ export class AuthService {
         email: user.email,
         roles,
         permissions,
-        outletId: user.outletId
+        outletIds
       },
       secretKey,
       { expiresIn: '1d' }
@@ -85,8 +89,8 @@ export class AuthService {
         email: user.email,
         roles,
         permissions,
-        outletId: user.outletId,
-        outlet: user.outlet ? { id: user.outlet.id, name: user.outlet.name } : null
+        outletIds,
+        outlets
       }
     };
   }
@@ -210,6 +214,22 @@ export class AuthService {
         }
       });
 
+      const mainOutlet = await tx.outlet.create({
+        data: {
+          tenantId: tenant.id,
+          name: `${tenant.name} — Pusat`,
+          type: 'MAIN',
+          code: 'PST'
+        }
+      });
+
+      await tx.userOutlet.create({
+        data: {
+          userId: user.id,
+          outletId: mainOutlet.id
+        }
+      });
+
       return {
         tenant,
         user: {
@@ -218,6 +238,72 @@ export class AuthService {
           email: user.email,
           role: 'Owner'
         }
+      };
+    });
+  }
+
+  /**
+   * Melakukan registrasi Staf ke dalam Tenant yang sudah ada.
+   * Status staf secara default akan menjadi PENDING.
+   */
+  async registerStaff(input: { tenantId: string; name: string; email: string; password: string; outletIds: string[] }) {
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        email: input.email,
+        deletedAt: null
+      }
+    });
+
+    if (existingUser) {
+      throw new Error('Alamat email tersebut sudah digunakan oleh pengguna lain.');
+    }
+
+    const hashedPassword = await bcrypt.hash(input.password, 10);
+
+    return prisma.$transaction(async (tx) => {
+      // Pastikan tenant ada
+      const tenant = await tx.tenant.findUnique({ where: { id: input.tenantId } });
+      if (!tenant) throw new Error('Tenant tidak ditemukan.');
+
+      // Default role untuk staf yang mendaftar secara publik adalah Kasir
+      const roleKasir = await tx.role.findFirst({
+        where: { tenantId: tenant.id, name: 'Kasir' }
+      });
+
+      const user = await tx.user.create({
+        data: {
+          tenantId: tenant.id,
+          name: input.name,
+          email: input.email,
+          password: hashedPassword,
+          isActive: true,
+          approvalStatus: 'PENDING'
+        }
+      });
+
+      if (roleKasir) {
+        await tx.userRole.create({
+          data: {
+            userId: user.id,
+            roleId: roleKasir.id
+          }
+        });
+      }
+
+      const userOutlets = input.outletIds.map(outletId => ({
+        userId: user.id,
+        outletId
+      }));
+
+      await tx.userOutlet.createMany({
+        data: userOutlets
+      });
+
+      return {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        approvalStatus: user.approvalStatus
       };
     });
   }

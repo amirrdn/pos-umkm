@@ -242,13 +242,11 @@ async function main() {
   const user = await prisma.user.upsert({
     where: { email: 'owner@tokoutama.com' },
     update: {
-      password: hashedPassword, // Selalu reset password ke default saat seed
-      outletId: 'outlet-default-uuid-111'
+      password: hashedPassword // Selalu reset password ke default saat seed
     },
     create: {
       id: 'user-admin-111',
       tenantId: tenant.id,
-      outletId: 'outlet-default-uuid-111',
       name: 'Budi Owner',
       email: 'owner@tokoutama.com',
       password: hashedPassword,
@@ -270,19 +268,32 @@ async function main() {
       roleId: roleOwner.id
     }
   });
-  console.log('👤 Pengguna [Budi Owner] dan asosiasi Peran Owner berhasil di-seed.');
+
+  // Hubungkan User Owner ke Default Outlet
+  await prisma.userOutlet.upsert({
+    where: {
+      userId_outletId: {
+        userId: user.id,
+        outletId: 'outlet-default-uuid-111'
+      }
+    },
+    update: {},
+    create: {
+      userId: user.id,
+      outletId: 'outlet-default-uuid-111'
+    }
+  });
+  console.log('👤 Pengguna [Budi Owner] dan asosiasi Peran Owner serta Outlet berhasil di-seed.');
 
   // User Kasir
   const kasirUser = await prisma.user.upsert({
     where: { email: 'kasir@tokoutama.com' },
     update: {
-      password: hashedPassword, // Reset password ke default saat seed
-      outletId: 'outlet-default-uuid-111'
+      password: hashedPassword // Reset password ke default saat seed
     },
     create: {
       id: 'user-kasir-222',
       tenantId: tenant.id,
-      outletId: 'outlet-default-uuid-111',
       name: 'Asep Kasir',
       email: 'kasir@tokoutama.com',
       password: hashedPassword,
@@ -304,7 +315,22 @@ async function main() {
       roleId: roleKasir.id
     }
   });
-  console.log('👤 Pengguna [Asep Kasir] dan asosiasi Peran Kasir berhasil di-seed.');
+
+  // Hubungkan User Kasir ke Default Outlet
+  await prisma.userOutlet.upsert({
+    where: {
+      userId_outletId: {
+        userId: kasirUser.id,
+        outletId: 'outlet-default-uuid-111'
+      }
+    },
+    update: {},
+    create: {
+      userId: kasirUser.id,
+      outletId: 'outlet-default-uuid-111'
+    }
+  });
+  console.log('👤 Pengguna [Asep Kasir] dan asosiasi Peran Kasir serta Outlet berhasil di-seed.');
 
   // ==========================================
   // e. SEEDING KATEGORI & PRODUK (SINKRON DENGAN FRONTEND)

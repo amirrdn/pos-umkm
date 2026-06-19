@@ -31,6 +31,13 @@ interface TransactionData {
     name: string;
     points: number;
   } | null;
+  outlet?: {
+    id: string;
+    name: string;
+    type: string;
+    address: string | null;
+    phone: string | null;
+  } | null;
 }
 
 interface ReceiptTemplateProps {
@@ -63,11 +70,24 @@ export const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptTemplateProps>(
         {/* Header Toko */}
         <div className="text-center mb-3">
           <h2 className="text-xs font-bold uppercase tracking-wider">
-            {transactionData.tenantName || 'UMKM POS'}
+            {transactionData.outlet?.name || transactionData.tenantName || 'UMKM POS'}
           </h2>
-          <p className="text-[9px] text-slate-700">SaaS POS Premium Edition</p>
-          <p className="text-[9px] text-slate-700">Jl. Pembangunan Raya No. 123</p>
-          <p className="text-[9px] text-slate-700">Telp: 0812-3456-7890</p>
+          {transactionData.outlet ? (
+            <>
+              {transactionData.outlet.address && (
+                <p className="text-[9px] text-slate-700">{transactionData.outlet.address}</p>
+              )}
+              {transactionData.outlet.phone && (
+                <p className="text-[9px] text-slate-700">Telp: {transactionData.outlet.phone}</p>
+              )}
+            </>
+          ) : (
+            <>
+              <p className="text-[9px] text-slate-700">SaaS POS Premium Edition</p>
+              <p className="text-[9px] text-slate-700">Jl. Pembangunan Raya No. 123</p>
+              <p className="text-[9px] text-slate-700">Telp: 0812-3456-7890</p>
+            </>
+          )}
         </div>
 
         {/* Garis Pembatas */}

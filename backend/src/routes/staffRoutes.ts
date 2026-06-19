@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { listStaff, listRoles, createStaff, updateStaff, deleteStaff } from '../controllers/staffController';
+import { listStaff, listRoles, createStaff, updateStaff, deleteStaff, approveStaff, rejectStaff } from '../controllers/staffController';
 import { authMiddleware } from '../middlewares/authMiddleware';
 import { tenantMiddleware } from '../middlewares/tenantMiddleware';
 import { requireRole } from '../middlewares/roleMiddleware';
@@ -39,5 +39,17 @@ router.patch('/:id', updateStaff);
  * Soft delete akun karyawan dari tenant.
  */
 router.delete('/:id', deleteStaff);
+
+/**
+ * PATCH /api/staff/:id/approve
+ * Admin menyetujui pendaftaran staf baru.
+ */
+router.patch('/:id/approve', approveStaff);
+
+/**
+ * PATCH /api/staff/:id/reject
+ * Admin menolak pendaftaran staf baru.
+ */
+router.patch('/:id/reject', rejectStaff);
 
 export default router;

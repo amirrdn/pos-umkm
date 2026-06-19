@@ -53,11 +53,23 @@ export class ProductService {
           }
         },
         outletStocks: {
-          where: {
-            outletId: outletId || undefined
-          },
+          where: outletId ? { outletId } : undefined,
           select: {
             stock: true,
+            minStock: true,
+            outletId: true,
+            outlet: {
+              select: {
+                name: true,
+                type: true
+              }
+            }
+          }
+        },
+        outletPrices: {
+          where: outletId ? { outletId } : undefined,
+          select: {
+            price: true,
             outletId: true
           }
         }
@@ -70,20 +82,30 @@ export class ProductService {
     if (outletId) {
       return products.map((product) => {
         const oStock = product.outletStocks[0]?.stock ?? 0;
+        const oMinStock = product.outletStocks[0]?.minStock ?? 0;
+        const oPrice = product.outletPrices[0]?.price ? Number(product.outletPrices[0].price) : null;
         return {
           ...product,
-          stock: oStock
+          stock: oStock,
+          minStock: oMinStock,
+          sellingPrice: oPrice !== null ? oPrice : Number(product.sellingPrice)
         };
       });
     }
 
-    return products;
+    return products.map((product) => {
+      const totalStock = product.outletStocks.reduce((sum, os) => sum + os.stock, 0);
+      return {
+        ...product,
+        stock: totalStock
+      };
+    });
   }
 
   /**
    * Membuat produk baru di dalam lingkup tenant tertentu.
    */
-  async createProduct(tenantId: string, data: CreateProductInput) {
+  async createProduct(tenantId: string, data: CreateProductInput, outletId?: string | null) {
     const categoryExists = await prisma.category.findFirst({
       where: {
         id: data.categoryId,
@@ -113,38 +135,66 @@ export class ProductService {
       }
     }
 
-    return prisma.product.create({
-      data: {
-        tenantId: tenantId,
-        categoryId: data.categoryId,
-        name: data.name,
-        sku: sku,
-        purchasePrice: data.purchasePrice,
-        sellingPrice: data.sellingPrice,
-        stock: data.stock,
-        images: data.images && data.images.length > 0 ? {
-          create: data.images.map((img: any) => ({
-            url: img.url,
-            isMain: img.isMain ?? false
-          }))
-        } : undefined
-      },
-      include: {
-        category: {
-          select: {
-            id: true,
-            name: true,
-            slug: true
-          }
+    return prisma.$transaction(async (tx) => {
+      const product = await tx.product.create({
+        data: {
+          tenantId: tenantId,
+          categoryId: data.categoryId,
+          name: data.name,
+          sku: sku,
+          purchasePrice: data.purchasePrice,
+          sellingPrice: data.sellingPrice,
+          stock: data.stock,
+          images: data.images && data.images.length > 0 ? {
+            create: data.images.map((img: any) => ({
+              url: img.url,
+              isMain: img.isMain ?? false
+            }))
+          } : undefined
         },
-        images: {
-          select: {
-            id: true,
-            url: true,
-            isMain: true
+        include: {
+          category: {
+            select: {
+              id: true,
+              name: true,
+              slug: true
+            }
+          },
+          images: {
+            select: {
+              id: true,
+              url: true,
+              isMain: true
+            }
           }
         }
+      });
+
+      // Hubungkan relasi outlet stock untuk initial stock
+      let targetOutletId = outletId;
+      if (!targetOutletId) {
+        const mainOutlet = await tx.outlet.findFirst({
+          where: { tenantId, type: 'MAIN', deletedAt: null }
+        }) || await tx.outlet.findFirst({
+          where: { tenantId, deletedAt: null }
+        });
+        if (mainOutlet) {
+          targetOutletId = mainOutlet.id;
+        }
       }
+
+      if (targetOutletId) {
+        await tx.outletStock.create({
+          data: {
+            tenantId,
+            outletId: targetOutletId,
+            productId: product.id,
+            stock: data.stock || 0
+          }
+        });
+      }
+
+      return product;
     });
   }
 
@@ -250,5 +300,109 @@ export class ProductService {
         deletedAt: new Date()
       }
     });
+  }
+
+  /**
+   * Mengatur harga khusus/override untuk cabang tertentu.
+   */
+  async setPriceOverride(tenantId: string, data: { outletId: string; productId: string; price: number }) {
+    const { outletId, productId, price } = data;
+
+    const [product, outlet] = await Promise.all([
+      prisma.product.findFirst({ where: { id: productId, tenantId, deletedAt: null } }),
+      prisma.outlet.findFirst({ where: { id: outletId, tenantId, deletedAt: null } })
+    ]);
+
+    if (!product || !outlet) {
+      throw new Error('Produk atau outlet tidak ditemukan.');
+    }
+
+    return prisma.outletProductPrice.upsert({
+      where: {
+        outletId_productId: { outletId, productId }
+      },
+      create: {
+        tenantId,
+        outletId,
+        productId,
+        price
+      },
+      update: {
+        price
+      }
+    });
+  }
+
+  /**
+   * Menghapus harga khusus/override cabang (kembali ke harga dasar).
+   */
+  async deletePriceOverride(tenantId: string, outletId: string, productId: string) {
+    const override = await prisma.outletProductPrice.findFirst({
+      where: {
+        outletId,
+        productId,
+        tenantId
+      }
+    });
+
+    if (!override) {
+      throw new Error('Harga khusus tidak ditemukan.');
+    }
+
+    return prisma.outletProductPrice.delete({
+      where: {
+        outletId_productId: { outletId, productId }
+      }
+    });
+  }
+
+  /**
+   * Mengatur limit stok minimum (minStock) untuk produk di outlet tertentu.
+   */
+  async setMinStock(tenantId: string, data: { outletId: string; productId: string; minStock: number }) {
+    const { outletId, productId, minStock } = data;
+
+    const [product, outlet] = await Promise.all([
+      prisma.product.findFirst({ where: { id: productId, tenantId, deletedAt: null } }),
+      prisma.outlet.findFirst({ where: { id: outletId, tenantId, deletedAt: null } })
+    ]);
+
+    if (!product || !outlet) {
+      throw new Error('Produk atau outlet tidak ditemukan.');
+    }
+
+    return prisma.outletStock.upsert({
+      where: {
+        outletId_productId: { outletId, productId }
+      },
+      create: {
+        tenantId,
+        outletId,
+        productId,
+        stock: 0,
+        minStock
+      },
+      update: {
+        minStock
+      }
+    });
+  }
+
+  /**
+   * Mengambil semua daftar harga khusus dan limit stok cabang untuk sebuah produk.
+   */
+  async getOutletSettingsForProduct(tenantId: string, productId: string) {
+    const [prices, stocks] = await Promise.all([
+      prisma.outletProductPrice.findMany({
+        where: { productId, tenantId },
+        include: { outlet: { select: { name: true } } }
+      }),
+      prisma.outletStock.findMany({
+        where: { productId, tenantId },
+        include: { outlet: { select: { name: true } } }
+      })
+    ]);
+
+    return { prices, stocks };
   }
 }

@@ -3,6 +3,7 @@ declare global {
     interface Request {
       tenantId?: string;
       outletId?: string | null;
+      isGlobalAdmin?: boolean;
 
       user?: {
         id: string;
@@ -11,7 +12,7 @@ declare global {
         email: string;
         roles: string[];
         permissions: string[];
-        outletId?: string | null;
+        outletIds?: string[];
       };
     }
   }

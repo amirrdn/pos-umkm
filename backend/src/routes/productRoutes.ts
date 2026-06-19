@@ -63,4 +63,28 @@ router.delete(
   productController.deleteProduct.bind(productController)
 );
 
+router.post(
+  '/price-override',
+  requirePermission('update:products'),
+  productController.setPriceOverride.bind(productController)
+);
+
+router.delete(
+  '/price-override',
+  requirePermission('update:products'),
+  productController.deletePriceOverride.bind(productController)
+);
+
+router.post(
+  '/min-stock',
+  requirePermission('update:products'),
+  productController.setMinStock.bind(productController)
+);
+
+router.get(
+  '/:id/outlet-settings',
+  requirePermission('view:products'),
+  productController.getOutletSettingsForProduct.bind(productController)
+);
+
 export default router;

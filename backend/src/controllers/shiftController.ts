@@ -25,7 +25,7 @@ export async function openShift(req: Request, res: Response): Promise<Response> 
     const { cashStart } = validation.data;
     const tenantId = req.tenantId!;
     const userId = req.user!.id;
-    const outletId = req.user!.outletId;
+    const outletId = req.outletId;
 
     const shift = await shiftService.openShift({ tenantId, userId, cashStart, outletId });
 

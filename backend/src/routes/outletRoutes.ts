@@ -17,6 +17,12 @@ router.use(tenantMiddleware);
 router.get('/', requireRole(['Owner', 'TENANT_ADMIN', 'Manager', 'Kasir', 'Staf Gudang']), controller.getAllOutlets.bind(controller));
 
 /**
+ * Route GET /api/outlets/hierarchy
+ * Deskripsi: Mengambil hierarki outlet (MAIN & BRANCH) beserta statistiknya.
+ */
+router.get('/hierarchy', requireRole(['Owner', 'TENANT_ADMIN', 'Manager']), controller.getOutletHierarchy.bind(controller));
+
+/**
  * Route GET /api/outlets/:id
  * Deskripsi: Mengambil informasi detail outlet.
  */
@@ -24,9 +30,15 @@ router.get('/:id', requireRole(['Owner', 'TENANT_ADMIN', 'Manager']), controller
 
 /**
  * Route POST /api/outlets
- * Deskripsi: Membuat/mendaftarkan outlet baru.
+ * Deskripsi: Membuat/mendaftarkan outlet baru (legacy/internal).
  */
 router.post('/', requireRole(['Owner', 'TENANT_ADMIN']), controller.createOutlet.bind(controller));
+
+/**
+ * Route POST /api/outlets/branches
+ * Deskripsi: Membuat cabang (BRANCH) baru di bawah Outlet Utama (MAIN).
+ */
+router.post('/branches', requireRole(['Owner', 'TENANT_ADMIN']), controller.createBranch.bind(controller));
 
 /**
  * Route PUT /api/outlets/:id

@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { OutletService } from '../services/outletService';
-import { createOutletSchema, updateOutletSchema } from '../schemas/outletSchema';
+import { createOutletSchema, createBranchSchema, updateOutletSchema } from '../schemas/outletSchema';
 
 const outletService = new OutletService();
 
@@ -44,6 +44,25 @@ export class OutletController {
     }
   }
 
+  async getOutletHierarchy(req: Request, res: Response) {
+    try {
+      const tenantId = req.tenantId!;
+      const hierarchy = await outletService.getOutletHierarchy(tenantId);
+
+      return res.status(200).json({
+        success: true,
+        message: 'Hierarki outlet berhasil diambil.',
+        data: hierarchy
+      });
+    } catch (error: any) {
+      console.error('GetOutletHierarchy Controller Error:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Terjadi kesalahan internal server saat mengambil hierarki outlet.'
+      });
+    }
+  }
+
   async createOutlet(req: Request, res: Response) {
     try {
       const tenantId = req.tenantId!;
@@ -69,6 +88,35 @@ export class OutletController {
       return res.status(500).json({
         success: false,
         message: 'Terjadi kesalahan internal server saat membuat outlet.'
+      });
+    }
+  }
+
+  async createBranch(req: Request, res: Response) {
+    try {
+      const tenantId = req.tenantId!;
+      const validation = createBranchSchema.safeParse(req.body);
+
+      if (!validation.success) {
+        return res.status(400).json({
+          success: false,
+          message: 'Validasi data cabang gagal.',
+          errors: validation.error.format()
+        });
+      }
+
+      const outlet = await outletService.createBranch(tenantId, validation.data);
+
+      return res.status(201).json({
+        success: true,
+        message: 'Cabang baru berhasil didaftarkan.',
+        data: outlet
+      });
+    } catch (error: any) {
+      console.error('CreateBranch Controller Error:', error);
+      return res.status(400).json({
+        success: false,
+        message: error.message || 'Terjadi kesalahan internal server saat membuat cabang.'
       });
     }
   }

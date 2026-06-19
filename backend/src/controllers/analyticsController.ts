@@ -10,7 +10,11 @@ export class AnalyticsController {
   async getSummary(req: Request, res: Response) {
     try {
       const tenantId = req.tenantId!;
-      const summary = await analyticsService.getSummary(tenantId, req.user?.outletId);
+      let outletId = req.outletId;
+      if (req.isGlobalAdmin) {
+        outletId = (req.query.outletId as string) || req.outletId || null;
+      }
+      const summary = await analyticsService.getSummary(tenantId, outletId);
 
       return res.status(200).json({
         success: true,
@@ -32,7 +36,11 @@ export class AnalyticsController {
   async getBestSellers(req: Request, res: Response) {
     try {
       const tenantId = req.tenantId!;
-      const bestSellers = await analyticsService.getBestSellers(tenantId, req.user?.outletId);
+      let outletId = req.outletId;
+      if (req.isGlobalAdmin) {
+        outletId = (req.query.outletId as string) || req.outletId || null;
+      }
+      const bestSellers = await analyticsService.getBestSellers(tenantId, outletId);
 
       return res.status(200).json({
         success: true,
@@ -54,7 +62,11 @@ export class AnalyticsController {
   async getTrend(req: Request, res: Response) {
     try {
       const tenantId = req.tenantId!;
-      const trend = await analyticsService.getRevenueAndProfitTrend(tenantId, req.user?.outletId);
+      let outletId = req.outletId;
+      if (req.isGlobalAdmin) {
+        outletId = (req.query.outletId as string) || req.outletId || null;
+      }
+      const trend = await analyticsService.getRevenueAndProfitTrend(tenantId, outletId);
 
       return res.status(200).json({
         success: true,
@@ -73,7 +85,11 @@ export class AnalyticsController {
   async getCashierReports(req: Request, res: Response) {
     try {
       const tenantId = req.tenantId!;
-      const reports = await analyticsService.getCashierReports(tenantId, req.user?.outletId);
+      let outletId = req.outletId;
+      if (req.isGlobalAdmin) {
+        outletId = (req.query.outletId as string) || req.outletId || null;
+      }
+      const reports = await analyticsService.getCashierReports(tenantId, outletId);
 
       return res.status(200).json({
         success: true,
@@ -92,7 +108,11 @@ export class AnalyticsController {
   async getShiftReports(req: Request, res: Response) {
     try {
       const tenantId = req.tenantId!;
-      const reports = await analyticsService.getShiftReports(tenantId, req.user?.outletId);
+      let outletId = req.outletId;
+      if (req.isGlobalAdmin) {
+        outletId = (req.query.outletId as string) || req.outletId || null;
+      }
+      const reports = await analyticsService.getShiftReports(tenantId, outletId);
 
       return res.status(200).json({
         success: true,

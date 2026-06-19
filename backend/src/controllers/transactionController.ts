@@ -85,23 +85,35 @@ export async function checkout(req: Request, res: Response) {
           throw new Error(`Produk dengan ID ${item.productId} tidak ditemukan di tenant Anda.`);
         }
 
-        let currentStock = product.stock;
-        let outletStockRecord = null;
-        if (req.user?.outletId) {
-          outletStockRecord = await tx.outletStock.findFirst({
-            where: {
-              tenantId,
-              outletId: req.user.outletId,
+        if (!req.outletId) {
+          throw new Error('Aksi ditolak: Transaksi POS wajib dikaitkan dengan Outlet aktif.');
+        }
+
+        const outletStockRecord = await tx.outletStock.findUnique({
+          where: {
+            outletId_productId: {
+              outletId: req.outletId,
               productId: product.id
             }
-          });
-          currentStock = outletStockRecord ? outletStockRecord.stock : 0;
-        }
+          }
+        });
+        const currentStock = outletStockRecord ? outletStockRecord.stock : 0;
 
         if (currentStock < item.quantity) {
           throw new Error(`Stok produk "${product.name}" tidak mencukupi. Stok saat ini: ${currentStock}, diminta: ${item.quantity}.`);
         }
-        const sellingPrice = new Prisma.Decimal(product.sellingPrice);
+
+        const priceOverride = await tx.outletProductPrice.findUnique({
+          where: {
+            outletId_productId: {
+              outletId: req.outletId,
+              productId: product.id
+            }
+          }
+        });
+        const activeSellingPrice = priceOverride ? priceOverride.price : product.sellingPrice;
+
+        const sellingPrice = new Prisma.Decimal(activeSellingPrice);
         const costPrice = new Prisma.Decimal(product.purchasePrice);
         const itemSubtotal = sellingPrice.mul(item.quantity);
         subTotal = subTotal.add(itemSubtotal);
@@ -117,22 +129,15 @@ export async function checkout(req: Request, res: Response) {
         const stockBefore = currentStock;
         const stockAfter = stockBefore - item.quantity;
 
-        if (req.user?.outletId) {
-          await tx.outletStock.update({
-            where: {
-              outletId_productId: {
-                outletId: req.user.outletId,
-                productId: product.id
-              }
-            },
-            data: { stock: { decrement: item.quantity } }
-          });
-        } else {
-          await tx.product.update({
-            where: { id: product.id },
-            data: { stock: { decrement: item.quantity } }
-          });
-        }
+        await tx.outletStock.update({
+          where: {
+            outletId_productId: {
+              outletId: req.outletId,
+              productId: product.id
+            }
+          },
+          data: { stock: { decrement: item.quantity } }
+        });
 
         stockLedgerEntries.push({
           tenantId,
@@ -142,7 +147,7 @@ export async function checkout(req: Request, res: Response) {
           quantity: -item.quantity,
           stockBefore,
           stockAfter,
-          outletId: req.user?.outletId || null,
+          outletId: req.outletId || null,
           note: `Penjualan - Invoice`,
         });
       }
@@ -180,7 +185,7 @@ export async function checkout(req: Request, res: Response) {
         }
 
         earnedPoints = Math.floor(grandTotal.toNumber() / 10000);
-        
+
         const updateData: Prisma.CustomerUpdateInput = {};
         if (earnedPoints > 0) {
           updateData.points = { increment: earnedPoints };
@@ -201,7 +206,7 @@ export async function checkout(req: Request, res: Response) {
         data: {
           tenantId,
           userId,
-          outletId: req.user?.outletId || null,
+          outletId: req.outletId || null,
           shiftId: req.body.shiftId ?? null,
           customerId: customerId || null,
           paymentMethod: paymentMethod ?? 'CASH',
@@ -235,7 +240,8 @@ export async function checkout(req: Request, res: Response) {
               points: true,
               debtBalance: true
             }
-          }
+          },
+          outlet: true
         }
       });
 
@@ -277,7 +283,8 @@ export async function checkout(req: Request, res: Response) {
                 points: true,
                 debtBalance: true
               }
-            }
+            },
+            outlet: true
           }
         });
       } catch (midtransError: any) {
@@ -336,8 +343,8 @@ export async function getHistory(req: Request, res: Response) {
       tenantId: tenantId
     };
 
-    if (req.user?.outletId) {
-      whereClause.outletId = req.user.outletId;
+    if (req.outletId) {
+      whereClause.outletId = req.outletId;
     }
 
     const transactions = await prisma.transaction.findMany({
@@ -363,7 +370,8 @@ export async function getHistory(req: Request, res: Response) {
             name: true,
             phone: true
           }
-        }
+        },
+        outlet: true
       }
     });
 
@@ -524,7 +532,8 @@ export async function getTransactionStatus(req: Request, res: Response) {
             name: true,
             points: true
           }
-        }
+        },
+        outlet: true
       }
     });
 

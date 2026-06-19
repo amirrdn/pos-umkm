@@ -14,7 +14,7 @@ import { MutationType } from '@prisma/client';
 export async function getInventorySummary(req: Request, res: Response): Promise<Response> {
   try {
     const tenantId = req.tenantId!;
-    const data = await stockLedgerService.getInventorySummary(tenantId, req.user?.outletId);
+    const data = await stockLedgerService.getInventorySummary(tenantId, req.outletId);
     return res.status(200).json({ success: true, data });
   } catch (error: unknown) {
     console.error('[StockLedgerController.getInventorySummary]', error);
@@ -31,7 +31,7 @@ export async function getStockLedger(req: Request, res: Response): Promise<Respo
     const tenantId = req.tenantId!;
     const { productId } = req.params;
 
-    const data = await stockLedgerService.getStockLedger(tenantId, productId, req.user?.outletId);
+    const data = await stockLedgerService.getStockLedger(tenantId, productId, req.outletId);
     return res.status(200).json({ success: true, data });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Terjadi kesalahan internal server.';
@@ -67,7 +67,7 @@ export async function createStockMutation(req: Request, res: Response): Promise<
       type: type as MutationType,
       quantity,
       note,
-    }, req.user?.outletId);
+    }, req.outletId);
 
     if (result.isPendingApproval) {
       return res.status(201).json({
@@ -99,7 +99,7 @@ export async function createStockMutation(req: Request, res: Response): Promise<
 export async function getStockRequests(req: Request, res: Response): Promise<Response> {
   try {
     const tenantId = req.tenantId!;
-    const data = await stockLedgerService.listStockRequests(tenantId, req.user?.outletId);
+    const data = await stockLedgerService.listStockRequests(tenantId, req.outletId);
     return res.status(200).json({ success: true, data });
   } catch (error: unknown) {
     console.error('[StockLedgerController.getStockRequests]', error);

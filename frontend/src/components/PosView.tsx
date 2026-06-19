@@ -7,9 +7,11 @@ import { useReactToPrint } from 'react-to-print';
 import { ReceiptTemplate } from './ReceiptTemplate';
 import { ShiftModal } from './ShiftModal';
 import { CloseShiftModal } from './CloseShiftModal';
+import { OutletSwitcher } from './OutletSwitcher';
 import { useCustomerStore } from '../store/useCustomerStore';
 import { useThemeStore } from '../store/useThemeStore';
 import { API_BASE_URL } from '../config';
+import { buildApiHeaders } from '../utils/apiHeaders';
 import {
   ShoppingBag,
   Trash2,
@@ -70,11 +72,12 @@ export const PosView: React.FC = () => {
 
   const token = useAuthStore((state) => state.token);
   const user = useAuthStore((state) => state.user);
+  const activeOutletId = useAuthStore((state) => state.activeOutletId);
   const logout = useAuthStore((state) => state.logout);
   const navigate = useNavigate();
   const { theme, toggleTheme } = useThemeStore();
 
-  const { activeShift, isLoading: isShiftLoading, fetchActiveShift, openShift, closeShift: closeShiftAction, clearShift } = useShiftStore();
+  const { activeShift, isLoading: isShiftLoading, fetchActiveShift, openShift, closeShift: closeShiftAction, clearShift, error: shiftError } = useShiftStore();
   const [showCloseShiftModal, setShowCloseShiftModal] = useState<boolean>(false);
 
   const componentRef = useRef<HTMLDivElement>(null);
@@ -129,10 +132,7 @@ export const PosView: React.FC = () => {
       try {
         const response = await fetch(`${API_BASE_URL}/api/transactions/status/${invoiceNumber}`, {
           method: 'GET',
-          headers: {
-            'x-tenant-id': user?.tenantId || '',
-            'Authorization': `Bearer ${token}`
-          }
+          headers: buildApiHeaders(),
         });
 
         if (!response.ok) {
@@ -226,11 +226,7 @@ export const PosView: React.FC = () => {
       try {
         const response = await fetch(`${API_BASE_URL}/api/products`, {
           method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-            'x-tenant-id': user?.tenantId || ''
-          }
+          headers: buildApiHeaders({ 'Content-Type': 'application/json' }),
         });
 
         const data = await response.json();
@@ -267,16 +263,21 @@ export const PosView: React.FC = () => {
         setProducts(mappedProducts);
       } catch (err: any) {
         console.error('Fetch Products Error:', err);
-        showToast('error', err.message || 'Koneksi ke API produk gagal.');
+        if (!checkTokenExpiration(err)) {
+          showToast('error', err.message || 'Koneksi ke API produk gagal.');
+        }
       } finally {
         setLoadingProducts(false);
       }
     };
 
-    if (token) {
+    if (token && activeOutletId) {
       fetchProducts();
+    } else if (token && !activeOutletId) {
+      setProducts([]);
+      setLoadingProducts(false);
     }
-  }, [token, user]);
+  }, [token, activeOutletId]);
 
   const filteredProducts = products.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -360,6 +361,11 @@ Terima kasih atas kunjungan Anda!`;
       return;
     }
 
+    if (!activeOutletId) {
+      showToast('error', 'Pilih outlet aktif terlebih dahulu sebelum checkout.');
+      return;
+    }
+
     setIsSubmitting(true);
     setNotification(null);
 
@@ -378,11 +384,7 @@ Terima kasih atas kunjungan Anda!`;
     try {
       const response = await fetch(`${API_BASE_URL}/api/transactions/checkout`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-tenant-id': user?.tenantId || '',
-          'Authorization': `Bearer ${token}`
-        },
+        headers: buildApiHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(payload)
       });
 
@@ -427,7 +429,9 @@ Terima kasih atas kunjungan Anda!`;
 
     } catch (err: any) {
       console.error('Error Checkout:', err);
-      showToast('error', err.message || 'Koneksi ke server gagal. Gagal melakukan checkout.');
+      if (!checkTokenExpiration(err)) {
+        showToast('error', err.message || 'Koneksi ke server gagal. Gagal melakukan checkout.');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -439,15 +443,43 @@ Terima kasih atas kunjungan Anda!`;
     logout();
   };
 
+  const checkTokenExpiration = (err: any) => {
+    const isExpired = err.message?.toLowerCase().includes('kedaluwarsa') || 
+                      err.message?.toLowerCase().includes('expired') || 
+                      err.message?.toLowerCase().includes('authorization') || 
+                      err.message?.toLowerCase().includes('akses ditolak');
+    if (isExpired) {
+      showToast('error', 'Sesi Anda telah kedaluwarsa. Mengalihkan ke halaman login...');
+      setTimeout(() => {
+        handleLogout();
+        navigate('/login');
+      }, 2000);
+      return true;
+    }
+    return false;
+  };
+
   const handleOpenShift = async (cashStart: number) => {
     if (!token || !user?.tenantId) return;
-    await openShift(token, user.tenantId, cashStart);
+    try {
+      await openShift(token, user.tenantId, cashStart);
+    } catch (err: any) {
+      if (!checkTokenExpiration(err)) {
+        throw err;
+      }
+    }
   };
   const handleCloseShift = async (cashActual: number) => {
     if (!token || !user?.tenantId || !activeShift) return;
-    await closeShiftAction(token, user.tenantId, activeShift.id, cashActual);
-    setShowCloseShiftModal(false);
-    showToast('success', 'Shift berhasil ditutup. Sampai jumpa!');
+    try {
+      await closeShiftAction(token, user.tenantId, activeShift.id, cashActual);
+      setShowCloseShiftModal(false);
+      showToast('success', 'Shift berhasil ditutup. Sampai jumpa!');
+    } catch (err: any) {
+      if (!checkTokenExpiration(err)) {
+        showToast('error', err.message || 'Gagal menutup shift.');
+      }
+    }
   };
 
   const showToast = (type: 'success' | 'error', message: string) => {
@@ -458,10 +490,33 @@ Terima kasih atas kunjungan Anda!`;
   };
 
   useEffect(() => {
-    if (token && user?.tenantId) {
-      fetchActiveShift(token, user.tenantId);
+    if (shiftError) {
+      const isExpired = shiftError.toLowerCase().includes('kedaluwarsa') || 
+                        shiftError.toLowerCase().includes('expired') || 
+                        shiftError.toLowerCase().includes('authorization') || 
+                        shiftError.toLowerCase().includes('akses ditolak');
+      if (isExpired) {
+        showToast('error', 'Sesi Anda telah kedaluwarsa. Mengalihkan ke halaman login...');
+        setTimeout(() => {
+          handleLogout();
+          navigate('/login');
+        }, 2000);
+      }
     }
-  }, [token, user?.tenantId]);
+  }, [shiftError]);
+
+  useEffect(() => {
+    if (token && user?.tenantId && activeOutletId) {
+      fetchActiveShift(token, user.tenantId);
+    } else {
+      clearShift();
+    }
+  }, [token, user?.tenantId, activeOutletId]);
+
+  useEffect(() => {
+    clearCart();
+    setSelectedCustomer(null);
+  }, [activeOutletId]);
 
   return (
     <div className="h-screen w-screen bg-slate-50 dark:bg-slate-950 flex flex-col font-sans overflow-hidden transition-colors duration-150">
@@ -522,7 +577,7 @@ Terima kasih atas kunjungan Anda!`;
             <p className="text-xs text-indigo-600 dark:text-indigo-400 font-medium flex items-center gap-1.5 mt-0.5">
               <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
               Kasir: {user?.name || 'Operator'} ({user?.roles[0]})
-              {user?.outlet && <span className="bg-indigo-50 dark:bg-indigo-950/40 text-indigo-800 dark:text-indigo-300 px-2 py-0.5 rounded-md text-[10px] font-bold">Outlet: {user.outlet.name}</span>}
+              <OutletSwitcher />
             </p>
           </div>
         </div>

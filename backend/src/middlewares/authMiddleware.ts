@@ -9,7 +9,7 @@ interface UserPayload {
   email: string;
   roles: string[];
   permissions: string[];
-  outletId?: string | null;
+  outletIds?: string[];
 }
 
 /**
@@ -40,6 +40,8 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
 
     const decoded = jwt.verify(token, secretKey) as UserPayload;
 
+    const isGlobalAdmin = decoded.roles.some(r => ['Owner', 'Admin', 'TENANT_ADMIN', 'Manager'].includes(r));
+
     req.user = {
       id: decoded.id,
       tenantId: decoded.tenantId,
@@ -47,9 +49,17 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
       email: decoded.email,
       roles: decoded.roles,
       permissions: decoded.permissions,
-      outletId: decoded.outletId
+      outletIds: decoded.outletIds
     };
-    req.outletId = decoded.outletId;
+    req.isGlobalAdmin = isGlobalAdmin;
+
+    // Ambil outlet aktif dari header jika ada
+    const headerOutletId = req.headers['x-outlet-id'] as string;
+    if (headerOutletId && (isGlobalAdmin || (decoded.outletIds && decoded.outletIds.includes(headerOutletId)))) {
+      req.outletId = headerOutletId;
+    } else if (!isGlobalAdmin && decoded.outletIds && decoded.outletIds.length > 0) {
+      req.outletId = decoded.outletIds[0]; // fallback ke outlet pertama
+    }
 
     return next();
 

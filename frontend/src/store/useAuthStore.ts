@@ -1,7 +1,19 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-// Antarmuka untuk Data Pengguna (User)
+const GLOBAL_ADMIN_ROLES = ['Owner', 'Admin', 'TENANT_ADMIN', 'Manager'];
+
+export function isGlobalAdmin(roles: string[]): boolean {
+  return roles.some((role) => GLOBAL_ADMIN_ROLES.includes(role));
+}
+
+export interface AuthOutlet {
+  id: string;
+  name: string;
+  type?: 'MAIN' | 'BRANCH';
+  code?: string | null;
+}
+
 export interface AuthUser {
   id: string;
   name: string;
@@ -9,44 +21,72 @@ export interface AuthUser {
   roles: string[];
   permissions: string[];
   tenantId: string;
-  outletId?: string | null;
-  outlet?: { id: string; name: string } | null;
+  outletIds?: string[];
+  outlets?: AuthOutlet[];
 }
 
-// Antarmuka untuk State dan Action Otentikasi
 interface AuthState {
   token: string | null;
   user: AuthUser | null;
   isAuthenticated: boolean;
-  
-  // Actions
+  activeOutletId: string | null;
+
   login: (token: string, user: AuthUser) => void;
   logout: () => void;
+  setActiveOutlet: (outletId: string | null) => void;
+}
+
+function resolveInitialOutlet(user: AuthUser, persistedOutletId: string | null): string | null {
+  const admin = isGlobalAdmin(user.roles);
+  const allowedIds = user.outletIds ?? [];
+
+  if (persistedOutletId) {
+    if (admin) return persistedOutletId;
+    if (allowedIds.includes(persistedOutletId)) return persistedOutletId;
+  }
+
+  if (allowedIds.length > 0) return allowedIds[0];
+  if (user.outlets && user.outlets.length > 0) return user.outlets[0].id;
+
+  return null;
 }
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       token: null,
       user: null,
       isAuthenticated: false,
+      activeOutletId: null,
 
-      // Menyimpan token dan data pengguna ke dalam state (dan localStorage otomatis via persist)
-      login: (token, user) => set({
-        token,
-        user,
-        isAuthenticated: true
-      }),
+      login: (token, user) => {
+        const activeOutletId = resolveInitialOutlet(user, get().activeOutletId);
+        set({
+          token,
+          user,
+          isAuthenticated: true,
+          activeOutletId,
+        });
+      },
 
-      // Menghapus data sesi otentikasi dari state (dan localStorage)
-      logout: () => set({
-        token: null,
-        user: null,
-        isAuthenticated: false
-      })
+      logout: () =>
+        set({
+          token: null,
+          user: null,
+          isAuthenticated: false,
+          activeOutletId: null,
+        }),
+
+      setActiveOutlet: (outletId) => set({ activeOutletId: outletId }),
     }),
     {
-      name: 'pos-auth-session', // Nama key di localStorage
+      name: 'pos-auth-session',
+      partialize: (state) => ({
+        token: state.token,
+        user: state.user,
+        isAuthenticated: state.isAuthenticated,
+        activeOutletId: state.activeOutletId,
+      }),
     }
   )
 );
