@@ -1,17 +1,32 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import {
+  hasTenantWideOutletAccess,
+  isPlatformAdmin,
+  isTenantOwner,
+  hasAnyRole,
+  PLATFORM_ADMIN_ROLE,
+  TENANT_OWNER_ROLE,
+  TENANT_WIDE_OUTLET_ROLES,
+} from '../utils/roles';
+import { getAssignedOutletIds } from '../utils/outletAccess';
 
-const GLOBAL_ADMIN_ROLES = ['Owner', 'Admin', 'TENANT_ADMIN', 'Manager'];
-
-export function isGlobalAdmin(roles: string[]): boolean {
-  return roles.some((role) => GLOBAL_ADMIN_ROLES.includes(role));
-}
+export {
+  isPlatformAdmin,
+  isTenantOwner,
+  hasTenantWideOutletAccess,
+  hasAnyRole,
+  PLATFORM_ADMIN_ROLE,
+  TENANT_OWNER_ROLE,
+  TENANT_WIDE_OUTLET_ROLES,
+};
 
 export interface AuthOutlet {
   id: string;
   name: string;
   type?: 'MAIN' | 'BRANCH';
   code?: string | null;
+  isActive?: boolean;
 }
 
 export interface AuthUser {
@@ -37,16 +52,25 @@ interface AuthState {
 }
 
 function resolveInitialOutlet(user: AuthUser, persistedOutletId: string | null): string | null {
-  const admin = isGlobalAdmin(user.roles);
-  const allowedIds = user.outletIds ?? [];
+  const wideAccess = hasTenantWideOutletAccess(user.roles);
+  const allowedIds = [...getAssignedOutletIds(user)];
+  const isOperational = (outletId: string) => {
+    const outlet = user.outlets?.find((o) => o.id === outletId);
+    return outlet ? outlet.isActive !== false : true;
+  };
 
   if (persistedOutletId) {
-    if (admin) return persistedOutletId;
-    if (allowedIds.includes(persistedOutletId)) return persistedOutletId;
+    if (wideAccess && isOperational(persistedOutletId)) return persistedOutletId;
+    if (allowedIds.includes(persistedOutletId) && isOperational(persistedOutletId)) {
+      return persistedOutletId;
+    }
   }
 
-  if (allowedIds.length > 0) return allowedIds[0];
-  if (user.outlets && user.outlets.length > 0) return user.outlets[0].id;
+  const firstActiveAssigned = user.outlets?.find((o) => o.isActive !== false);
+  if (firstActiveAssigned) return firstActiveAssigned.id;
+
+  const firstActiveId = allowedIds.find((id) => isOperational(id));
+  if (firstActiveId) return firstActiveId;
 
   return null;
 }

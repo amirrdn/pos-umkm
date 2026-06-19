@@ -23,6 +23,30 @@ export async function getInventorySummary(req: Request, res: Response): Promise<
 }
 
 /**
+ * GET /api/inventory/low-stock
+ * Produk dengan stok di bawah minStock (minStock > 0).
+ */
+export async function getLowStockAlert(req: Request, res: Response): Promise<Response> {
+  try {
+    const tenantId = req.tenantId!;
+    const queryOutlet = req.query.outletId as string | undefined;
+    const outletId =
+      queryOutlet === 'ALL' || queryOutlet === ''
+        ? null
+        : queryOutlet ?? req.outletId ?? null;
+
+    const data = await stockLedgerService.getLowStockItems(tenantId, outletId);
+    return res.status(200).json({ success: true, data });
+  } catch (error: unknown) {
+    console.error('[StockLedgerController.getLowStockAlert]', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Terjadi kesalahan saat mengambil daftar stok rendah.',
+    });
+  }
+}
+
+/**
  * GET /api/inventory/:productId/ledger
  * Mengambil kartu stok (riwayat mutasi) untuk sebuah produk.
  */
@@ -79,7 +103,7 @@ export async function createStockMutation(req: Request, res: Response): Promise<
 
     return res.status(201).json({
       success: true,
-      message: `Mutasi stok berhasil dicatat. Stok baru: ${result.product.stock} unit.`,
+      message: `Mutasi stok berhasil dicatat. Stok baru: ${result.stockAfter} unit.`,
       data: result,
     });
   } catch (error: unknown) {
@@ -120,7 +144,7 @@ export async function approveRequest(req: Request, res: Response): Promise<Respo
     const data = await stockLedgerService.approveStockRequest(tenantId, id, approvedById);
     return res.status(200).json({
       success: true,
-      message: `Permintaan stok disetujui. Stok baru: ${data.product.stock} unit.`,
+      message: `Permintaan stok disetujui. Stok baru: ${data.stockAfter} unit.`,
       data
     });
   } catch (error: unknown) {

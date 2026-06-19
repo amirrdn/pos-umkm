@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
-import { useThemeStore } from '../store/useThemeStore';
 import { API_BASE_URL } from '../config';
+import { AppShellHeader } from './AppShellHeader';
+import { AppSelect } from './AppSelect';
 import {
   Plus,
   Edit,
@@ -13,13 +14,6 @@ import {
   AlertCircle,
   CheckCircle,
   FileSpreadsheet,
-  ShoppingBag,
-  BarChart2,
-  Users,
-  ArrowUpDown,
-  Sun,
-  Moon,
-  LogOut,
   Upload,
   Store
 } from 'lucide-react';
@@ -48,7 +42,6 @@ export const ProductMaster: React.FC = () => {
   const token = useAuthStore((state) => state.token);
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
-  const { theme, toggleTheme } = useThemeStore();
 
   const handleLogout = () => {
     logout();
@@ -474,127 +467,29 @@ export const ProductMaster: React.FC = () => {
             <AlertCircle className="h-5 w-5 text-rose-600 shrink-0" />
           )}
           <span className="text-sm font-medium">{notification.message}</span>
-          <button onClick={() => setNotification(null)} className="ml-2 hover:opacity-75 text-xs font-bold">✕</button>
+          <button onClick={() => setNotification(null)} className="cursor-pointer ml-2 hover:opacity-75 text-xs font-bold">✕</button>
         </div>
       )}
 
-      {/* HEADER UTAMA */}
-      <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-6 py-4 flex justify-between items-center shrink-0 shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="bg-indigo-600 p-2.5 rounded-xl text-white shadow-md shadow-indigo-200">
-            <Package className="h-6 w-6" />
-          </div>
-          <div>
-            <h1 className="text-lg font-bold text-slate-800 dark:text-slate-100 leading-tight">Master Produk</h1>
-            <p className="text-xs text-indigo-600 font-medium mt-0.5">Pengelolaan Barang & Stok</p>
-          </div>
-        </div>
-
-        {/* Menu Navigasi Global */}
-        <nav className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
-          {user?.roles.some((role) => ['Owner', 'TENANT_ADMIN', 'Manager', 'Kasir'].includes(role)) && (
-            <button
-              onClick={() => navigate('/pos')}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all"
-            >
-              <ShoppingBag className="w-3.5 h-3.5" />
-              Kasir POS
-            </button>
-          )}
-          <button
-            onClick={() => navigate('/admin/products')}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold rounded-lg bg-indigo-600 text-white shadow-sm"
-          >
-            <Package className="w-3.5 h-3.5" />
-            Produk
-          </button>
-          <button
-            onClick={() => navigate('/admin/categories')}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all"
-          >
-            <Tag className="w-3.5 h-3.5" />
-            Kategori
-          </button>
-          <button
-            onClick={() => navigate('/admin/inventory')}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all"
-          >
-            <ArrowUpDown className="w-3.5 h-3.5" />
-            Stok
-          </button>
-
-          {!user?.roles.includes('Staf Gudang') && (
-            <>
-              <button
-                onClick={() => navigate('/admin/staff')}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all"
-              >
-                <Users className="w-3.5 h-3.5" />
-                Staf
-              </button>
-              <button
-                onClick={() => navigate('/admin/customers')}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all"
-              >
-                <Users className="w-3.5 h-3.5" />
-                Pelanggan
-              </button>
-              {(user?.roles.includes('Owner') || user?.roles.includes('TENANT_ADMIN')) && (
-                <button
-                  onClick={() => navigate('/admin/outlets')}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all"
-                >
-                  <Store className="w-3.5 h-3.5" />
-                  Outlet
-                </button>
-              )}
-              <button
-                onClick={() => navigate('/admin/dashboard')}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all"
-              >
-                <BarChart2 className="w-3.5 h-3.5" />
-                Dashboard
-              </button>
-            </>
-          )}
-        </nav>
-
-        <div className="flex items-center gap-3">
-          {/* Tombol Switcher Tema (Dark / Light) */}
-          <button
-            onClick={toggleTheme}
-            type="button"
-            className="p-2.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-all duration-150 active:scale-95"
-            title={theme === 'light' ? 'Mode Gelap' : 'Mode Terang'}
-          >
-            {theme === 'light' ? (
-              <Moon className="h-4 w-4 text-slate-600" />
-            ) : (
-              <Sun className="h-4 w-4 text-amber-400" />
-            )}
-          </button>
-
-          <div className="text-right hidden sm:block">
-            <p className="text-xs font-bold text-slate-800 dark:text-slate-200">{user?.name}</p>
-            <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase">{user?.roles.join(', ') || 'Staff'}</p>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-xl transition-all duration-150"
-            title="Keluar"
-          >
-            <LogOut className="h-5 w-5" />
-          </button>
-
+      <AppShellHeader
+        title="Master Produk"
+        subtitle="Pengelolaan barang & katalog jual"
+        icon={Package}
+        accent="indigo"
+        user={user}
+        onLogout={handleLogout}
+        showOutletSwitcher={false}
+        trailingActions={
           <button
             onClick={handleOpenCreate}
-            className="bg-indigo-600 hover:bg-indigo-700 active:scale-97 text-white px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 shadow-lg shadow-indigo-150 transition-all"
+            type="button"
+            className="cursor-pointer flex items-center gap-2 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl transition-all shadow-sm shadow-indigo-500/20 active:scale-95"
           >
-            <Plus className="h-4 w-4" />
-            Tambah Produk Baru
+            <Plus className="h-4 w-4 shrink-0" />
+            <span className="hidden sm:inline">Tambah Produk</span>
           </button>
-        </div>
-      </header>
+        }
+      />
 
       {/* AREA UTAMA / DAFTAR TABEL */}
       <main className="flex-1 p-6 overflow-hidden flex flex-col bg-slate-50 dark:bg-slate-950">
@@ -610,31 +505,33 @@ export const ProductMaster: React.FC = () => {
             
             <div className="flex items-center gap-3">
               {/* Dropdown Filter Outlet untuk Owner/Manager */}
-              {(user?.roles.includes('Owner') || user?.roles.includes('TENANT_ADMIN') || user?.roles.includes('Manager')) && (
+              {(user?.roles.includes('Owner') || user?.roles.includes('Admin') || user?.roles.includes('Manager')) && (
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wide">Cabang:</span>
-                  <select
+                  <AppSelect
+                    size="sm"
                     value={filterOutletId}
-                    onChange={(e) => {
-                      const val = e.target.value;
+                    onChange={(val) => {
                       setFilterOutletId(val);
                       fetchProducts(val);
                     }}
-                    className="px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-850 dark:text-slate-100"
-                  >
-                    <option value="">Semua Outlet (Total)</option>
-                    {outlets.map((outlet) => (
-                      <option key={outlet.id} value={outlet.id}>
-                        {outlet.name} ({outlet.type === 'MAIN' ? 'Pusat' : 'Cabang'})
-                      </option>
-                    ))}
-                  </select>
+                    placeholder="Semua Outlet (Total)"
+                    searchable={outlets.length > 4}
+                    options={[
+                      { value: '', label: 'Semua Outlet (Total)' },
+                      ...outlets.map((outlet) => ({
+                        value: outlet.id,
+                        label: outlet.name,
+                        description: outlet.type === 'MAIN' ? 'Pusat' : 'Cabang',
+                      })),
+                    ]}
+                  />
                 </div>
               )}
 
               <button
                 onClick={() => fetchProducts(filterOutletId)}
-                className="p-2 text-slate-400 dark:text-slate-500 hover:text-indigo-600 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg transition-all"
+                className="cursor-pointer p-2 text-slate-400 dark:text-slate-500 hover:text-indigo-600 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg transition-all"
               >
                 <RefreshCw className="h-4 w-4" />
               </button>
@@ -719,14 +616,14 @@ export const ProductMaster: React.FC = () => {
                         <div className="flex justify-center gap-2">
                           <button
                             onClick={() => handleOpenEdit(product)}
-                            className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 rounded-lg transition-all"
+                            className="cursor-pointer p-1.5 text-slate-400 dark:text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 rounded-lg transition-all"
                             title="Edit"
                           >
                             <Edit className="h-4 w-4" />
                           </button>
                           <button
                             onClick={() => handleDelete(product.id)}
-                            className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg transition-all"
+                            className="cursor-pointer p-1.5 text-slate-400 dark:text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg transition-all"
                             title="Hapus"
                           >
                             <Trash2 className="h-4 w-4" />
@@ -763,7 +660,7 @@ export const ProductMaster: React.FC = () => {
               </h3>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 font-bold"
+                className="cursor-pointer text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 font-bold"
               >
                 ✕
               </button>
@@ -777,7 +674,7 @@ export const ProductMaster: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setActiveTab('general')}
-                    className={`pb-2 text-xs font-bold transition-all ${
+                    className={`cursor-pointer pb-2 text-xs font-bold transition-all ${
                       activeTab === 'general'
                         ? 'text-indigo-600 border-b-2 border-indigo-600 dark:text-indigo-400 dark:border-indigo-400'
                         : 'text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-400'
@@ -788,7 +685,7 @@ export const ProductMaster: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setActiveTab('outlets')}
-                    className={`pb-2 text-xs font-bold transition-all ${
+                    className={`cursor-pointer pb-2 text-xs font-bold transition-all ${
                       activeTab === 'outlets'
                         ? 'text-indigo-600 border-b-2 border-indigo-600 dark:text-indigo-400 dark:border-indigo-400'
                         : 'text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-400'
@@ -842,22 +739,18 @@ export const ProductMaster: React.FC = () => {
                     {/* Kategori */}
                     <div className="space-y-1.5">
                       <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Kategori Produk</label>
-                      <select
+                      <AppSelect
                         value={categoryId}
-                        onChange={(e) => {
-                          const newCatId = e.target.value;
+                        onChange={(newCatId) => {
                           setCategoryId(newCatId);
                           if (modalMode === 'create' && isAutoSku) {
                             fetchNextSku(newCatId);
                           }
                         }}
-                        className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white dark:focus:bg-slate-700 transition-all text-slate-800 dark:text-slate-100"
-                      >
-                        <option value="">-- Pilih Kategori --</option>
-                        {categories.map((cat) => (
-                          <option key={cat.id} value={cat.id}>{cat.name}</option>
-                        ))}
-                      </select>
+                        placeholder="-- Pilih Kategori --"
+                        searchable={categories.length > 4}
+                        options={categories.map((cat) => ({ value: cat.id, label: cat.name }))}
+                      />
                     </div>
                   </div>
 
@@ -935,7 +828,7 @@ export const ProductMaster: React.FC = () => {
                           <div className="flex-1 min-w-0">
                             <p className="text-[10px] font-bold text-amber-700 dark:text-amber-400">Stok terkunci</p>
                             <p className="text-[10px] text-amber-600/80 dark:text-amber-500/80 leading-tight">
-                              Ubah melalui <button type="button" onClick={() => { setIsModalOpen(false); navigate('/admin/inventory'); }} className="font-extrabold underline hover:no-underline">Mutasi Stok</button>
+                              Ubah melalui <button type="button" onClick={() => { setIsModalOpen(false); navigate('/admin/inventory'); }} className="cursor-pointer font-extrabold underline hover:no-underline">Mutasi Stok</button>
                             </p>
                           </div>
                         </div>
@@ -981,7 +874,7 @@ export const ProductMaster: React.FC = () => {
                                 }));
                                 setImages(newImgs);
                               }}
-                              className={`absolute bottom-1.5 left-1.5 px-2 py-0.5 rounded-lg text-[9px] font-extrabold transition-all duration-200 shadow-sm ${img.isMain
+                              className={`cursor-pointer absolute bottom-1.5 left-1.5 px-2 py-0.5 rounded-lg text-[9px] font-extrabold transition-all duration-200 shadow-sm ${img.isMain
                                   ? 'bg-indigo-600 text-white ring-2 ring-indigo-200 dark:ring-indigo-900'
                                   : 'bg-white/90 hover:bg-white dark:bg-slate-800/90 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
                                 }`}
@@ -999,7 +892,7 @@ export const ProductMaster: React.FC = () => {
                                 }
                                 setImages(newImgs);
                               }}
-                              className="absolute top-1.5 right-1.5 p-1 rounded-lg bg-rose-500 text-white opacity-0 group-hover:opacity-100 hover:bg-rose-600 transition-all duration-200 shadow-sm"
+                              className="cursor-pointer absolute top-1.5 right-1.5 p-1 rounded-lg bg-rose-500 text-white opacity-0 group-hover:opacity-100 hover:bg-rose-600 transition-all duration-200 shadow-sm"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                             </button>
@@ -1087,7 +980,7 @@ export const ProductMaster: React.FC = () => {
                                 <button
                                   type="button"
                                   onClick={() => handleSavePrice(outlet.id, customPrice)}
-                                  className="px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-[10px] font-bold rounded-lg shadow-sm transition-all"
+                                  className="cursor-pointer px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-[10px] font-bold rounded-lg shadow-sm transition-all"
                                 >
                                   Simpan
                                 </button>
@@ -1113,7 +1006,7 @@ export const ProductMaster: React.FC = () => {
                                 <button
                                   type="button"
                                   onClick={() => handleSaveMinStock(outlet.id, minStockVal)}
-                                  className="px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-[10px] font-bold rounded-lg shadow-sm transition-all"
+                                  className="cursor-pointer px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-[10px] font-bold rounded-lg shadow-sm transition-all"
                                 >
                                   Simpan
                                 </button>
@@ -1132,14 +1025,14 @@ export const ProductMaster: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 active:scale-95 transition-all"
+                  className="cursor-pointer px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 active:scale-95 transition-all"
                 >
                   {activeTab === 'outlets' ? 'Tutup' : 'Batalkan'}
                 </button>
                 {activeTab === 'general' && (
                   <button
                     type="submit"
-                    className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-xs font-bold shadow-lg shadow-indigo-100 transition-all"
+                    className="cursor-pointer px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-xs font-bold shadow-lg shadow-indigo-100 transition-all"
                   >
                     {modalMode === 'create' ? 'Tambah Produk' : 'Simpan Perubahan'}
                   </button>

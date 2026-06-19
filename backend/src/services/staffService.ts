@@ -95,7 +95,8 @@ export async function createStaff({ tenantId, name, email, password, roleId, out
         email,
         password: hashedPassword,
         isActive: true,
-        approvalStatus: 'APPROVED'
+        approvalStatus: 'APPROVED',
+        emailVerifiedAt: new Date(),
       },
     });
 

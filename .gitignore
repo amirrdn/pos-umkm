@@ -1,14 +1,16 @@
-# Spesifik Dokumen Proyek (Diminta Kasus)
+# SaaSPOS — Monorepo (backend + frontend)
+
+# --- Dokumen perencanaan lokal (tidak di-commit) ---
 product_roadmap.md
 task.md
 plan_multi_outlet.md
 
-# Dependensi Node.js / Modul
+# --- Dependencies ---
 node_modules/
 jspm_packages/
 web_modules/
 
-# Hasil Build / Output Bundel
+# --- Build output ---
 dist/
 dist-ssr/
 build/
@@ -19,9 +21,10 @@ out/
 .cache/
 .parcel-cache/
 .docusaurus/
+*.tsbuildinfo
 
-# File Log
-logs
+# --- Logs ---
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -29,18 +32,29 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-# Konfigurasi Lingkungan (Sangat Sensitif)
+# --- Environment & secrets ---
 .env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-.env*.local
+.env.*
+!.env.example
+*.pem
+*.key
+credentials.json
 
-# File Diagnostik / Crash Reports
-report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+# --- Runtime uploads (product images) ---
+backend/uploads/
 
-# Editor IDE (VS Code, WebStorm, dll)
+# --- Deployment ---
+.vercel/
+**/.vercel/
+
+# --- Test & coverage ---
+coverage/
+.nyc_output/
+
+# --- Ad-hoc local dev scripts ---
+backend/src/test-*.ts
+
+# --- Editor / IDE ---
 .vscode/
 .idea/
 *.suo
@@ -52,11 +66,14 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 .classpath
 .settings/
 
-# Berkas Sistem Operasi
+# --- Cursor tooling backups ---
+.cursor/rules/*.bak
+*.bak
+
+# --- Crash / diagnostic ---
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+# --- OS ---
 .DS_Store
 Thumbs.db
 desktop.ini
-backend/uploads/
-.vercel/
-**/.vercel/
-

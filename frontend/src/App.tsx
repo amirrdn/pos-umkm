@@ -9,12 +9,14 @@ import { CategoryMaster } from './components/CategoryMaster';
 import DashboardAdmin from './components/DashboardAdmin';
 import LandingPage from './components/LandingPage';
 import RegisterView from './components/RegisterView';
+import VerifyEmailView from './components/VerifyEmailView';
 import { TransactionHistory } from './components/TransactionHistory';
 import { StaffManagementView } from './components/StaffManagementView';
 import { InventoryView } from './components/InventoryView';
 import { CustomerManagementView } from './components/CustomerManagementView';
 import CustomerDisplay from './components/CustomerDisplay';
 import { OutletManagementView } from './components/OutletManagementView';
+import { NotificationPoller } from './components/NotificationPoller';
 
 
 /**
@@ -57,6 +59,7 @@ function App() {
 
   return (
     <BrowserRouter>
+      <NotificationPoller />
       <Routes>
         {/* Rute Utama (Landing Page jika belum login, POS jika sudah login) */}
         <Route
@@ -74,6 +77,9 @@ function App() {
           }
         />
 
+        {/* Rute Verifikasi Email */}
+        <Route path="/verify-email" element={<VerifyEmailView />} />
+
         {/* Rute Login (dialihkan ke POS jika sudah login) */}
         <Route
           path="/login"
@@ -86,7 +92,7 @@ function App() {
         <Route
           path="/pos"
           element={
-            <ProtectedRoute allowedRoles={['Owner', 'TENANT_ADMIN', 'Manager', 'Kasir']}>
+            <ProtectedRoute allowedRoles={['Owner', 'Manager', 'Admin', 'Kasir']}>
               <PosView />
             </ProtectedRoute>
           }
@@ -96,7 +102,7 @@ function App() {
         <Route
           path="/pos/history"
           element={
-            <ProtectedRoute allowedRoles={['Owner', 'TENANT_ADMIN', 'Manager', 'Kasir']}>
+            <ProtectedRoute allowedRoles={['Owner', 'Manager', 'Admin', 'Kasir']}>
               <TransactionHistory />
             </ProtectedRoute>
           }
@@ -106,7 +112,7 @@ function App() {
         <Route
           path="/admin/products"
           element={
-            <ProtectedRoute allowedRoles={['Owner', 'TENANT_ADMIN', 'Manager', 'Staf Gudang']}>
+            <ProtectedRoute allowedRoles={['Owner', 'Manager', 'Admin', 'Staf Gudang']}>
               <ProductMaster />
             </ProtectedRoute>
           }
@@ -116,7 +122,7 @@ function App() {
         <Route
           path="/admin/categories"
           element={
-            <ProtectedRoute allowedRoles={['Owner', 'TENANT_ADMIN', 'Manager', 'Staf Gudang']}>
+            <ProtectedRoute allowedRoles={['Owner', 'Manager', 'Admin', 'Staf Gudang']}>
               <CategoryMaster />
             </ProtectedRoute>
           }
@@ -126,7 +132,7 @@ function App() {
         <Route
           path="/admin/dashboard"
           element={
-            <ProtectedRoute allowedRoles={['Owner', 'TENANT_ADMIN', 'Manager']}>
+            <ProtectedRoute allowedRoles={['Owner', 'Manager', 'Admin']}>
               <DashboardAdmin />
             </ProtectedRoute>
           }
@@ -136,7 +142,7 @@ function App() {
         <Route
           path="/admin/staff"
           element={
-            <ProtectedRoute allowedRoles={['Owner', 'TENANT_ADMIN', 'Manager']}>
+            <ProtectedRoute allowedRoles={['Owner', 'Manager', 'Admin']}>
               <StaffManagementView />
             </ProtectedRoute>
           }
@@ -146,7 +152,7 @@ function App() {
         <Route
           path="/admin/inventory"
           element={
-            <ProtectedRoute allowedRoles={['Owner', 'TENANT_ADMIN', 'Manager', 'Staf Gudang']}>
+            <ProtectedRoute allowedRoles={['Owner', 'Manager', 'Admin', 'Staf Gudang']}>
               <InventoryView />
             </ProtectedRoute>
           }
@@ -156,17 +162,17 @@ function App() {
         <Route
           path="/admin/customers"
           element={
-            <ProtectedRoute allowedRoles={['Owner', 'TENANT_ADMIN', 'Manager', 'Kasir']}>
+            <ProtectedRoute allowedRoles={['Owner', 'Manager', 'Admin', 'Kasir']}>
               <CustomerManagementView />
             </ProtectedRoute>
           }
         />
 
-        {/* Rute Kelola Outlet Terproteksi (Owner, TENANT_ADMIN) */}
+        {/* Rute Kelola Outlet Terproteksi (Owner, Admin platform) */}
         <Route
           path="/admin/outlets"
           element={
-            <ProtectedRoute allowedRoles={['Owner', 'TENANT_ADMIN']}>
+            <ProtectedRoute allowedRoles={['Owner', 'Admin']}>
               <OutletManagementView />
             </ProtectedRoute>
           }

@@ -1,15 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
-import { useThemeStore } from '../store/useThemeStore';
 import { useTransferStore } from '../store/useTransferStore';
-import { useOutletStore } from '../store/useOutletStore';
+import { useOutletStore, type Outlet } from '../store/useOutletStore';
+import { useNotificationStore, canReceiveDraftTransferNotifications } from '../store/useNotificationStore';
+import { AppShellHeader } from './AppShellHeader';
+import { AppSelect, type AppSelectGroup } from './AppSelect';
 import { API_BASE_URL } from '../config';
+import { buildApiHeaders } from '../utils/apiHeaders';
+import {
+  getAssignedOutletIds,
+  isOutletAssignedToUser,
+  resolveAccessibleOutlets,
+} from '../utils/outletAccess';
 import {
   Package, ArrowUpDown, History,
   Loader2, AlertCircle, CheckCircle2, X, Info, CornerDownRight,
-  Sun, Moon, Check, Ban, ShoppingBag, Users, BarChart2, LogOut, Tag, Store,
-  Inbox, Truck, FileText, Plus, Trash2, ClipboardList
+  Check, Ban, Store,
+  Inbox, Truck, FileText, Plus, Trash2, ClipboardList, AlertTriangle
 } from 'lucide-react';
 
 interface Product {
@@ -17,6 +25,7 @@ interface Product {
   name: string;
   sku: string;
   stock: number;
+  minStock?: number;
   purchasePrice: string;
   sellingPrice: string;
   category: {
@@ -40,12 +49,27 @@ interface LedgerEntry {
   };
 }
 
+interface LowStockItem {
+  productId: string;
+  productName: string;
+  sku: string;
+  outletId: string;
+  outletName: string;
+  stock: number;
+  minStock: number;
+}
+
+function outletsForMutationType(all: Outlet[], type: string): Outlet[] {
+  if (type === 'RESTOCK') return all.filter((o) => o.type === 'MAIN');
+  return all;
+}
+
 export function InventoryView() {
   const navigate = useNavigate();
   const token = useAuthStore((state) => state.token);
+  const activeOutletId = useAuthStore((state) => state.activeOutletId);
   const currentUser = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
-  const { theme, toggleTheme } = useThemeStore();
 
   const handleLogout = () => {
     logout();
@@ -75,12 +99,15 @@ export function InventoryView() {
   const [isMutationModalOpen, setIsMutationModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [mutationForm, setMutationForm] = useState({
-    type: 'RESTOCK', // RESTOCK, ADJUSTMENT_PLUS, ADJUSTMENT_MINUS, RETURN
+    type: 'RESTOCK',
     quantity: 1,
-    note: ''
+    note: '',
+    outletId: '',
   });
   const [mutationSubmitting, setMutationSubmitting] = useState(false);
   const [mutationError, setMutationError] = useState<string | null>(null);
+  const [mutationOutletStock, setMutationOutletStock] = useState<number | null>(null);
+  const [mutationStockLoading, setMutationStockLoading] = useState(false);
 
   const [isLedgerModalOpen, setIsLedgerModalOpen] = useState(false);
   const [ledgerEntries, setLedgerEntries] = useState<LedgerEntry[]>([]);
@@ -105,6 +132,7 @@ export function InventoryView() {
 
   const {
     outlets,
+    hierarchy,
     fetchOutlets,
     fetchHierarchy
   } = useOutletStore();
@@ -126,15 +154,28 @@ export function InventoryView() {
 
   const [sourceOutletProducts, setSourceOutletProducts] = useState<Product[]>([]);
   const [sourceOutletLoading, setSourceOutletLoading] = useState(false);
+  const [lowStockItems, setLowStockItems] = useState<LowStockItem[]>([]);
+
+  const fetchLowStock = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/inventory/low-stock`, {
+        headers: buildApiHeaders(),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setLowStockItems(data.data.items ?? []);
+      }
+    } catch (err) {
+      console.error('Gagal mengambil stok rendah:', err);
+    }
+  };
 
   const fetchInventory = async () => {
     try {
       setLoading(true);
       setError(null);
       const res = await fetch(`${API_BASE_URL}/api/inventory`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        headers: buildApiHeaders(),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -224,6 +265,7 @@ export function InventoryView() {
       showSuccess(data.message || 'Permintaan mutasi stok berhasil diproses.');
       fetchStockRequests();
       fetchInventory();
+      fetchLowStock();
     } catch (err: any) {
       setError(err.message);
     }
@@ -235,14 +277,15 @@ export function InventoryView() {
       return;
     }
     fetchInventory();
+    fetchLowStock();
     fetchSettings();
     fetchOutlets();
     fetchHierarchy();
-    fetchTransfers();
-    if (currentUser?.roles.some(r => ['Owner', 'TENANT_ADMIN', 'Manager'].includes(r))) {
+    fetchTransfers().then(() => refreshDraftCount());
+    if (currentUser?.roles.some(r => ['Owner', 'Manager', 'Admin'].includes(r))) {
       fetchStockRequests();
     }
-  }, [token, currentUser]);
+  }, [token, currentUser, activeOutletId]);
 
   useEffect(() => {
     if (!isTransferModalOpen || !transferForm.fromOutletId) {
@@ -275,25 +318,156 @@ export function InventoryView() {
     fetchSourceOutletInventory();
   }, [transferForm.fromOutletId, isTransferModalOpen, token]);
 
+  useEffect(() => {
+    if (!isMutationModalOpen || !selectedProduct || !mutationForm.outletId) {
+      setMutationOutletStock(null);
+      return;
+    }
+
+    const fetchOutletStock = async () => {
+      setMutationStockLoading(true);
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/inventory/${selectedProduct.id}/ledger`, {
+          headers: buildApiHeaders({ 'x-outlet-id': mutationForm.outletId }),
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          setMutationOutletStock(data.data.product?.stock ?? 0);
+        }
+      } catch (err) {
+        console.error('Gagal mengambil stok outlet:', err);
+      } finally {
+        setMutationStockLoading(false);
+      }
+    };
+
+    fetchOutletStock();
+  }, [isMutationModalOpen, selectedProduct?.id, mutationForm.outletId]);
+
+  const allTenantOutlets = useMemo(() => {
+    if (outlets.length > 0) return outlets;
+    if (!hierarchy) return [];
+    const list: Outlet[] = [];
+    if (hierarchy.main) list.push(hierarchy.main);
+    list.push(...hierarchy.branches);
+    return list;
+  }, [outlets, hierarchy]);
+
+  const accessibleOutlets = useMemo(
+    () => resolveAccessibleOutlets(allTenantOutlets, currentUser),
+    [allTenantOutlets, currentUser]
+  );
+
+  const mutationEligibleOutlets = useMemo(
+    () => outletsForMutationType(accessibleOutlets, mutationForm.type),
+    [accessibleOutlets, mutationForm.type]
+  );
+
+  const selectedMutationOutlet = mutationEligibleOutlets.find(
+    (o) => o.id === mutationForm.outletId
+  );
+
+  const mutationOutletGroups = useMemo((): AppSelectGroup[] => {
+    const groups: AppSelectGroup[] = [];
+    const mains = mutationEligibleOutlets.filter((o) => o.type === 'MAIN');
+    const branches = mutationEligibleOutlets.filter((o) => o.type === 'BRANCH');
+    if (mains.length > 0) {
+      groups.push({
+        label: 'Outlet Utama',
+        options: mains.map((o) => ({ value: o.id, label: o.name })),
+      });
+    }
+    if (branches.length > 0) {
+      groups.push({
+        label: 'Cabang',
+        options: branches.map((o) => ({
+          value: o.id,
+          label: o.code ? `${o.name} (${o.code})` : o.name,
+        })),
+      });
+    }
+    return groups;
+  }, [mutationEligibleOutlets]);
+
+  const transferFromOutletOptions = useMemo(
+    () =>
+      outlets
+        .filter((o) => o.isActive !== false)
+        .filter(
+          (o) =>
+            currentUser?.roles.some((r) => ['Owner', 'Manager', 'Admin'].includes(r)) ||
+            isOutletAssignedToUser(currentUser, o.id)
+        )
+        .map((o) => ({ value: o.id, label: o.name, description: o.type })),
+    [outlets, currentUser]
+  );
+
+  const transferToOutletOptions = useMemo(() => {
+    const fromOutlet = outlets.find((fo) => fo.id === transferForm.fromOutletId);
+    if (!fromOutlet) return [];
+    return outlets
+      .filter((o) => o.isActive !== false)
+      .filter((o) => {
+        if (o.id === fromOutlet.id) return false;
+        return fromOutlet.type === 'MAIN' ? o.type === 'BRANCH' : o.type === 'MAIN';
+      })
+      .map((o) => ({ value: o.id, label: o.name, description: o.type }));
+  }, [outlets, transferForm.fromOutletId]);
+
+  const sourceProductSelectOptions = useMemo(
+    () =>
+      sourceOutletProducts.map((p) => ({
+        value: p.id,
+        label: p.name,
+        description: `SKU: ${p.sku} · Tersedia: ${p.stock}`,
+      })),
+    [sourceOutletProducts]
+  );
+
   const showSuccess = (msg: string) => {
     setSuccessMsg(msg);
     setTimeout(() => setSuccessMsg(null), 3000);
   };
 
   const openMutationModal = (product: Product) => {
+    const eligible = outletsForMutationType(accessibleOutlets, 'RESTOCK');
+    const defaultOutletId =
+      eligible.length === 1
+        ? eligible[0].id
+        : activeOutletId && eligible.some((o) => o.id === activeOutletId)
+          ? activeOutletId
+          : eligible[0]?.id ?? '';
+
     setSelectedProduct(product);
     setMutationForm({
       type: 'RESTOCK',
       quantity: 1,
-      note: ''
+      note: '',
+      outletId: defaultOutletId,
     });
+    setMutationOutletStock(null);
     setMutationError(null);
     setIsMutationModalOpen(true);
+  };
+
+  const handleMutationTypeChange = (type: string) => {
+    const eligible = outletsForMutationType(accessibleOutlets, type);
+    const nextOutletId = eligible.some((o) => o.id === mutationForm.outletId)
+      ? mutationForm.outletId
+      : eligible.length === 1
+        ? eligible[0].id
+        : eligible.find((o) => o.type === 'MAIN')?.id ?? eligible[0]?.id ?? '';
+
+    setMutationForm({ ...mutationForm, type, outletId: nextOutletId });
   };
 
   const handleMutationSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedProduct) return;
+    if (!mutationForm.outletId) {
+      setMutationError('Pilih outlet tujuan mutasi stok terlebih dahulu.');
+      return;
+    }
 
     try {
       setMutationSubmitting(true);
@@ -302,8 +476,8 @@ export function InventoryView() {
       const res = await fetch(`${API_BASE_URL}/api/inventory/mutate`, {
         method: 'POST',
         headers: {
+          ...buildApiHeaders({ 'x-outlet-id': mutationForm.outletId }),
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
           productId: selectedProduct.id,
@@ -320,7 +494,7 @@ export function InventoryView() {
 
       if (data.data?.isPendingApproval) {
         showSuccess(data.message || 'Permintaan mutasi stok berhasil diajukan.');
-        if (currentUser?.roles.some(r => ['Owner', 'TENANT_ADMIN', 'Manager'].includes(r))) {
+        if (currentUser?.roles.some(r => ['Owner', 'Manager', 'Admin'].includes(r))) {
           fetchStockRequests();
         }
       } else {
@@ -328,6 +502,7 @@ export function InventoryView() {
       }
       setIsMutationModalOpen(false);
       fetchInventory();
+      fetchLowStock();
     } catch (err: any) {
       setMutationError(err.message);
     } finally {
@@ -358,122 +533,26 @@ export function InventoryView() {
     }
   };
 
-  const isOwner = currentUser?.roles.includes('Owner') || currentUser?.roles.includes('TENANT_ADMIN');
-  const isOwnerOrManager = currentUser?.roles.some(r => ['Owner', 'TENANT_ADMIN', 'Manager'].includes(r));
-  const canMutate = currentUser?.roles.some(r => ['Owner', 'TENANT_ADMIN', 'Manager', 'Staf Gudang'].includes(r));
-  const draftTransfersCount = transfers.filter(tf => tf.status === 'DRAFT').length;
+  const isOwner = currentUser?.roles.includes('Owner');
+  const isOwnerOrManager = currentUser?.roles.some(r => ['Owner', 'Manager', 'Admin'].includes(r));
+  const canMutate = currentUser?.roles.some(r => ['Owner', 'Manager', 'Admin', 'Staf Gudang'].includes(r));
+  const draftTransferCount = useNotificationStore((state) => state.draftTransferCount);
+  const refreshDraftCount = useNotificationStore((state) => state.fetchDraftTransferCount);
+  const lowStockCount = lowStockItems.length;
+
+  const isBelowMinStock = (prod: Product) =>
+    (prod.minStock ?? 0) > 0 && prod.stock < (prod.minStock ?? 0);
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 flex flex-col font-sans transition-colors duration-150">
-      {/* Header Premium */}
-      <header className="sticky top-0 z-40 bg-white/95 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-6 py-4 flex items-center justify-between shadow-sm dark:shadow-none">
-        <div className="flex items-center gap-3">
-          <div className="bg-emerald-500/10 p-2.5 rounded-xl text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shadow-sm">
-            <Package className="h-6 w-6" />
-          </div>
-          <div>
-            <h1 className="text-lg font-bold text-slate-800 dark:text-slate-100 leading-tight">Kelola Stok</h1>
-            <p className="text-xs text-emerald-600 font-medium mt-0.5">Kartu Stok & Mutasi</p>
-          </div>
-        </div>
-
-        {/* Menu Navigasi Global */}
-        <nav className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
-          {currentUser?.roles.some((role) => ['Owner', 'TENANT_ADMIN', 'Manager', 'Kasir'].includes(role)) && (
-            <button
-              onClick={() => navigate('/pos')}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all"
-            >
-              <ShoppingBag className="w-3.5 h-3.5" />
-              Kasir POS
-            </button>
-          )}
-          <button
-            onClick={() => navigate('/admin/products')}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all"
-          >
-            <Package className="w-3.5 h-3.5" />
-            Produk
-          </button>
-          <button
-            onClick={() => navigate('/admin/categories')}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all"
-          >
-            <Tag className="w-3.5 h-3.5" />
-            Kategori
-          </button>
-          <button
-            onClick={() => navigate('/admin/inventory')}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold rounded-lg bg-indigo-600 text-white shadow-sm"
-          >
-            <ArrowUpDown className="w-3.5 h-3.5" />
-            Stok
-          </button>
-
-          {!currentUser?.roles.includes('Staf Gudang') && (
-            <>
-              <button
-                onClick={() => navigate('/admin/staff')}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all"
-              >
-                <Users className="w-3.5 h-3.5" />
-                Staf
-              </button>
-              <button
-                onClick={() => navigate('/admin/customers')}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all"
-              >
-                <Users className="w-3.5 h-3.5" />
-                Pelanggan
-              </button>
-              {(currentUser?.roles.includes('Owner') || currentUser?.roles.includes('TENANT_ADMIN')) && (
-                <button
-                  onClick={() => navigate('/admin/outlets')}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all"
-                >
-                  <Store className="w-3.5 h-3.5" />
-                  Outlet
-                </button>
-              )}
-              <button
-                onClick={() => navigate('/admin/dashboard')}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all"
-              >
-                <BarChart2 className="w-3.5 h-3.5" />
-                Dashboard
-              </button>
-            </>
-          )}
-        </nav>
-
-        <div className="flex items-center gap-3">
-          {/* Tombol Switcher Tema (Dark / Light) */}
-          <button
-            onClick={toggleTheme}
-            type="button"
-            className="p-2.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-all duration-150 active:scale-95"
-            title={theme === 'light' ? 'Mode Gelap' : 'Mode Terang'}
-          >
-            {theme === 'light' ? (
-              <Moon className="h-4 w-4 text-slate-600" />
-            ) : (
-              <Sun className="h-4 w-4 text-amber-400" />
-            )}
-          </button>
-
-          <div className="text-right hidden sm:block">
-            <p className="text-xs font-bold text-slate-800 dark:text-slate-200">{currentUser?.name}</p>
-            <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase">{currentUser?.roles.join(', ') || 'Staff'}</p>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-xl transition-all duration-150"
-            title="Keluar"
-          >
-            <LogOut className="h-5 w-5" />
-          </button>
-        </div>
-      </header>
+      <AppShellHeader
+        title="Kelola Stok"
+        subtitle="Kartu Stok & Mutasi"
+        icon={Package}
+        accent="emerald"
+        user={currentUser}
+        onLogout={handleLogout}
+      />
 
       {/* Main Content */}
       <main className="flex-1 p-6 max-w-7xl mx-auto w-full">
@@ -491,22 +570,42 @@ export function InventoryView() {
           </div>
         )}
 
+        {lowStockCount > 0 && activeTab === 'inventory' && (
+          <div className="mb-6 flex flex-col sm:flex-row sm:items-center gap-3 p-4 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-xl text-amber-800 dark:text-amber-200">
+            <AlertTriangle className="w-5 h-5 flex-shrink-0 text-amber-600 dark:text-amber-400" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold">
+                {lowStockCount} produk stok di bawah batas minimum
+              </p>
+              <p className="text-xs mt-0.5 opacity-90 truncate">
+                {lowStockItems.slice(0, 3).map((item) => item.productName).join(', ')}
+                {lowStockCount > 3 ? ` +${lowStockCount - 3} lainnya` : ''}
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Tab Header & Settings Toggle */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
           <div className="flex gap-2 p-1 bg-slate-100 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-800/80">
             <button
               onClick={() => setActiveTab('inventory')}
-              className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${activeTab === 'inventory'
+              className={`cursor-pointer flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-lg transition-all ${activeTab === 'inventory'
                 ? 'bg-white dark:bg-slate-800 text-indigo-650 dark:text-white shadow-sm'
                 : 'text-slate-500 hover:text-slate-950 dark:hover:text-white'
                 }`}
             >
               Overview Inventaris
+              {lowStockCount > 0 && (
+                <span className="px-1.5 py-0.5 text-[10px] bg-amber-500 text-white rounded-full font-black">
+                  {lowStockCount}
+                </span>
+              )}
             </button>
             {isOwnerOrManager && (
               <button
                 onClick={() => setActiveTab('requests')}
-                className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-lg transition-all ${activeTab === 'requests'
+                className={`cursor-pointer flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-lg transition-all ${activeTab === 'requests'
                   ? 'bg-white dark:bg-slate-800 text-indigo-650 dark:text-white shadow-sm'
                   : 'text-slate-500 hover:text-slate-950 dark:hover:text-white'
                   }`}
@@ -521,15 +620,15 @@ export function InventoryView() {
             )}
             <button
               onClick={() => setActiveTab('transfers')}
-              className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-lg transition-all ${activeTab === 'transfers'
+              className={`cursor-pointer flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-lg transition-all ${activeTab === 'transfers'
                 ? 'bg-white dark:bg-slate-800 text-indigo-650 dark:text-white shadow-sm'
                 : 'text-slate-500 hover:text-slate-950 dark:hover:text-white'
                 }`}
             >
               Transfer Stok
-              {isOwnerOrManager && draftTransfersCount > 0 && (
+              {currentUser && canReceiveDraftTransferNotifications(currentUser.roles) && draftTransferCount > 0 && (
                 <span className="px-1.5 py-0.5 text-[10px] bg-indigo-650 text-white rounded-full font-black animate-pulse">
-                  {draftTransfersCount}
+                  {draftTransferCount}
                 </span>
               )}
             </button>
@@ -586,7 +685,10 @@ export function InventoryView() {
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800/40 text-sm">
                     {products.map((prod) => {
-                      const stockStatus = prod.stock <= 5
+                      const belowMin = isBelowMinStock(prod);
+                      const stockStatus = belowMin
+                        ? 'text-rose-500 bg-rose-500/10 border-rose-500/20'
+                        : prod.stock <= 5
                         ? 'text-rose-400 bg-rose-500/10 border-rose-500/20'
                         : prod.stock <= 15
                           ? 'text-amber-400 bg-amber-500/10 border-amber-500/20'
@@ -619,7 +721,7 @@ export function InventoryView() {
                               {/* Kartu Stok */}
                               <button
                                 onClick={() => openLedgerModal(prod)}
-                                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-700 transition-all duration-150 active:scale-95"
+                                className="cursor-pointer flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-700 transition-all duration-150 active:scale-95"
                                 title="Riwayat Kartu Stok"
                               >
                                 <History className="w-3.5 h-3.5" />
@@ -630,7 +732,7 @@ export function InventoryView() {
                               {canMutate && (
                                 <button
                                   onClick={() => openMutationModal(prod)}
-                                  className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-xs font-semibold rounded-lg border border-emerald-500/20 transition-all duration-150 active:scale-95"
+                                  className="cursor-pointer flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-xs font-semibold rounded-lg border border-emerald-500/20 transition-all duration-150 active:scale-95"
                                   title="Mutasi Stok Manual"
                                 >
                                   <ArrowUpDown className="w-3.5 h-3.5" />
@@ -712,7 +814,7 @@ export function InventoryView() {
                               {/* Tombol Setujui */}
                               <button
                                 onClick={() => handleProcessRequest(req.id, 'approve')}
-                                className="flex items-center gap-1 px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold rounded-lg transition-all active:scale-95 duration-150"
+                                className="cursor-pointer flex items-center gap-1 px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold rounded-lg transition-all active:scale-95 duration-150"
                                 title="Setujui Mutasi"
                               >
                                 <Check className="w-3.5 h-3.5" />
@@ -721,7 +823,7 @@ export function InventoryView() {
                               {/* Tombol Tolak */}
                               <button
                                 onClick={() => handleProcessRequest(req.id, 'reject')}
-                                className="flex items-center gap-1 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-lg transition-all active:scale-95 duration-150"
+                                className="cursor-pointer flex items-center gap-1 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-lg transition-all active:scale-95 duration-150"
                                 title="Tolak Mutasi"
                               >
                                 <Ban className="w-3.5 h-3.5" />
@@ -759,7 +861,7 @@ export function InventoryView() {
                   setTransferFormError(null);
                   setIsTransferModalOpen(true);
                 }}
-                className="flex items-center gap-1.5 px-4 py-2.5 bg-indigo-650 hover:bg-indigo-755 text-white text-xs font-bold rounded-xl shadow-lg shadow-indigo-950/20 active:scale-95 transition-all"
+                className="cursor-pointer flex items-center gap-1.5 px-4 py-2.5 bg-indigo-650 hover:bg-indigo-755 text-white text-xs font-bold rounded-xl shadow-lg shadow-indigo-950/20 active:scale-95 transition-all"
               >
                 <Plus className="w-4 h-4" />
                 Buat Transfer Stok
@@ -803,8 +905,10 @@ export function InventoryView() {
                           CANCELLED: 'text-rose-400 bg-rose-500/10 border-rose-500/20',
                         }[tf.status];
 
-                        const userAssignedOutletIds = currentUser?.outlets?.map((o: any) => o.id) || currentUser?.outletIds || [];
-                        const isUserOwnerOrManager = currentUser?.roles.some(r => ['Owner', 'TENANT_ADMIN', 'Manager'].includes(r));
+                        const userAssignedOutletIds = currentUser
+                          ? [...getAssignedOutletIds(currentUser)]
+                          : [];
+                        const isUserOwnerOrManager = currentUser?.roles.some(r => ['Owner', 'Manager', 'Admin'].includes(r));
 
                         const canUserApprove = isUserOwnerOrManager && tf.status === 'DRAFT';
                         const canUserCancel = (isUserOwnerOrManager && (tf.status === 'DRAFT' || tf.status === 'IN_TRANSIT')) || (tf.status === 'DRAFT' && tf.requestedById === currentUser?.id);
@@ -887,13 +991,14 @@ export function InventoryView() {
                                           if (res.success) {
                                             showSuccess('Transfer stok disetujui, barang dalam perjalanan.');
                                             fetchInventory();
+                                            void refreshDraftCount();
                                           } else {
                                             setError(res.message || 'Gagal menyetujui transfer stok.');
                                           }
                                         }
                                       });
                                     }}
-                                    className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-605 hover:bg-emerald-600 text-white text-xs font-bold rounded-lg transition-all shadow active:scale-95"
+                                    className="cursor-pointer flex items-center gap-1 px-2.5 py-1.5 bg-emerald-605 hover:bg-emerald-600 text-white text-xs font-bold rounded-lg transition-all shadow active:scale-95"
                                   >
                                     <Check className="w-3.5 h-3.5" />
                                     Approve
@@ -914,13 +1019,14 @@ export function InventoryView() {
                                           if (res.success) {
                                             showSuccess('Transfer stok berhasil diselesaikan, barang diterima.');
                                             fetchInventory();
+                                            void refreshDraftCount();
                                           } else {
                                             setError(res.message || 'Gagal menyelesaikan transfer stok.');
                                           }
                                         }
                                       });
                                     }}
-                                    className="flex items-center gap-1 px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg transition-all shadow active:scale-95"
+                                    className="cursor-pointer flex items-center gap-1 px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg transition-all shadow active:scale-95"
                                   >
                                     <Inbox className="w-3.5 h-3.5" />
                                     Terima Barang
@@ -941,13 +1047,14 @@ export function InventoryView() {
                                           if (res.success) {
                                             showSuccess('Transfer stok berhasil dibatalkan.');
                                             fetchInventory();
+                                            void refreshDraftCount();
                                           } else {
                                             setError(res.message || 'Gagal membatalkan transfer stok.');
                                           }
                                         }
                                       });
                                     }}
-                                    className="flex items-center gap-1 px-2.5 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 text-xs font-bold rounded-lg border border-rose-500/20 transition-all active:scale-95"
+                                    className="cursor-pointer flex items-center gap-1 px-2.5 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 text-xs font-bold rounded-lg border border-rose-500/20 transition-all active:scale-95"
                                   >
                                     <Ban className="w-3.5 h-3.5" />
                                     Batal
@@ -974,7 +1081,7 @@ export function InventoryView() {
       {isMutationModalOpen && selectedProduct && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
-            className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm"
+            className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm cursor-pointer"
             onClick={() => !mutationSubmitting && setIsMutationModalOpen(false)}
           />
 
@@ -990,7 +1097,7 @@ export function InventoryView() {
               <button
                 onClick={() => setIsMutationModalOpen(false)}
                 disabled={mutationSubmitting}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                className="cursor-pointer text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1009,25 +1116,73 @@ export function InventoryView() {
                 {/* Info Stok Saat Ini */}
                 <div className="flex items-center gap-2.5 p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-600 dark:text-slate-400 text-xs">
                   <Info className="w-4 h-4 text-indigo-400 flex-shrink-0" />
-                  <p>Stok produk saat ini di laci penyimpanan: <span className="font-bold text-slate-800 dark:text-slate-200 font-mono">{selectedProduct.stock} unit</span>.</p>
+                  <p>
+                    Stok di{' '}
+                    <span className="font-semibold text-slate-700 dark:text-slate-300">
+                      {selectedMutationOutlet?.name ?? 'outlet terpilih'}
+                    </span>
+                    :{' '}
+                    {mutationStockLoading ? (
+                      <span className="italic">memuat...</span>
+                    ) : (
+                      <span className="font-bold text-slate-800 dark:text-slate-200 font-mono">
+                        {mutationOutletStock ?? selectedProduct.stock} unit
+                      </span>
+                    )}
+                  </p>
                 </div>
 
-                {/* Dropdown Tipe Mutasi */}
+                {/* Dropdown Tipe Mutasi — di atas outlet agar cabang muncul saat ADJUSTMENT/RETURN */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">Tipe Penyesuaian</label>
-                  <select
+                  <AppSelect
                     value={mutationForm.type}
-                    onChange={(e) => setMutationForm({ ...mutationForm, type: e.target.value })}
-                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-emerald-500 rounded-xl text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/10 transition-all duration-200"
-                  >
-                    <option value="RESTOCK">RESTOCK (+ Tambah Stok / Pasokan)</option>
-                    <option value="ADJUSTMENT_PLUS">ADJUSTMENT_PLUS (+ Penyesuaian / Temuan Barang)</option>
-                    <option value="ADJUSTMENT_MINUS">ADJUSTMENT_MINUS (- Penyesuaian / Rusak / Hilang)</option>
-                    <option value="RETURN">RETURN (+ Retur dari Pelanggan)</option>
-                  </select>
+                    onChange={handleMutationTypeChange}
+                    searchable={false}
+                    options={[
+                      { value: 'RESTOCK', label: 'RESTOCK', description: '+ Tambah Stok / Pasokan' },
+                      { value: 'ADJUSTMENT_PLUS', label: 'ADJUSTMENT_PLUS', description: '+ Penyesuaian / Temuan Barang' },
+                      { value: 'ADJUSTMENT_MINUS', label: 'ADJUSTMENT_MINUS', description: '- Penyesuaian / Rusak / Hilang' },
+                      { value: 'RETURN', label: 'RETURN', description: '+ Retur dari Pelanggan' },
+                    ]}
+                  />
+                  {mutationForm.type === 'RESTOCK' && accessibleOutlets.length > 1 && (
+                    <p className="text-[10px] text-amber-600 dark:text-amber-400 leading-snug">
+                      RESTOCK supplier hanya ke Outlet Utama. Untuk mutasi stok di cabang, pilih ADJUSTMENT atau RETURN.
+                    </p>
+                  )}
                 </div>
 
-                {/* Input Kuantitas */}
+                {/* Outlet */}
+                {mutationEligibleOutlets.length > 1 ? (
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">Outlet</label>
+                    <AppSelect
+                      value={mutationForm.outletId}
+                      onChange={(outletId) =>
+                        setMutationForm({ ...mutationForm, outletId })
+                      }
+                      placeholder="-- Pilih Outlet --"
+                      groups={mutationOutletGroups}
+                      searchable={mutationEligibleOutlets.length > 4}
+                    />
+                  </div>
+                ) : mutationEligibleOutlets.length === 1 ? (
+                  <div className="flex items-center gap-2 p-3 bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/40 rounded-xl text-xs text-indigo-800 dark:text-indigo-300">
+                    <Store className="w-4 h-4 shrink-0" />
+                    <span>
+                      Outlet: <span className="font-bold">{mutationEligibleOutlets[0].name}</span>
+                      {mutationEligibleOutlets[0].type === 'MAIN' ? ' (Pusat)' : ' (Cabang)'}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/40 rounded-xl text-xs text-amber-800 dark:text-amber-300">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    <span>Tidak ada outlet aktif yang dapat dipilih untuk mutasi ini.</span>
+                  </div>
+                )}
+
+                {/* Input Kuantitas — hapus duplikat tipe di bawah */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">Jumlah Penyesuaian (Unit)</label>
                   <input
@@ -1059,14 +1214,14 @@ export function InventoryView() {
                   type="button"
                   onClick={() => setIsMutationModalOpen(false)}
                   disabled={mutationSubmitting}
-                  className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl border border-slate-200 dark:border-slate-700 transition-all"
+                  className="cursor-pointer px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl border border-slate-200 dark:border-slate-700 transition-all"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
-                  disabled={mutationSubmitting}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-800 text-white text-sm font-semibold rounded-xl shadow-lg shadow-emerald-950/30 transition-all"
+                  disabled={mutationSubmitting || !mutationForm.outletId}
+                  className="cursor-pointer flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-800 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-xl shadow-lg shadow-emerald-950/30 transition-all"
                 >
                   {mutationSubmitting ? (
                     <>
@@ -1088,7 +1243,7 @@ export function InventoryView() {
         <div className="fixed inset-0 z-50 flex items-center justify-end">
           {/* Overlay */}
           <div
-            className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm"
+            className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm cursor-pointer"
             onClick={() => setIsLedgerModalOpen(false)}
           />
 
@@ -1105,7 +1260,7 @@ export function InventoryView() {
               </div>
               <button
                 onClick={() => setIsLedgerModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                className="cursor-pointer text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1194,7 +1349,7 @@ export function InventoryView() {
       {isTransferModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
-            className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm"
+            className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm cursor-pointer"
             onClick={() => !transferSubmitting && setIsTransferModalOpen(false)}
           />
 
@@ -1210,7 +1365,7 @@ export function InventoryView() {
               <button
                 onClick={() => setIsTransferModalOpen(false)}
                 disabled={transferSubmitting}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                className="cursor-pointer text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1261,6 +1416,7 @@ export function InventoryView() {
                     );
                     setIsTransferModalOpen(false);
                     fetchInventory();
+                    void refreshDraftCount();
                   } else {
                     setTransferFormError(res.message || 'Terjadi kesalahan saat memproses transfer.');
                   }
@@ -1282,55 +1438,32 @@ export function InventoryView() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">Outlet Asal (Pengirim)</label>
-                    <select
-                      required
+                    <AppSelect
                       value={transferForm.fromOutletId}
-                      onChange={(e) => {
+                      onChange={(fromOutletId) => {
                         setTransferForm({
                           ...transferForm,
-                          fromOutletId: e.target.value,
+                          fromOutletId,
                           toOutletId: '',
-                          items: [{ productId: '', quantity: 1 }]
+                          items: [{ productId: '', quantity: 1 }],
                         });
                       }}
-                      className="w-full px-4 py-2.5 bg-slate-555 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-indigo-550 rounded-xl text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 transition-all"
-                    >
-                      <option value="">-- Pilih Outlet Asal --</option>
-                      {outlets
-                        .filter(o => currentUser?.roles.some(r => ['Owner', 'TENANT_ADMIN', 'Manager'].includes(r)) || (currentUser?.outlets?.some((uo: any) => uo.id === o.id) || currentUser?.outletIds?.includes(o.id)))
-                        .map(o => (
-                          <option key={o.id} value={o.id}>
-                            {o.name} ({o.type})
-                          </option>
-                        ))
-                      }
-                    </select>
+                      placeholder="-- Pilih Outlet Asal --"
+                      searchable={transferFromOutletOptions.length > 4}
+                      options={transferFromOutletOptions}
+                    />
                   </div>
 
                   <div className="space-y-1.5">
                     <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">Outlet Tujuan (Penerima)</label>
-                    <select
-                      required
-                      disabled={!transferForm.fromOutletId}
+                    <AppSelect
                       value={transferForm.toOutletId}
-                      onChange={(e) => setTransferForm({ ...transferForm, toOutletId: e.target.value })}
-                      className="w-full px-4 py-2.5 bg-slate-555 dark:bg-slate-955 border border-slate-200 dark:border-slate-800 focus:border-indigo-550 rounded-xl text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 transition-all disabled:opacity-50"
-                    >
-                      <option value="">-- Pilih Outlet Tujuan --</option>
-                      {outlets
-                        .filter(o => {
-                          const fromOutlet = outlets.find(fo => fo.id === transferForm.fromOutletId);
-                          if (!fromOutlet) return false;
-                          if (o.id === fromOutlet.id) return false;
-                          return fromOutlet.type === 'MAIN' ? o.type === 'BRANCH' : o.type === 'MAIN';
-                        })
-                        .map(o => (
-                          <option key={o.id} value={o.id}>
-                            {o.name} ({o.type})
-                          </option>
-                        ))
-                      }
-                    </select>
+                      onChange={(toOutletId) => setTransferForm({ ...transferForm, toOutletId })}
+                      placeholder="-- Pilih Outlet Tujuan --"
+                      disabled={!transferForm.fromOutletId}
+                      searchable={transferToOutletOptions.length > 4}
+                      options={transferToOutletOptions}
+                    />
                   </div>
                 </div>
 
@@ -1357,7 +1490,7 @@ export function InventoryView() {
                           items: [...transferForm.items, { productId: '', quantity: 1 }]
                         });
                       }}
-                      className="flex items-center gap-1 text-xs text-indigo-500 font-bold hover:text-indigo-400 transition-colors disabled:opacity-50"
+                      className="cursor-pointer flex items-center gap-1 text-xs text-indigo-500 font-bold hover:text-indigo-400 transition-colors disabled:opacity-50"
                     >
                       <Plus className="w-3.5 h-3.5" />
                       Tambah Baris
@@ -1381,12 +1514,13 @@ export function InventoryView() {
                     return (
                       <div key={index} className="flex flex-col sm:flex-row items-start sm:items-center gap-3 bg-slate-555 dark:bg-slate-955/40 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 relative group">
                         <div className="flex-1 w-full space-y-1">
-                          <select
-                            required
+                          <AppSelect
+                            size="sm"
                             value={item.productId}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              const alreadyExists = transferForm.items.some((it, i) => it.productId === val && i !== index);
+                            onChange={(val) => {
+                              const alreadyExists = transferForm.items.some(
+                                (it, i) => it.productId === val && i !== index
+                              );
                               if (alreadyExists) {
                                 alert('Produk ini sudah dipilih di baris lain.');
                                 return;
@@ -1395,15 +1529,11 @@ export function InventoryView() {
                               cleanItems[index] = { ...cleanItems[index], productId: val };
                               setTransferForm({ ...transferForm, items: cleanItems });
                             }}
-                            className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-xs text-slate-800 dark:text-slate-100 focus:outline-none"
-                          >
-                            <option value="">-- Pilih Produk --</option>
-                            {sourceOutletProducts.map(p => (
-                              <option key={p.id} value={p.id}>
-                                {p.name} (SKU: {p.sku}) | Tersedia: {p.stock}
-                              </option>
-                            ))}
-                          </select>
+                            placeholder="-- Pilih Produk --"
+                            searchable
+                            searchPlaceholder="Cari produk..."
+                            options={sourceProductSelectOptions}
+                          />
                         </div>
 
                         <div className="w-full sm:w-32 flex items-center gap-2">
@@ -1435,7 +1565,7 @@ export function InventoryView() {
                               items: cleanItems.length === 0 ? [{ productId: '', quantity: 1 }] : cleanItems
                             });
                           }}
-                          className="p-1.5 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors absolute top-2 right-2 sm:static self-end sm:self-auto"
+                          className="cursor-pointer p-1.5 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors absolute top-2 right-2 sm:static self-end sm:self-auto"
                           title="Hapus baris"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -1451,14 +1581,14 @@ export function InventoryView() {
                   type="button"
                   onClick={() => setIsTransferModalOpen(false)}
                   disabled={transferSubmitting}
-                  className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl border border-slate-200 dark:border-slate-700 transition-all"
+                  className="cursor-pointer px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-sm font-semibold rounded-xl border border-slate-200 dark:border-slate-700 transition-all"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={transferSubmitting || !transferForm.fromOutletId || !transferForm.toOutletId}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-800 text-white text-sm font-semibold rounded-xl shadow-lg shadow-indigo-950/30 transition-all disabled:opacity-50"
+                  className="cursor-pointer flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-800 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-xl shadow-lg shadow-indigo-950/30 transition-all disabled:opacity-50"
                 >
                   {transferSubmitting ? (
                     <>
@@ -1479,7 +1609,7 @@ export function InventoryView() {
       {confirmModal.isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
-            className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm transition-opacity"
+            className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm transition-opacity cursor-pointer"
             onClick={() => !confirmLoading && setConfirmModal(prev => ({ ...prev, isOpen: false }))}
           />
 
@@ -1521,7 +1651,7 @@ export function InventoryView() {
                   type="button"
                   disabled={confirmLoading}
                   onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
-                  className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-700 transition-all disabled:opacity-50"
+                  className="cursor-pointer px-4 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-700 transition-all disabled:opacity-50"
                 >
                   {confirmModal.cancelText || 'Batal'}
                 </button>
@@ -1539,7 +1669,7 @@ export function InventoryView() {
                       setConfirmModal(prev => ({ ...prev, isOpen: false }));
                     }
                   }}
-                  className={`flex items-center gap-1.5 px-4 py-2.5 text-white text-xs font-bold rounded-xl shadow-lg transition-all active:scale-95 disabled:opacity-50 ${
+                  className={`cursor-pointer flex items-center gap-1.5 px-4 py-2.5 text-white text-xs font-bold rounded-xl shadow-lg transition-all active:scale-95 disabled:opacity-50 ${
                     confirmModal.type === 'danger' ? 'bg-rose-600 hover:bg-rose-500 shadow-rose-950/20' :
                     confirmModal.type === 'warning' ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-950/20' :
                     confirmModal.type === 'success' ? 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-950/20' :

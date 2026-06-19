@@ -1,6 +1,5 @@
-import { PrismaClient, TransferStatus, MutationType } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { TransferStatus, MutationType } from '@prisma/client';
+import { prisma } from '../lib/prisma';
 
 interface TransferItemInput {
   productId: string;
@@ -33,8 +32,8 @@ export async function createTransfer(tenantId: string, userId: string, input: Cr
     }
 
     const [fromOutlet, toOutlet] = await Promise.all([
-      tx.outlet.findFirst({ where: { id: fromOutletId, tenantId, deletedAt: null } }),
-      tx.outlet.findFirst({ where: { id: toOutletId, tenantId, deletedAt: null } })
+      tx.outlet.findFirst({ where: { id: fromOutletId, tenantId, deletedAt: null, isActive: true } }),
+      tx.outlet.findFirst({ where: { id: toOutletId, tenantId, deletedAt: null, isActive: true } })
     ]);
 
     if (!fromOutlet || !toOutlet) {
@@ -245,7 +244,7 @@ export async function completeTransfer(tenantId: string, userId: string, transfe
   }
 
   const roles = user.userRoles.map(ur => ur.role.name);
-  const isOwnerOrManager = roles.some(r => ['Owner', 'TENANT_ADMIN', 'Manager'].includes(r));
+  const isOwnerOrManager = roles.some(r => ['Owner', 'Manager', 'Admin'].includes(r));
 
   return await prisma.$transaction(async (tx) => {
     const transfer = await tx.stockTransfer.findFirst({
@@ -309,7 +308,8 @@ export async function completeTransfer(tenantId: string, userId: string, transfe
     const updatedTransfer = await tx.stockTransfer.update({
       where: { id: transferId },
       data: {
-        status: 'COMPLETED' as TransferStatus
+        status: 'COMPLETED' as TransferStatus,
+        completedAt: new Date(),
       },
       include: {
         items: {
@@ -352,7 +352,7 @@ export async function cancelTransfer(tenantId: string, userId: string, transferI
   }
 
   const roles = user.userRoles.map(ur => ur.role.name);
-  const isOwnerOrManager = roles.some(r => ['Owner', 'TENANT_ADMIN', 'Manager'].includes(r));
+  const isOwnerOrManager = roles.some(r => ['Owner', 'Manager', 'Admin'].includes(r));
 
   return await prisma.$transaction(async (tx) => {
     const transfer = await tx.stockTransfer.findFirst({

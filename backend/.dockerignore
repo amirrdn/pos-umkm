@@ -1,0 +1,28 @@
+# SaaSPOS Backend — Docker build context exclusions
+
+node_modules/
+dist/
+uploads/
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Dev & docs
+*.md
+src/test-*.ts
+.git/
+.github/
+.vscode/
+.idea/
+
+# Logs & coverage
+*.log
+logs/
+coverage/
+*.tsbuildinfo
+
+# OS
+.DS_Store
+Thumbs.db

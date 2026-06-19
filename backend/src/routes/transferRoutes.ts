@@ -21,7 +21,7 @@ router.use(tenantMiddleware);
  */
 router.post(
   '/',
-  requireRole(['Owner', 'TENANT_ADMIN', 'Manager', 'Staf Gudang']),
+  requireRole(['Owner', 'Manager', 'Admin', 'Staf Gudang']),
   createTransfer
 );
 
@@ -31,7 +31,7 @@ router.post(
  */
 router.get(
   '/',
-  requireRole(['Owner', 'TENANT_ADMIN', 'Manager', 'Staf Gudang', 'Kasir']),
+  requireRole(['Owner', 'Manager', 'Admin', 'Staf Gudang', 'Kasir']),
   listTransfers
 );
 
@@ -41,7 +41,7 @@ router.get(
  */
 router.patch(
   '/:id/approve',
-  requireRole(['Owner', 'TENANT_ADMIN', 'Manager']),
+  requireRole(['Owner', 'Manager', 'Admin']),
   approveTransfer
 );
 
@@ -51,7 +51,7 @@ router.patch(
  */
 router.patch(
   '/:id/complete',
-  requireRole(['Owner', 'TENANT_ADMIN', 'Manager', 'Staf Gudang', 'Kasir']),
+  requireRole(['Owner', 'Manager', 'Admin', 'Staf Gudang', 'Kasir']),
   completeTransfer
 );
 
@@ -61,7 +61,7 @@ router.patch(
  */
 router.patch(
   '/:id/cancel',
-  requireRole(['Owner', 'TENANT_ADMIN', 'Manager', 'Staf Gudang']),
+  requireRole(['Owner', 'Manager', 'Admin', 'Staf Gudang']),
   cancelTransfer
 );
 

@@ -19,13 +19,13 @@ export default function LandingPage() {
         <div className="flex items-center gap-4">
           <button
             onClick={() => navigate('/login')}
-            className="text-sm font-semibold text-slate-300 hover:text-white transition-all"
+            className="cursor-pointer text-sm font-semibold text-slate-300 hover:text-white transition-all"
           >
             Masuk
           </button>
           <button
             onClick={() => navigate('/register')}
-            className="px-4 py-2 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-md shadow-indigo-500/25 transition-all"
+            className="cursor-pointer px-4 py-2 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-md shadow-indigo-500/25 transition-all"
           >
             Mulai Gratis
           </button>
@@ -56,14 +56,14 @@ export default function LandingPage() {
         <div className="flex flex-col sm:flex-row items-center gap-4 justify-center">
           <button
             onClick={() => navigate('/register')}
-            className="w-full sm:w-auto px-8 py-4 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold rounded-2xl shadow-lg shadow-indigo-500/30 flex items-center justify-center gap-2 transition-all text-sm"
+            className="cursor-pointer w-full sm:w-auto px-8 py-4 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold rounded-2xl shadow-lg shadow-indigo-500/30 flex items-center justify-center gap-2 transition-all text-sm"
           >
             <span>Daftar Toko Sekarang</span>
             <ArrowRight className="w-4 h-4" />
           </button>
           <button
             onClick={() => navigate('/login')}
-            className="w-full sm:w-auto px-8 py-4 bg-slate-900 hover:bg-slate-800 border border-slate-800 active:scale-95 text-slate-200 font-bold rounded-2xl transition-all text-sm"
+            className="cursor-pointer w-full sm:w-auto px-8 py-4 bg-slate-900 hover:bg-slate-800 border border-slate-800 active:scale-95 text-slate-200 font-bold rounded-2xl transition-all text-sm"
           >
             Buka Dashboard Kasir
           </button>

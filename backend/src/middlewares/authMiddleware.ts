@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
+import { hasTenantWideOutletAccess, isPlatformAdmin } from '../lib/roles';
 
 // Definisikan struktur payload JWT yang sama dengan yang ditandatangani di AuthService
 interface UserPayload {
@@ -40,7 +41,7 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
 
     const decoded = jwt.verify(token, secretKey) as UserPayload;
 
-    const isGlobalAdmin = decoded.roles.some(r => ['Owner', 'Admin', 'TENANT_ADMIN', 'Manager'].includes(r));
+    const tenantWideAccess = hasTenantWideOutletAccess(decoded.roles);
 
     req.user = {
       id: decoded.id,
@@ -51,13 +52,14 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
       permissions: decoded.permissions,
       outletIds: decoded.outletIds
     };
-    req.isGlobalAdmin = isGlobalAdmin;
+    req.hasTenantWideOutletAccess = tenantWideAccess;
+    req.isPlatformAdmin = isPlatformAdmin(decoded.roles);
 
     // Ambil outlet aktif dari header jika ada
     const headerOutletId = req.headers['x-outlet-id'] as string;
-    if (headerOutletId && (isGlobalAdmin || (decoded.outletIds && decoded.outletIds.includes(headerOutletId)))) {
+    if (headerOutletId && (tenantWideAccess || (decoded.outletIds && decoded.outletIds.includes(headerOutletId)))) {
       req.outletId = headerOutletId;
-    } else if (!isGlobalAdmin && decoded.outletIds && decoded.outletIds.length > 0) {
+    } else if (!tenantWideAccess && decoded.outletIds && decoded.outletIds.length > 0) {
       req.outletId = decoded.outletIds[0]; // fallback ke outlet pertama
     }
 

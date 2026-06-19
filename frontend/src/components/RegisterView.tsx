@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Store, User, Mail, Lock, ArrowLeft, AlertTriangle, CheckCircle, Briefcase } from 'lucide-react';
 import { API_BASE_URL } from '../config';
+import { AppSelect } from './AppSelect';
 
 export default function RegisterView() {
   const navigate = useNavigate();
@@ -98,16 +99,23 @@ export default function RegisterView() {
       const data = await response.json();
 
       if (!response.ok) {
+        if (data.code === 'EMAIL_NOT_VERIFIED_RESENT') {
+          setSuccess(data.message || 'Email verifikasi telah dikirim ulang. Periksa kotak masuk Anda.');
+          return;
+        }
+        if (data.code === 'REGISTRATION_EMAIL_FAILED') {
+          throw new Error(data.message || 'Gagal mengirim email verifikasi. Registrasi dibatalkan — periksa konfigurasi SMTP.');
+        }
         throw new Error(data.message || 'Proses pendaftaran gagal.');
       }
 
-      setSuccess(registerType === 'owner' 
-        ? 'Pendaftaran berhasil! Akun dan toko Anda telah dibuat. Mengalihkan ke login...'
-        : 'Pendaftaran staf berhasil. Menunggu persetujuan Admin! Mengalihkan ke login...');
-      
+      setSuccess(registerType === 'owner'
+        ? `Pendaftaran berhasil! Kami telah mengirim email verifikasi ke ${email}. Buka tautan di email untuk mengaktifkan akun sebelum login.`
+        : `Pendaftaran staf berhasil! Verifikasi email di ${email} terlebih dahulu, lalu tunggu persetujuan Admin toko.`);
+
       setTimeout(() => {
         navigate('/login');
-      }, 3000);
+      }, 8000);
 
     } catch (err: any) {
       console.error(err);
@@ -130,7 +138,7 @@ export default function RegisterView() {
 
       <button
         onClick={() => navigate('/')}
-        className="absolute top-8 left-8 flex items-center gap-2 px-4 py-2.5 bg-slate-900 border border-slate-800 text-slate-300 hover:text-white rounded-xl text-xs font-bold transition-all active:scale-95 shadow-sm"
+        className="cursor-pointer absolute top-8 left-8 flex items-center gap-2 px-4 py-2.5 bg-slate-900 border border-slate-800 text-slate-300 hover:text-white rounded-xl text-xs font-bold transition-all active:scale-95 shadow-sm"
       >
         <ArrowLeft className="w-4 h-4" />
         Kembali ke Beranda
@@ -143,20 +151,20 @@ export default function RegisterView() {
             <Store className="w-6 h-6 text-white" />
           </div>
           <h2 className="text-2xl font-black tracking-tight text-white mb-2">Pendaftaran Akun</h2>
-          <p className="text-xs text-slate-400">Silakan pilih jenis pendaftaran Anda</p>
+          <p className="text-xs text-slate-400">Silakan pilih jenis pendaftaran Anda. Verifikasi email diperlukan untuk mengaktifkan akun.</p>
         </div>
 
         {/* Tab Selection */}
         <div className="flex bg-slate-950 p-1 rounded-xl mb-6 border border-slate-800">
           <button
             onClick={() => { setRegisterType('owner'); setError(null); setSuccess(null); }}
-            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold transition-all ${registerType === 'owner' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`}
+            className={`cursor-pointer flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold transition-all ${registerType === 'owner' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`}
           >
             <Store className="w-4 h-4" /> Owner / Toko Baru
           </button>
           <button
             onClick={() => { setRegisterType('staff'); setError(null); setSuccess(null); }}
-            className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold transition-all ${registerType === 'staff' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`}
+            className={`cursor-pointer flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold transition-all ${registerType === 'staff' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`}
           >
             <Briefcase className="w-4 h-4" /> Staf Outlet
           </button>
@@ -196,21 +204,18 @@ export default function RegisterView() {
           ) : (
             <div className="space-y-1.5">
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Pilih Toko / Tenant</label>
-              <div className="relative">
-                <Store className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                <select
-                  value={tenantId}
-                  onChange={(e) => setTenantId(e.target.value)}
-                  disabled={loading || !!success}
-                  className="w-full pl-10 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/50 text-white disabled:opacity-50 appearance-none"
-                  required
-                >
-                  <option value="" disabled>-- Pilih Toko --</option>
-                  {tenantsList.map(t => (
-                    <option key={t.id} value={t.id}>{t.name}</option>
-                  ))}
-                </select>
-              </div>
+              <AppSelect
+                value={tenantId}
+                onChange={setTenantId}
+                placeholder="-- Pilih Toko --"
+                disabled={loading || !!success}
+                variant="dark"
+                searchable={tenantsList.length > 4}
+                leadingIcon={<Store className="w-4 h-4" />}
+                name="tenantId"
+                required
+                options={tenantsList.map((t) => ({ value: t.id, label: t.name }))}
+              />
             </div>
           )}
 
@@ -293,7 +298,7 @@ export default function RegisterView() {
           <button
             type="submit"
             disabled={loading || !!success}
-            className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 active:scale-98 text-white font-bold rounded-xl text-xs transition-all shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-2"
+            className="cursor-pointer w-full py-4 bg-indigo-600 hover:bg-indigo-700 active:scale-98 text-white font-bold rounded-xl text-xs transition-all shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? 'Memproses Pendaftaran...' : 'Daftar Sekarang'}
           </button>
@@ -303,7 +308,7 @@ export default function RegisterView() {
           Sudah memiliki akun?{' '}
           <button
             onClick={() => navigate('/login')}
-            className="text-indigo-400 font-bold hover:text-indigo-300 transition-colors"
+            className="cursor-pointer text-indigo-400 font-bold hover:text-indigo-300 transition-colors"
           >
             Masuk Kasir
           </button>

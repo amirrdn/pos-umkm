@@ -1,26 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
-import { useThemeStore } from '../store/useThemeStore';
 import { useReactToPrint } from 'react-to-print';
 import { ReceiptTemplate } from './ReceiptTemplate';
+import { AppShellHeader } from './AppShellHeader';
 import { API_BASE_URL } from '../config';
 import {
-  ShoppingBag,
-  Package,
-  BarChart2,
   History,
   Search,
   Printer,
   X,
   RefreshCw,
-  LogOut,
   User,
   Eye,
   Calendar,
   CreditCard,
-  Sun,
-  Moon,
   MessageCircle
 } from 'lucide-react';
 
@@ -60,7 +54,6 @@ export const TransactionHistory: React.FC = () => {
   const token = useAuthStore((state) => state.token);
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
-  const { theme, toggleTheme } = useThemeStore();
 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -242,86 +235,14 @@ Terima kasih atas kunjungan Anda!`;
         <ReceiptTemplate ref={componentRef} transactionData={getReceiptData()} />
       </div>
 
-      {/* Header Utama */}
-      <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-6 py-4 flex items-center justify-between shrink-0 shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="bg-indigo-600 p-2 rounded-xl text-white shadow-md shadow-indigo-150">
-            <History className="w-5 h-5" />
-          </div>
-          <div>
-            <h1 className="text-lg font-bold text-slate-800 dark:text-slate-100 leading-tight">UMKM POS</h1>
-            <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium tracking-wide uppercase">Riwayat Transaksi</p>
-          </div>
-        </div>
-
-        {/* Menu Navigasi Global */}
-        <nav className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
-          <button
-            onClick={() => navigate('/pos')}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all"
-          >
-            <ShoppingBag className="w-3.5 h-3.5" />
-            Kasir POS
-          </button>
-          <button
-            onClick={() => navigate('/pos/history')}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-indigo-600 text-white shadow-sm"
-          >
-            <History className="w-3.5 h-3.5" />
-            Riwayat
-          </button>
-          <button
-            onClick={() => navigate('/admin/products')}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all"
-          >
-            <Package className="w-3.5 h-3.5" />
-            Master Produk
-          </button>
-          <button
-            onClick={() => navigate('/admin/dashboard')}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all"
-          >
-            <BarChart2 className="w-3.5 h-3.5" />
-            Dashboard
-          </button>
-        </nav>
-
-        {/* Informasi Akun & Logout */}
-        <div className="flex items-center gap-4">
-          {/* Tombol Switcher Tema (Dark / Light) */}
-          <button
-            onClick={toggleTheme}
-            type="button"
-            className="p-2 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-all duration-150 active:scale-95"
-            title={theme === 'light' ? 'Mode Gelap' : 'Mode Terang'}
-          >
-            {theme === 'light' ? (
-              <Moon className="h-4 w-4 text-slate-600" />
-            ) : (
-              <Sun className="h-4 w-4 text-amber-400" />
-            )}
-          </button>
-
-          <div className="flex items-center gap-2.5 bg-slate-50 dark:bg-slate-800 px-3.5 py-1.5 rounded-xl border border-slate-100 dark:border-slate-700">
-            <div className="bg-slate-200 dark:bg-slate-700 h-7 w-7 rounded-full flex items-center justify-center text-slate-600 dark:text-slate-300">
-              <User className="w-4 h-4" />
-            </div>
-            <div className="text-left">
-              <p className="text-xs font-bold text-slate-800 dark:text-slate-100 leading-none">{user?.name || 'User'}</p>
-              <p className="text-[9px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider mt-0.5">
-                {user?.roles?.[0] || 'Staff'}
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="flex items-center justify-center p-2 rounded-xl text-slate-400 dark:text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 border border-transparent hover:border-rose-100 transition-all"
-            title="Keluar"
-          >
-            <LogOut className="w-5 h-5" />
-          </button>
-        </div>
-      </header>
+      <AppShellHeader
+        title="Riwayat Transaksi"
+        subtitle="Arsip & detail transaksi penjualan"
+        icon={History}
+        accent="indigo"
+        user={user}
+        onLogout={handleLogout}
+      />
 
       {/* Konten Utama */}
       <main className="flex-1 overflow-hidden p-6 flex flex-col gap-6 bg-slate-50 dark:bg-slate-950">
@@ -341,7 +262,7 @@ Terima kasih atas kunjungan Anda!`;
           <button
             onClick={fetchHistory}
             disabled={loading}
-            className="bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-200/60 dark:hover:bg-slate-700 active:scale-95 text-slate-700 dark:text-slate-300 px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 self-end sm:self-auto"
+            className="cursor-pointer bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-200/60 dark:hover:bg-slate-700 active:scale-95 text-slate-700 dark:text-slate-300 px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 self-end sm:self-auto disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
             Segarkan Data
@@ -363,7 +284,7 @@ Terima kasih atas kunjungan Anda!`;
               <p className="text-xs font-bold text-rose-600">{error}</p>
               <button
                 onClick={fetchHistory}
-                className="bg-indigo-600 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-md"
+                className="cursor-pointer bg-indigo-600 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-md hover:bg-indigo-700"
               >
                 Coba Lagi
               </button>
@@ -420,7 +341,7 @@ Terima kasih atas kunjungan Anda!`;
                         <button
                           type="button"
                           onClick={() => setSelectedTransaction(tx)}
-                          className="inline-flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 border border-slate-200 dark:border-slate-700 hover:border-indigo-200 dark:hover:border-indigo-800 text-slate-600 dark:text-slate-300 hover:text-indigo-800 dark:hover:text-indigo-400 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all shadow-sm active:scale-97"
+                          className="cursor-pointer inline-flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 border border-slate-200 dark:border-slate-700 hover:border-indigo-200 dark:hover:border-indigo-800 text-slate-600 dark:text-slate-300 hover:text-indigo-800 dark:hover:text-indigo-400 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all shadow-sm active:scale-97"
                         >
                           <Eye className="w-3.5 h-3.5" />
                           Detail / Cetak Ulang
@@ -451,7 +372,7 @@ Terima kasih atas kunjungan Anda!`;
               </div>
               <button
                 onClick={() => setSelectedTransaction(null)}
-                className="text-slate-400 hover:text-white bg-slate-800/40 p-1.5 rounded-xl transition-all"
+                className="cursor-pointer text-slate-400 hover:text-white bg-slate-800/40 p-1.5 rounded-xl transition-all"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -584,14 +505,14 @@ Terima kasih atas kunjungan Anda!`;
               <button
                 type="button"
                 onClick={() => setSelectedTransaction(null)}
-                className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-600 active:scale-97 transition-all shadow-sm"
+                className="cursor-pointer px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-600 active:scale-97 transition-all shadow-sm"
               >
                 Tutup
               </button>
               <button
                 type="button"
                 onClick={() => handleSendWhatsApp(selectedTransaction)}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-850 dark:text-emerald-300 text-xs font-bold hover:bg-emerald-100 dark:hover:bg-emerald-900/50 active:scale-97 transition-all shadow-sm shadow-emerald-50 dark:shadow-none"
+                className="cursor-pointer flex items-center gap-2 px-5 py-2.5 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-850 dark:text-emerald-300 text-xs font-bold hover:bg-emerald-100 dark:hover:bg-emerald-900/50 active:scale-97 transition-all shadow-sm shadow-emerald-50 dark:shadow-none"
               >
                 <MessageCircle className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                 Kirim ke WA
@@ -599,7 +520,7 @@ Terima kasih atas kunjungan Anda!`;
               <button
                 type="button"
                 onClick={() => handlePrint()}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-100 active:scale-97 transition-all"
+                className="cursor-pointer flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-100 active:scale-97 transition-all"
               >
                 <Printer className="h-4 w-4" />
                 Cetak Ulang Struk

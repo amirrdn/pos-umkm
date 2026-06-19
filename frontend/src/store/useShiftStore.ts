@@ -29,6 +29,8 @@ export interface ActiveShift {
 interface ShiftStore {
   activeShift: ActiveShift | null;
   isLoading: boolean;
+  /** True setelah GET /shifts/active selesai — cegah flash ShiftModal saat refresh. */
+  hasCheckedActiveShift: boolean;
   error: string | null;
 
   // Actions
@@ -53,6 +55,7 @@ function buildHeaders(): HeadersInit {
 export const useShiftStore = create<ShiftStore>((set) => ({
   activeShift: null,
   isLoading: false,
+  hasCheckedActiveShift: false,
   error: null,
 
   /**
@@ -72,7 +75,7 @@ export const useShiftStore = create<ShiftStore>((set) => ({
       const msg = err instanceof Error ? err.message : 'Terjadi kesalahan.';
       set({ error: msg });
     } finally {
-      set({ isLoading: false });
+      set({ isLoading: false, hasCheckedActiveShift: true });
     }
   },
 
@@ -89,7 +92,7 @@ export const useShiftStore = create<ShiftStore>((set) => ({
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.message || 'Gagal membuka shift.');
-      set({ activeShift: json.data });
+      set({ activeShift: json.data, hasCheckedActiveShift: true });
       return json.data;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Terjadi kesalahan.';
@@ -127,5 +130,5 @@ export const useShiftStore = create<ShiftStore>((set) => ({
   /**
    * Membersihkan state shift (misalnya saat user logout).
    */
-  clearShift: () => set({ activeShift: null, error: null }),
+  clearShift: () => set({ activeShift: null, error: null, hasCheckedActiveShift: false }),
 }));

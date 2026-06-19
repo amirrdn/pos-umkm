@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { isPlatformAdmin } from '../lib/roles';
 
 /**
  * Middleware untuk memvalidasi apakah pengguna yang terautentikasi memiliki permission tertentu.
@@ -25,9 +26,9 @@ export function requirePermission(requiredPermission: string) {
 
       const hasPermission = req.user.permissions.includes(requiredPermission);
 
-      const isSuperAdmin = req.user.roles.includes('SUPER_ADMIN') || req.user.roles.includes('SYSTEM_ADMIN');
+      const isPlatformAdminUser = isPlatformAdmin(req.user.roles);
 
-      if (!hasPermission && !isSuperAdmin) {
+      if (!hasPermission && !isPlatformAdminUser) {
         return res.status(403).json({
           success: false,
           message: `Akses Ditolak: Anda tidak memiliki hak akses [${requiredPermission}] yang diperlukan.`

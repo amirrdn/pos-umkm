@@ -1,12 +1,10 @@
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
-
-interface CreateOutletInput {
-  name: string;
-  address?: string | null;
-  phone?: string | null;
-}
+import { OutletType, type Outlet } from '@prisma/client';
+import { prisma } from '../lib/prisma';
+import {
+  attachOutletStats,
+  fetchOutletStats,
+  findMainOutletByTenant,
+} from '../domain/outlet/outlet.repository';
 
 interface CreateBranchInput {
   name: string;
@@ -20,34 +18,28 @@ interface UpdateOutletInput {
   code?: string | null;
   address?: string | null;
   phone?: string | null;
+  isActive?: boolean;
 }
 
+type OutletWithStats = Outlet & { activeStaff: number; totalStockSKUs: number };
+
 export class OutletService {
-  /**
-   * Mengambil semua outlet aktif milik tenant tertentu.
-   */
-  async getAllOutlets(tenantId: string) {
+  /** Mengambil semua outlet milik tenant; optional filter hanya yang operasional (isActive). */
+  async getAllOutlets(tenantId: string, operationalOnly = false) {
     return prisma.outlet.findMany({
       where: {
         tenantId,
-        deletedAt: null
+        deletedAt: null,
+        ...(operationalOnly ? { isActive: true } : {}),
       },
-      orderBy: {
-        createdAt: 'asc'
-      }
+      orderBy: [{ type: 'asc' }, { createdAt: 'asc' }],
     });
   }
 
-  /**
-   * Mengambil detail outlet berdasarkan ID.
-   */
+  /** Mengambil detail outlet berdasarkan ID. */
   async getOutletById(tenantId: string, id: string) {
     const outlet = await prisma.outlet.findFirst({
-      where: {
-        id,
-        tenantId,
-        deletedAt: null
-      }
+      where: { id, tenantId, deletedAt: null },
     });
 
     if (!outlet) {
@@ -57,189 +49,82 @@ export class OutletService {
     return outlet;
   }
 
+  /** Mengambil outlet utama (MAIN) tenant — alias kontrak GET /api/outlets/main. */
+  async getMainOutlet(tenantId: string) {
+    const outlet = await findMainOutletByTenant(tenantId);
+
+    if (!outlet) {
+      throw new Error('Outlet utama (pusat) tidak ditemukan untuk tenant ini.');
+    }
+
+    return outlet;
+  }
+
   /**
-   * Mengambil hierarki outlet (MAIN + BRANCH) beserta statistiknya.
+   * Mengambil hierarki outlet (MAIN + BRANCH) beserta statistik.
+   * Statistik: 2× groupBy paralel, bukan N+1 per outlet.
    */
   async getOutletHierarchy(tenantId: string) {
-    const mainOutlet = await prisma.outlet.findFirst({
-      where: {
-        tenantId,
-        type: 'MAIN',
-        deletedAt: null
-      }
-    });
+    const [mainOutlet, branches] = await Promise.all([
+      findMainOutletByTenant(tenantId),
+      prisma.outlet.findMany({
+        where: { tenantId, type: OutletType.BRANCH, deletedAt: null },
+        orderBy: { createdAt: 'asc' },
+      }),
+    ]);
 
-    const branches = await prisma.outlet.findMany({
-      where: {
-        tenantId,
-        type: 'BRANCH',
-        deletedAt: null
-      },
-      orderBy: {
-        createdAt: 'asc'
-      }
-    });
+    const outletIds = [mainOutlet?.id, ...branches.map((b) => b.id)].filter(
+      (id): id is string => Boolean(id)
+    );
 
-    const mapStats = async (outlet: any) => {
-      if (!outlet) return null;
+    const { staffByOutlet, stockSkuByOutlet } = await fetchOutletStats(outletIds);
 
-      const activeStaff = await prisma.userOutlet.count({
-        where: {
-          outletId: outlet.id,
-          user: {
-            deletedAt: null,
-            approvalStatus: 'APPROVED'
-          }
-        }
-      });
-
-      const totalStockSKUs = await prisma.outletStock.count({
-        where: {
-          outletId: outlet.id,
-          product: {
-            deletedAt: null
-          }
-        }
-      });
-
-      return {
-        ...outlet,
-        activeStaff,
-        totalStockSKUs
-      };
-    };
-
-    const mainWithStats = mainOutlet ? await mapStats(mainOutlet) : null;
-    const branchesWithStats = await Promise.all(branches.map((b) => mapStats(b)));
+    const withStats = (list: Outlet[]) =>
+      attachOutletStats(list, staffByOutlet, stockSkuByOutlet);
 
     return {
-      main: mainWithStats,
-      branches: branchesWithStats
-    };
+      main: mainOutlet ? withStats([mainOutlet])[0] : null,
+      branches: withStats(branches),
+    } satisfies { main: OutletWithStats | null; branches: OutletWithStats[] };
   }
 
-  /**
-   * Membuat outlet baru (biasanya diakses via internal/legacy).
-   */
-  async createOutlet(tenantId: string, data: CreateOutletInput) {
-    return prisma.$transaction(async (tx) => {
-      const outlet = await tx.outlet.create({
-        data: {
-          tenantId,
-          name: data.name,
-          address: data.address || null,
-          phone: data.phone || null
-        }
-      });
-
-      const products = await tx.product.findMany({
-        where: {
-          tenantId,
-          deletedAt: null
-        }
-      });
-
-      if (products.length > 0) {
-        await tx.outletStock.createMany({
-          data: products.map((product) => ({
-            tenantId,
-            outletId: outlet.id,
-            productId: product.id,
-            stock: 0
-          }))
-        });
-      }
-
-      return outlet;
-    });
-  }
-
-  /**
-   * Membuat cabang (BRANCH) baru di bawah Outlet Utama (MAIN).
-   */
+  /** Membuat cabang (BRANCH) baru di bawah Outlet Utama (MAIN). */
   async createBranch(tenantId: string, data: CreateBranchInput) {
-    const mainOutlet = await prisma.outlet.findFirst({
-      where: {
-        tenantId,
-        type: 'MAIN',
-        deletedAt: null
-      }
-    });
+    const mainOutlet = await findMainOutletByTenant(tenantId);
 
     if (!mainOutlet) {
       throw new Error('Outlet utama (pusat) tidak ditemukan. Harap hubungi administrator.');
     }
 
-    let code = data.code?.trim() || null;
-    if (!code) {
-      const count = await prisma.outlet.count({
-        where: {
-          tenantId,
-          type: 'BRANCH',
-          deletedAt: null
-        }
-      });
-      code = `CBG-${String(count + 1).padStart(2, '0')}`;
-    }
-
-    // Pastikan kode unik per tenant
-    const existingCode = await prisma.outlet.findFirst({
-      where: {
-        tenantId,
-        code,
-        deletedAt: null
-      }
-    });
-
-    if (existingCode) {
-      let suffix = 1;
-      let safeCode = code;
-      let check = true;
-      while (check) {
-        safeCode = `${code}-${suffix}`;
-        const conflict = await prisma.outlet.findFirst({
-          where: { tenantId, code: safeCode, deletedAt: null }
-        });
-        if (!conflict) {
-          check = false;
-        } else {
-          suffix++;
-        }
-      }
-      code = safeCode;
-    }
+    const code = await this.resolveUniqueBranchCode(tenantId, data.code?.trim() || null);
 
     return prisma.$transaction(async (tx) => {
-      // 1. Buat outlet cabang baru
       const outlet = await tx.outlet.create({
         data: {
           tenantId,
-          type: 'BRANCH',
+          type: OutletType.BRANCH,
           parentOutletId: mainOutlet.id,
           name: data.name,
           code,
           address: data.address || null,
-          phone: data.phone || null
-        }
+          phone: data.phone || null,
+        },
       });
 
-      // 2. Ambil seluruh produk aktif milik tenant
       const products = await tx.product.findMany({
-        where: {
-          tenantId,
-          deletedAt: null
-        }
+        where: { tenantId, deletedAt: null },
+        select: { id: true },
       });
 
-      // 3. Buat entri stok awal 0 di tabel OutletStock untuk setiap produk
       if (products.length > 0) {
         await tx.outletStock.createMany({
           data: products.map((product) => ({
             tenantId,
             outletId: outlet.id,
             productId: product.id,
-            stock: 0
-          }))
+            stock: 0,
+          })),
+          skipDuplicates: true,
         });
       }
 
@@ -247,81 +132,128 @@ export class OutletService {
     });
   }
 
-  /**
-   * Memperbarui informasi data outlet.
-   */
+  /** Memperbarui profil outlet MAIN — alias kontrak PUT /api/outlets/main (1× lookup). */
+  async updateMainOutlet(tenantId: string, data: UpdateOutletInput) {
+    const main = await this.getMainOutlet(tenantId);
+    return this.applyOutletUpdate(main, tenantId, data);
+  }
+
+  /** Memperbarui informasi data outlet. */
   async updateOutlet(tenantId: string, id: string, data: UpdateOutletInput) {
     const outlet = await prisma.outlet.findFirst({
-      where: {
-        id,
-        tenantId,
-        deletedAt: null
-      }
+      where: { id, tenantId, deletedAt: null },
     });
 
     if (!outlet) {
       throw new Error('Outlet tidak ditemukan atau Anda tidak memiliki akses.');
     }
 
+    return this.applyOutletUpdate(outlet, tenantId, data);
+  }
+
+  private async applyOutletUpdate(
+    outlet: Outlet,
+    tenantId: string,
+    data: UpdateOutletInput
+  ) {
     if (data.code && data.code !== outlet.code) {
       const codeConflict = await prisma.outlet.findFirst({
         where: {
           tenantId,
           code: data.code,
           deletedAt: null,
-          id: { not: id }
-        }
+          id: { not: outlet.id },
+        },
+        select: { id: true },
       });
       if (codeConflict) {
         throw new Error('Kode outlet tersebut sudah digunakan oleh outlet lain.');
       }
     }
 
+    if (data.isActive !== undefined) {
+      if (outlet.type === OutletType.MAIN) {
+        throw new Error('Outlet utama (pusat) tidak dapat dinonaktifkan.');
+      }
+      if (data.isActive === false) {
+        const openShift = await prisma.shift.findFirst({
+          where: { outletId: outlet.id, status: 'OPEN' },
+          select: { id: true },
+        });
+        if (openShift) {
+          throw new Error(
+            'Tidak dapat menonaktifkan cabang karena masih ada shift kasir yang aktif (OPEN).'
+          );
+        }
+      }
+    }
+
     return prisma.outlet.update({
-      where: { id },
+      where: { id: outlet.id },
       data: {
-        name: data.name !== undefined ? data.name : outlet.name,
+        name: data.name ?? outlet.name,
         code: data.code !== undefined ? data.code : outlet.code,
         address: data.address !== undefined ? data.address : outlet.address,
-        phone: data.phone !== undefined ? data.phone : outlet.phone
-      }
+        phone: data.phone !== undefined ? data.phone : outlet.phone,
+        ...(data.isActive !== undefined ? { isActive: data.isActive } : {}),
+      },
     });
   }
 
-  /**
-   * Menghapus outlet secara halus (Soft Delete) dengan validasi tipe dan shift aktif.
-   */
+  /** Menghapus outlet secara halus dengan validasi tipe MAIN dan shift aktif. */
   async deleteOutlet(tenantId: string, id: string) {
     const outlet = await prisma.outlet.findFirst({
-      where: {
-        id,
-        tenantId,
-        deletedAt: null
-      }
+      where: { id, tenantId, deletedAt: null },
+      select: { id: true, type: true },
     });
 
     if (!outlet) {
       throw new Error('Outlet tidak ditemukan atau Anda tidak memiliki hak akses menghapusnya.');
     }
 
-    if (outlet.type === 'MAIN') {
+    if (outlet.type === OutletType.MAIN) {
       throw new Error('Outlet utama (pusat) tidak dapat dihapus.');
     }
 
     const openShift = await prisma.shift.findFirst({
-      where: {
-        outletId: id,
-        status: 'OPEN'
-      }
+      where: { outletId: id, status: 'OPEN' },
+      select: { id: true },
     });
 
     if (openShift) {
-      throw new Error('Tidak dapat menghapus outlet karena masih ada shift kasir yang aktif (OPEN).');
+      throw new Error(
+        'Tidak dapat menghapus outlet karena masih ada shift kasir yang aktif (OPEN).'
+      );
     }
 
     return prisma.outlet.update({
       where: { id },
-      data: { deletedAt: new Date() }
+      data: { deletedAt: new Date() },
     });
+  }
+
+  /** Generate kode cabang unik per tenant; auto CBG-XX jika kosong. */
+  private async resolveUniqueBranchCode(
+    tenantId: string,
+    requestedCode: string | null
+  ): Promise<string> {
+    let code =
+      requestedCode ||
+      `CBG-${String(
+        (await prisma.outlet.count({
+          where: { tenantId, type: OutletType.BRANCH, deletedAt: null },
+        })) + 1
+      ).padStart(2, '0')}`;
+
+    let suffix = 0;
+    while (true) {
+      const candidate = suffix === 0 ? code : `${code}-${suffix}`;
+      const exists = await prisma.outlet.findFirst({
+        where: { tenantId, code: candidate, deletedAt: null },
+        select: { id: true },
+      });
+      if (!exists) return candidate;
+      suffix += 1;
+    }
   }
 }

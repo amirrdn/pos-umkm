@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
-import { useThemeStore } from '../store/useThemeStore';
 import { useCustomerStore, type Customer } from '../store/useCustomerStore';
+import { AppShellHeader } from './AppShellHeader';
 import {
   Plus,
   Edit,
@@ -10,28 +10,16 @@ import {
   RefreshCw,
   Search,
   Users,
-  Coffee,
-  ShoppingBag,
-  History,
-  Package,
-  ArrowUpDown,
-  BarChart2,
-  LogOut,
   AlertCircle,
   CheckCircle,
-  Sun,
-  Moon,
-  Tag,
   DollarSign,
   CreditCard,
-  Store
 } from 'lucide-react';
 
 export const CustomerManagementView: React.FC = () => {
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
-  const { theme, toggleTheme } = useThemeStore();
 
   const { customers, fetchCustomers, createCustomer, updateCustomer, deleteCustomer, loading, error } = useCustomerStore();
 
@@ -188,127 +176,25 @@ export const CustomerManagementView: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 flex flex-col font-sans transition-colors duration-150">
 
-      {/* HEADER NAVIGASI BAR */}
-      <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-40 px-6 py-4 flex items-center justify-between shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="bg-indigo-600 p-2 rounded-xl text-white shadow-md shadow-indigo-150">
-            <Coffee className="h-5 w-5" />
-          </div>
-          <div>
-            <h1 className="text-sm font-black text-slate-800 dark:text-slate-100 tracking-wide uppercase">SaaSPOS</h1>
-            <p className="text-[10px] text-slate-400 dark:text-slate-550 font-bold tracking-wider uppercase">UMKM Platform</p>
-          </div>
-        </div>
-
-        {/* Menu Navigasi Admin / Kasir */}
-        <nav className="hidden lg:flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+      <AppShellHeader
+        title="Kelola Pelanggan"
+        subtitle="Database membership & poin loyalitas"
+        icon={Users}
+        accent="indigo"
+        user={user}
+        onLogout={handleLogout}
+        showOutletSwitcher={false}
+        trailingActions={
           <button
-            onClick={() => navigate('/pos')}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all duration-150"
-          >
-            <ShoppingBag className="w-3.5 h-3.5" />
-            Kasir POS
-          </button>
-          <button
-            onClick={() => navigate('/pos/history')}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all duration-150"
-          >
-            <History className="w-3.5 h-3.5" />
-            Riwayat
-          </button>
-
-          {/* Menu Khusus Owner / Admin */}
-          {(user?.roles.includes('Owner') || user?.roles.includes('TENANT_ADMIN') || user?.roles.includes('Manager') || user?.roles.includes('Staf Gudang')) && (
-            <>
-              <button
-                onClick={() => navigate('/admin/products')}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all duration-150"
-              >
-                <Package className="w-3.5 h-3.5" />
-                Produk
-              </button>
-              <button
-                onClick={() => navigate('/admin/categories')}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all duration-150"
-              >
-                <Tag className="w-3.5 h-3.5" />
-                Kategori
-              </button>
-              <button
-                onClick={() => navigate('/admin/inventory')}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all duration-150"
-              >
-                <ArrowUpDown className="w-3.5 h-3.5" />
-                Stok
-              </button>
-
-              {!user?.roles.includes('Staf Gudang') && (
-                <>
-                  <button
-                    onClick={() => navigate('/admin/staff')}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all duration-150"
-                  >
-                    <Users className="w-3.5 h-3.5" />
-                    Staf
-                  </button>
-                  <button
-                    onClick={() => navigate('/admin/customers')}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-indigo-600 text-white shadow-sm transition-all duration-150"
-                  >
-                    <Users className="w-3.5 h-3.5" />
-                    Pelanggan
-                  </button>
-                  {(user?.roles.includes('Owner') || user?.roles.includes('TENANT_ADMIN')) && (
-                    <button
-                      onClick={() => navigate('/admin/outlets')}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all duration-150"
-                    >
-                      <Store className="w-3.5 h-3.5" />
-                      Outlet
-                    </button>
-                  )}
-                  <button
-                    onClick={() => navigate('/admin/dashboard')}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all duration-150"
-                  >
-                    <BarChart2 className="w-3.5 h-3.5" />
-                    Dashboard
-                  </button>
-                </>
-              )}
-            </>
-          )}
-        </nav>
-
-        {/* Profil Kasir & Logout */}
-        <div className="flex items-center gap-3">
-          {/* Tombol Switcher Tema (Dark / Light) */}
-          <button
-            onClick={toggleTheme}
+            onClick={openCreateModal}
             type="button"
-            className="p-2 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-all duration-150 active:scale-95"
-            title={theme === 'light' ? 'Mode Gelap' : 'Mode Terang'}
+            className="cursor-pointer flex items-center gap-2 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl transition-all shadow-sm shadow-indigo-500/20 active:scale-95"
           >
-            {theme === 'light' ? (
-              <Moon className="h-4 w-4 text-slate-600" />
-            ) : (
-              <Sun className="h-4 w-4 text-amber-400" />
-            )}
+            <Plus className="w-4 h-4 shrink-0" />
+            <span className="hidden sm:inline">Tambah Pelanggan</span>
           </button>
-
-          <div className="text-right hidden sm:block">
-            <p className="text-xs font-bold text-slate-800 dark:text-slate-200">{user?.name}</p>
-            <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase">{user?.roles.join(', ') || 'Staff'}</p>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all duration-150"
-            title="Keluar"
-          >
-            <LogOut className="h-5 w-5" />
-          </button>
-        </div>
-      </header>
+        }
+      />
 
       {/* POPUP NOTIFIKASI */}
       {notification && (
@@ -323,21 +209,6 @@ export const CustomerManagementView: React.FC = () => {
 
       {/* KONTEN UTAMA */}
       <main className="flex-1 p-6 md:p-8 max-w-7xl w-full mx-auto space-y-6">
-
-        {/* Header Halaman */}
-        <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
-          <div>
-            <h2 className="text-xl font-extrabold text-slate-800 dark:text-slate-100 tracking-tight">Database Pelanggan</h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Kelola data keanggotaan dan kumpulkan poin loyalitas membership pelanggan.</p>
-          </div>
-          <button
-            onClick={openCreateModal}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4.5 py-3 rounded-xl flex items-center justify-center gap-1.5 shadow-md shadow-indigo-150 transition-all active:scale-97"
-          >
-            <Plus className="h-4 w-4" />
-            Tambah Pelanggan
-          </button>
-        </div>
 
         {/* Pencarian dan Filter */}
         <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -354,7 +225,7 @@ export const CustomerManagementView: React.FC = () => {
             </div>
             <button
               type="submit"
-              className="bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-colors"
+              className="cursor-pointer bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-colors"
             >
               Cari
             </button>
@@ -365,7 +236,7 @@ export const CustomerManagementView: React.FC = () => {
                   setSearchQuery('');
                   fetchCustomers('');
                 }}
-                className="text-xs font-bold text-slate-500 hover:text-slate-700 px-2"
+                className="cursor-pointer text-xs font-bold text-slate-500 hover:text-slate-700 px-2"
               >
                 Reset
               </button>
@@ -374,7 +245,7 @@ export const CustomerManagementView: React.FC = () => {
 
           <button
             onClick={() => fetchCustomers(searchQuery)}
-            className="text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 p-2 text-xs font-bold rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors flex items-center justify-center gap-1.5 self-start md:self-auto"
+            className="cursor-pointer text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 p-2 text-xs font-bold rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors flex items-center justify-center gap-1.5 self-start md:self-auto"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
             Perbarui
@@ -446,7 +317,7 @@ export const CustomerManagementView: React.FC = () => {
                           {Number(cust.debtBalance) > 0 && (
                             <button
                               onClick={() => openRepayModal(cust)}
-                              className="px-2.5 py-1 text-[10px] font-extrabold bg-rose-50 hover:bg-rose-105 text-rose-700 hover:text-rose-800 dark:bg-rose-950/30 dark:hover:bg-rose-900/40 dark:text-rose-350 dark:hover:text-rose-200 rounded-lg transition-colors flex items-center gap-1"
+                              className="cursor-pointer px-2.5 py-1 text-[10px] font-extrabold bg-rose-50 hover:bg-rose-105 text-rose-700 hover:text-rose-800 dark:bg-rose-950/30 dark:hover:bg-rose-900/40 dark:text-rose-350 dark:hover:text-rose-200 rounded-lg transition-colors flex items-center gap-1"
                               title="Bayar Cicilan Hutang"
                             >
                               <DollarSign className="h-3 w-3" />
@@ -455,14 +326,14 @@ export const CustomerManagementView: React.FC = () => {
                           )}
                           <button
                             onClick={() => openEditModal(cust)}
-                            className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 rounded-lg transition-colors"
+                            className="cursor-pointer p-1.5 text-slate-400 dark:text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 rounded-lg transition-colors"
                             title="Edit Pelanggan"
                           >
                             <Edit className="h-4 w-4" />
                           </button>
                           <button
                             onClick={() => handleDelete(cust.id, cust.name)}
-                            className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg transition-colors"
+                            className="cursor-pointer p-1.5 text-slate-400 dark:text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg transition-colors"
                             title="Hapus Pelanggan"
                           >
                             <Trash2 className="h-4 w-4" />
@@ -489,7 +360,7 @@ export const CustomerManagementView: React.FC = () => {
               </h3>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="text-slate-400 hover:text-slate-650 text-xs font-bold"
+                className="cursor-pointer text-slate-400 hover:text-slate-650 text-xs font-bold"
               >
                 Tutup
               </button>
@@ -534,14 +405,14 @@ export const CustomerManagementView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="flex-1 py-2.5 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-500 dark:text-slate-400 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                  className="cursor-pointer flex-1 py-2.5 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-500 dark:text-slate-400 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="flex-1 py-2.5 bg-indigo-600 text-white text-xs font-bold rounded-xl hover:bg-indigo-700 shadow-md shadow-indigo-150 transition-all flex items-center justify-center"
+                  className="cursor-pointer flex-1 py-2.5 bg-indigo-600 text-white text-xs font-bold rounded-xl hover:bg-indigo-700 shadow-md shadow-indigo-150 transition-all flex items-center justify-center"
                 >
                   {isSubmitting ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : modalMode === 'create' ? 'Simpan' : 'Perbarui'}
                 </button>
@@ -566,7 +437,7 @@ export const CustomerManagementView: React.FC = () => {
                   setIsRepayModalOpen(false);
                   setRepayCustomer(null);
                 }}
-                className="text-slate-400 hover:text-slate-650 text-xs font-bold"
+                className="cursor-pointer text-slate-400 hover:text-slate-650 text-xs font-bold"
               >
                 Tutup
               </button>
@@ -590,7 +461,7 @@ export const CustomerManagementView: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setRepayMethod('CASH')}
-                    className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl border text-xs font-bold transition-all ${repayMethod === 'CASH'
+                    className={`cursor-pointer flex items-center justify-center gap-1.5 py-2.5 rounded-xl border text-xs font-bold transition-all ${repayMethod === 'CASH'
                         ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
                         : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-350 hover:bg-slate-100'
                       }`}
@@ -601,7 +472,7 @@ export const CustomerManagementView: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setRepayMethod('QRIS')}
-                    className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl border text-xs font-bold transition-all ${repayMethod === 'QRIS'
+                    className={`cursor-pointer flex items-center justify-center gap-1.5 py-2.5 rounded-xl border text-xs font-bold transition-all ${repayMethod === 'QRIS'
                         ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
                         : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-350 hover:bg-slate-100'
                       }`}
@@ -618,7 +489,7 @@ export const CustomerManagementView: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setRepayAmount(Number(repayCustomer.debtBalance))}
-                    className="text-[9px] font-black text-indigo-600 dark:text-indigo-400 hover:underline uppercase tracking-wide"
+                    className="cursor-pointer text-[9px] font-black text-indigo-600 dark:text-indigo-400 hover:underline uppercase tracking-wide"
                   >
                     Bayar Lunas
                   </button>
@@ -659,14 +530,14 @@ export const CustomerManagementView: React.FC = () => {
                     setIsRepayModalOpen(false);
                     setRepayCustomer(null);
                   }}
-                  className="flex-1 py-2.5 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-500 dark:text-slate-400 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                  className="cursor-pointer flex-1 py-2.5 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-500 dark:text-slate-400 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={isRepaying}
-                  className="flex-1 py-2.5 bg-rose-600 text-white text-xs font-bold rounded-xl hover:bg-rose-700 shadow-md shadow-rose-150 transition-all flex items-center justify-center"
+                  className="cursor-pointer flex-1 py-2.5 bg-rose-600 text-white text-xs font-bold rounded-xl hover:bg-rose-700 shadow-md shadow-rose-150 transition-all flex items-center justify-center"
                 >
                   {isRepaying ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : 'Catat Pembayaran'}
                 </button>

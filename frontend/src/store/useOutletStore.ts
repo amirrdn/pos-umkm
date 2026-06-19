@@ -11,6 +11,7 @@ export interface Outlet {
   code: string | null;
   address: string | null;
   phone: string | null;
+  isActive?: boolean;
   createdAt: string;
   updatedAt: string;
   activeStaff?: number;
@@ -24,9 +25,8 @@ interface OutletState {
   error: string | null;
   fetchOutlets: () => Promise<void>;
   fetchHierarchy: () => Promise<void>;
-  createOutlet: (data: { name: string; address?: string | null; phone?: string | null }) => Promise<{ success: boolean; data?: Outlet; message?: string }>;
   createBranch: (data: { name: string; code?: string | null; address?: string | null; phone?: string | null }) => Promise<{ success: boolean; data?: Outlet; message?: string }>;
-  updateOutlet: (id: string, data: { name?: string; code?: string | null; address?: string | null; phone?: string | null }) => Promise<{ success: boolean; data?: Outlet; message?: string }>;
+  updateOutlet: (id: string, data: { name?: string; code?: string | null; address?: string | null; phone?: string | null; isActive?: boolean }) => Promise<{ success: boolean; data?: Outlet; message?: string }>;
   deleteOutlet: (id: string) => Promise<{ success: boolean; message?: string }>;
 }
 
@@ -85,43 +85,6 @@ export const useOutletStore = create<OutletState>((set, get) => ({
     } catch (err: any) {
       console.error(err);
       set({ error: err.message || 'Terjadi kesalahan.', loading: false });
-    }
-  },
-
-  createOutlet: async (data) => {
-    const { token, user } = useAuthStore.getState();
-    if (!token || !user) return { success: false, message: 'Tidak diotorisasi' };
-
-    set({ loading: true, error: null });
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/outlets`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-          'x-tenant-id': user.tenantId
-        },
-        body: JSON.stringify(data)
-      });
-
-      const resData = await response.json();
-      if (!response.ok) {
-        throw new Error(resData.message || 'Gagal membuat outlet.');
-      }
-
-      set((state) => ({
-        outlets: [resData.data, ...state.outlets],
-        loading: false
-      }));
-
-      // Refresh hierarchy
-      await get().fetchHierarchy();
-
-      return { success: true, data: resData.data };
-    } catch (err: any) {
-      console.error(err);
-      set({ error: err.message || 'Terjadi kesalahan.', loading: false });
-      return { success: false, message: err.message || 'Terjadi kesalahan.' };
     }
   },
 

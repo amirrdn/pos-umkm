@@ -17,7 +17,7 @@ export class ProductController {
       const tenantId = req.tenantId!;
       let outletId = req.outletId;
 
-      if (req.isGlobalAdmin) {
+      if (req.hasTenantWideOutletAccess) {
         outletId = (req.query.outletId as string) || req.outletId || null;
       }
 
@@ -53,7 +53,7 @@ export class ProductController {
         });
       }
 
-      const product = await productService.createProduct(tenantId, validation.data, req.outletId);
+      const product = await productService.createProduct(tenantId, validation.data);
 
       return res.status(201).json({
         success: true,
