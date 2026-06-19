@@ -1,12 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  branchOutletId,
-  mainOutletId,
-  productId,
-  tenantId,
-  transferId,
-  userId,
-} from '../test/helpers/http';
+import { mainOutletId, tenantId, transferId } from '../test/helpers/http';
 
 const { mockPrisma } = vi.hoisted(() => ({
   mockPrisma: {
