@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, type Permission } from '@prisma/client';
 import bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
@@ -94,7 +94,7 @@ async function main() {
     }
   ];
 
-  const permissions = [];
+  const permissions: Permission[] = [];
   for (const item of permissionsData) {
     const perm = await prisma.permission.upsert({
       where: { name: item.name },
@@ -106,7 +106,38 @@ async function main() {
   console.log(`🔑 ${permissions.length} Hak Akses (Permissions) berhasil di-seed.`);
 
   // ==========================================
-  // c. SEEDING ROLE (OWNER) & HUBUNGKAN DENGAN PERMISSIONS
+  // c. SEEDING ROLE PLATFORM ADMIN (pemilik aplikasi SaaS)
+  // ==========================================
+  const rolePlatformAdmin = await prisma.role.upsert({
+    where: { id: 'role-platform-admin-uuid-001' },
+    update: {},
+    create: {
+      id: 'role-platform-admin-uuid-001',
+      tenantId: null,
+      name: 'Admin',
+      description: 'Administrator platform SaaS UMKM — akses lintas tenant dan seluruh fitur sistem',
+    },
+  });
+
+  for (const perm of permissions) {
+    await prisma.rolePermission.upsert({
+      where: {
+        roleId_permissionId: {
+          roleId: rolePlatformAdmin.id,
+          permissionId: perm.id,
+        },
+      },
+      update: {},
+      create: {
+        roleId: rolePlatformAdmin.id,
+        permissionId: perm.id,
+      },
+    });
+  }
+  console.log('🛡️ Peran platform [Admin] dan pemetaan Hak Akses berhasil di-seed.');
+
+  // ==========================================
+  // d. SEEDING ROLE (OWNER) & HUBUNGKAN DENGAN PERMISSIONS
   // ==========================================
   const roleOwner = await prisma.role.upsert({
     where: { id: 'role-owner-uuid-444' },
@@ -242,13 +273,11 @@ async function main() {
   const user = await prisma.user.upsert({
     where: { email: 'owner@tokoutama.com' },
     update: {
-      password: hashedPassword, // Selalu reset password ke default saat seed
-      outletId: 'outlet-default-uuid-111'
+      password: hashedPassword // Selalu reset password ke default saat seed
     },
     create: {
       id: 'user-admin-111',
       tenantId: tenant.id,
-      outletId: 'outlet-default-uuid-111',
       name: 'Budi Owner',
       email: 'owner@tokoutama.com',
       password: hashedPassword,
@@ -270,19 +299,32 @@ async function main() {
       roleId: roleOwner.id
     }
   });
-  console.log('👤 Pengguna [Budi Owner] dan asosiasi Peran Owner berhasil di-seed.');
+
+  // Hubungkan User Owner ke Default Outlet
+  await prisma.userOutlet.upsert({
+    where: {
+      userId_outletId: {
+        userId: user.id,
+        outletId: 'outlet-default-uuid-111'
+      }
+    },
+    update: {},
+    create: {
+      userId: user.id,
+      outletId: 'outlet-default-uuid-111'
+    }
+  });
+  console.log('👤 Pengguna [Budi Owner] dan asosiasi Peran Owner serta Outlet berhasil di-seed.');
 
   // User Kasir
   const kasirUser = await prisma.user.upsert({
     where: { email: 'kasir@tokoutama.com' },
     update: {
-      password: hashedPassword, // Reset password ke default saat seed
-      outletId: 'outlet-default-uuid-111'
+      password: hashedPassword // Reset password ke default saat seed
     },
     create: {
       id: 'user-kasir-222',
       tenantId: tenant.id,
-      outletId: 'outlet-default-uuid-111',
       name: 'Asep Kasir',
       email: 'kasir@tokoutama.com',
       password: hashedPassword,
@@ -304,7 +346,22 @@ async function main() {
       roleId: roleKasir.id
     }
   });
-  console.log('👤 Pengguna [Asep Kasir] dan asosiasi Peran Kasir berhasil di-seed.');
+
+  // Hubungkan User Kasir ke Default Outlet
+  await prisma.userOutlet.upsert({
+    where: {
+      userId_outletId: {
+        userId: kasirUser.id,
+        outletId: 'outlet-default-uuid-111'
+      }
+    },
+    update: {},
+    create: {
+      userId: kasirUser.id,
+      outletId: 'outlet-default-uuid-111'
+    }
+  });
+  console.log('👤 Pengguna [Asep Kasir] dan asosiasi Peran Kasir serta Outlet berhasil di-seed.');
 
   // ==========================================
   // e. SEEDING KATEGORI & PRODUK (SINKRON DENGAN FRONTEND)
@@ -341,6 +398,7 @@ async function main() {
   console.log('📂 Kategori produk [Makanan] & [Minuman] berhasil di-seed.');
 
   // 2. Produk (Menggunakan UUID yang sama dengan frontend PosView.tsx)
+  // Produk demo — stok hanya di OutletStock
   const productsData = [
     {
       id: 'e281bbcf-71d5-451e-9276-2e8df31cf81f',
@@ -350,7 +408,7 @@ async function main() {
       sku: 'PROD-001',
       purchasePrice: 10000,
       sellingPrice: 18000,
-      stock: 25
+      initialStock: 25,
     },
     {
       id: 'e281bbcf-72d5-451e-9276-2e8df31cf82f',
@@ -360,7 +418,7 @@ async function main() {
       sku: 'PROD-002',
       purchasePrice: 9000,
       sellingPrice: 15000,
-      stock: 15
+      initialStock: 15,
     },
     {
       id: 'e281bbcf-73d5-451e-9276-2e8df31cf83f',
@@ -370,7 +428,7 @@ async function main() {
       sku: 'PROD-003',
       purchasePrice: 14000,
       sellingPrice: 22000,
-      stock: 8
+      initialStock: 8,
     },
     {
       id: 'e281bbcf-74d5-451e-9276-2e8df31cf84f',
@@ -380,7 +438,7 @@ async function main() {
       sku: 'PROD-004',
       purchasePrice: 3000,
       sellingPrice: 6000,
-      stock: 50
+      initialStock: 50,
     },
     {
       id: 'e281bbcf-75d5-451e-9276-2e8df31cf85f',
@@ -390,17 +448,16 @@ async function main() {
       sku: 'PROD-005',
       purchasePrice: 15000,
       sellingPrice: 24000,
-      stock: 12
-    }
+      initialStock: 12,
+    },
   ];
 
   for (const item of productsData) {
     await prisma.product.upsert({
       where: { id: item.id },
       update: {
-        stock: item.stock, // Reset stok saat seeding
         purchasePrice: item.purchasePrice,
-        sellingPrice: item.sellingPrice
+        sellingPrice: item.sellingPrice,
       },
       create: {
         id: item.id,
@@ -410,27 +467,25 @@ async function main() {
         sku: item.sku,
         purchasePrice: item.purchasePrice,
         sellingPrice: item.sellingPrice,
-        stock: item.stock
-      }
+      },
     });
 
-    // Seed OutletStock untuk outlet utama
     await prisma.outletStock.upsert({
       where: {
         outletId_productId: {
           outletId: 'outlet-default-uuid-111',
-          productId: item.id
-        }
+          productId: item.id,
+        },
       },
       update: {
-        stock: item.stock
+        stock: item.initialStock,
       },
       create: {
         tenantId: tenant.id,
         outletId: 'outlet-default-uuid-111',
         productId: item.id,
-        stock: item.stock
-      }
+        stock: item.initialStock,
+      },
     });
   }
   console.log(`📦 ${productsData.length} Data Produk & OutletStock berhasil di-seed.`);

@@ -52,10 +52,10 @@ export async function createStaff(req: Request, res: Response): Promise<Response
       });
     }
 
-    const { name, email, password, roleId, outletId } = validation.data;
+    const { name, email, password, roleId, outletIds } = validation.data;
     const tenantId = req.tenantId!;
 
-    const newStaff = await staffService.createStaff({ tenantId, name, email, password, roleId, outletId });
+    const newStaff = await staffService.createStaff({ tenantId, name, email, password, roleId, outletIds });
     return res.status(201).json({
       success: true,
       message: `Karyawan [${name}] berhasil ditambahkan.`,
@@ -125,5 +125,47 @@ export async function deleteStaff(req: Request, res: Response): Promise<Response
     }
     console.error('[StaffController.deleteStaff]', error);
     return res.status(500).json({ success: false, message: 'Terjadi kesalahan saat menghapus karyawan.' });
+  }
+}
+
+/**
+ * PATCH /api/staff/:id/approve
+ * Admin menyetujui pendaftaran staf baru.
+ */
+export async function approveStaff(req: Request, res: Response): Promise<Response> {
+  try {
+    const tenantId = req.tenantId!;
+    const { id } = req.params;
+
+    const result = await staffService.approveStaff(id, tenantId);
+    return res.status(200).json({ success: true, message: 'Pendaftaran staf berhasil disetujui.', data: result });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Terjadi kesalahan internal server.';
+    if (message.includes('tidak ditemukan')) {
+      return res.status(404).json({ success: false, message });
+    }
+    console.error('[StaffController.approveStaff]', error);
+    return res.status(500).json({ success: false, message: 'Terjadi kesalahan saat menyetujui karyawan.' });
+  }
+}
+
+/**
+ * PATCH /api/staff/:id/reject
+ * Admin menolak pendaftaran staf baru.
+ */
+export async function rejectStaff(req: Request, res: Response): Promise<Response> {
+  try {
+    const tenantId = req.tenantId!;
+    const { id } = req.params;
+
+    const result = await staffService.rejectStaff(id, tenantId);
+    return res.status(200).json({ success: true, message: 'Pendaftaran staf berhasil ditolak.', data: result });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Terjadi kesalahan internal server.';
+    if (message.includes('tidak ditemukan')) {
+      return res.status(404).json({ success: false, message });
+    }
+    console.error('[StaffController.rejectStaff]', error);
+    return res.status(500).json({ success: false, message: 'Terjadi kesalahan saat menolak karyawan.' });
   }
 }

@@ -211,7 +211,7 @@ export const CloseShiftModal: React.FC<CloseShiftModalProps> = ({
             type="button"
             onClick={onCancel}
             disabled={isLoading}
-            className="flex-1 py-3 rounded-2xl border-2 border-slate-200 bg-white text-slate-700 text-sm font-bold hover:bg-slate-50 active:scale-[0.98] transition-all disabled:opacity-50"
+            className="cursor-pointer flex-1 py-3 rounded-2xl border-2 border-slate-200 bg-white text-slate-700 text-sm font-bold hover:bg-slate-50 active:scale-[0.98] transition-all disabled:opacity-50"
           >
             Batal
           </button>
@@ -219,7 +219,7 @@ export const CloseShiftModal: React.FC<CloseShiftModalProps> = ({
             type="button"
             onClick={handleSubmit}
             disabled={isLoading || !cashActual}
-            className="flex-2 flex items-center justify-center gap-2 flex-1 py-3 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white text-sm font-bold shadow-md shadow-rose-200 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="cursor-pointer flex-2 flex items-center justify-center gap-2 flex-1 py-3 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white text-sm font-bold shadow-md shadow-rose-200 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isLoading ? (
               <><Loader2 className="h-4 w-4 animate-spin" /> Menutup...</>

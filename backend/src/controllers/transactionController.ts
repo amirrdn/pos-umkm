@@ -1,9 +1,13 @@
 import { Request, Response } from 'express';
-import { PrismaClient, Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { z } from 'zod';
+import {
+  buildQrisSaleLedgerEntries,
+  decrementOutletStock,
+  restoreStockForVoidedTransaction,
+} from '../domain/inventory';
+import { prisma } from '../lib/prisma';
 import { MidtransService } from '../services/midtransService';
-
-const prisma = new PrismaClient();
 
 // ==========================================
 // SKEMA VALIDASI INPUT (ZOD) - DIPERBARUI DENGAN DISKON & PAJAK PPN
@@ -85,23 +89,23 @@ export async function checkout(req: Request, res: Response) {
           throw new Error(`Produk dengan ID ${item.productId} tidak ditemukan di tenant Anda.`);
         }
 
-        let currentStock = product.stock;
-        let outletStockRecord = null;
-        if (req.user?.outletId) {
-          outletStockRecord = await tx.outletStock.findFirst({
-            where: {
-              tenantId,
-              outletId: req.user.outletId,
-              productId: product.id
-            }
-          });
-          currentStock = outletStockRecord ? outletStockRecord.stock : 0;
+        if (!req.outletId) {
+          throw new Error('Aksi ditolak: Transaksi POS wajib dikaitkan dengan Outlet aktif.');
         }
 
-        if (currentStock < item.quantity) {
-          throw new Error(`Stok produk "${product.name}" tidak mencukupi. Stok saat ini: ${currentStock}, diminta: ${item.quantity}.`);
-        }
-        const sellingPrice = new Prisma.Decimal(product.sellingPrice);
+        const outletId = req.outletId;
+
+        const priceOverride = await tx.outletProductPrice.findUnique({
+          where: {
+            outletId_productId: {
+              outletId,
+              productId: product.id,
+            },
+          },
+        });
+        const activeSellingPrice = priceOverride ? priceOverride.price : product.sellingPrice;
+
+        const sellingPrice = new Prisma.Decimal(activeSellingPrice);
         const costPrice = new Prisma.Decimal(product.purchasePrice);
         const itemSubtotal = sellingPrice.mul(item.quantity);
         subTotal = subTotal.add(itemSubtotal);
@@ -111,28 +115,16 @@ export async function checkout(req: Request, res: Response) {
           quantity: item.quantity,
           priceAtTransaction: sellingPrice,
           costAtTransaction: costPrice,
-          subtotal: itemSubtotal
+          subtotal: itemSubtotal,
         });
 
-        const stockBefore = currentStock;
-        const stockAfter = stockBefore - item.quantity;
-
-        if (req.user?.outletId) {
-          await tx.outletStock.update({
-            where: {
-              outletId_productId: {
-                outletId: req.user.outletId,
-                productId: product.id
-              }
-            },
-            data: { stock: { decrement: item.quantity } }
-          });
-        } else {
-          await tx.product.update({
-            where: { id: product.id },
-            data: { stock: { decrement: item.quantity } }
-          });
-        }
+        const { stockBefore, stockAfter } = await decrementOutletStock(
+          tx,
+          tenantId,
+          outletId,
+          product.id,
+          item.quantity
+        );
 
         stockLedgerEntries.push({
           tenantId,
@@ -142,7 +134,7 @@ export async function checkout(req: Request, res: Response) {
           quantity: -item.quantity,
           stockBefore,
           stockAfter,
-          outletId: req.user?.outletId || null,
+          outletId,
           note: `Penjualan - Invoice`,
         });
       }
@@ -180,7 +172,7 @@ export async function checkout(req: Request, res: Response) {
         }
 
         earnedPoints = Math.floor(grandTotal.toNumber() / 10000);
-        
+
         const updateData: Prisma.CustomerUpdateInput = {};
         if (earnedPoints > 0) {
           updateData.points = { increment: earnedPoints };
@@ -201,7 +193,7 @@ export async function checkout(req: Request, res: Response) {
         data: {
           tenantId,
           userId,
-          outletId: req.user?.outletId || null,
+          outletId: req.outletId || null,
           shiftId: req.body.shiftId ?? null,
           customerId: customerId || null,
           paymentMethod: paymentMethod ?? 'CASH',
@@ -235,7 +227,8 @@ export async function checkout(req: Request, res: Response) {
               points: true,
               debtBalance: true
             }
-          }
+          },
+          outlet: true
         }
       });
 
@@ -277,7 +270,8 @@ export async function checkout(req: Request, res: Response) {
                 points: true,
                 debtBalance: true
               }
-            }
+            },
+            outlet: true
           }
         });
       } catch (midtransError: any) {
@@ -304,7 +298,12 @@ export async function checkout(req: Request, res: Response) {
     console.error('Checkout Error:', error);
 
     const errorMessage = error.message || '';
-    if (errorMessage.includes('tidak ditemukan') || errorMessage.includes('stok') || errorMessage.includes('Stok')) {
+    if (
+      errorMessage.includes('tidak ditemukan') ||
+      errorMessage.includes('stok') ||
+      errorMessage.includes('Stok') ||
+      errorMessage.includes('Outlet aktif')
+    ) {
       return res.status(400).json({
         success: false,
         message: errorMessage
@@ -336,8 +335,8 @@ export async function getHistory(req: Request, res: Response) {
       tenantId: tenantId
     };
 
-    if (req.user?.outletId) {
-      whereClause.outletId = req.user.outletId;
+    if (req.outletId) {
+      whereClause.outletId = req.outletId;
     }
 
     const transactions = await prisma.transaction.findMany({
@@ -363,7 +362,8 @@ export async function getHistory(req: Request, res: Response) {
             name: true,
             phone: true
           }
-        }
+        },
+        outlet: true
       }
     });
 
@@ -419,77 +419,34 @@ export async function handleMidtransWebhook(req: Request, res: Response) {
       await prisma.$transaction(async (tx) => {
         await tx.transaction.update({
           where: { id: transaction.id },
-          data: { status: 'COMPLETED' }
+          data: { status: 'COMPLETED' },
         });
 
-        const stockLedgerEntries = [];
-        for (const item of transaction.items) {
-          let stockBefore = 0;
-          let stockAfter = 0;
-          if (transaction.outletId) {
-            const outletStock = await tx.outletStock.findFirst({
-              where: { outletId: transaction.outletId, productId: item.productId }
-            });
-            const stock = outletStock ? outletStock.stock : 0;
-            stockAfter = stock;
-            stockBefore = stockAfter + item.quantity;
-          } else {
-            const product = await tx.product.findUnique({
-              where: { id: item.productId }
-            });
-            const stock = product ? product.stock : 0;
-            stockAfter = stock;
-            stockBefore = stockAfter + item.quantity;
-          }
-
-          stockLedgerEntries.push({
-            tenantId: transaction.tenantId,
-            productId: item.productId,
-            userId: transaction.userId,
-            transactionId: transaction.id,
-            type: 'SALE' as const,
-            quantity: -item.quantity,
-            stockBefore,
-            stockAfter,
-            outletId: transaction.outletId || null,
-            note: `Penjualan (QRIS Lunas) - Invoice ${order_id}`
-          });
-        }
+        const stockLedgerEntries = await buildQrisSaleLedgerEntries(
+          tx,
+          { ...transaction, items: transaction.items },
+          `Penjualan (QRIS Lunas) - Invoice ${order_id}`
+        );
 
         if (stockLedgerEntries.length > 0) {
-          await tx.stockLedger.createMany({
-            data: stockLedgerEntries as any
-          });
+          await tx.stockLedger.createMany({ data: stockLedgerEntries });
         }
       });
 
       return res.status(200).json({ success: true, message: 'Pembayaran settlement berhasil diproses.' });
+    }
 
-    } else if (['expire', 'cancel', 'deny'].includes(transaction_status)) {
+    if (['expire', 'cancel', 'deny'].includes(transaction_status)) {
       await prisma.$transaction(async (tx) => {
         await tx.transaction.update({
           where: { id: transaction.id },
-          data: { status: 'VOID' }
+          data: { status: 'VOID' },
         });
 
-        for (const item of transaction.items) {
-          if (transaction.outletId) {
-            await tx.outletStock.update({
-              where: {
-                outletId_productId: {
-                  outletId: transaction.outletId,
-                  productId: item.productId
-                }
-              },
-              data: { stock: { increment: item.quantity } }
-            });
-          } else {
-            await tx.product.update({
-              where: { id: item.productId },
-              data: { stock: { increment: item.quantity } }
-            });
-          }
-        }
+        await restoreStockForVoidedTransaction(tx, {
+          ...transaction,
+          items: transaction.items,
+        });
       });
 
       return res.status(200).json({ success: true, message: 'Pembayaran dibatalkan, stok dikembalikan.' });
@@ -524,7 +481,8 @@ export async function getTransactionStatus(req: Request, res: Response) {
             name: true,
             points: true
           }
-        }
+        },
+        outlet: true
       }
     });
 
@@ -541,53 +499,23 @@ export async function getTransactionStatus(req: Request, res: Response) {
           await prisma.$transaction(async (tx) => {
             await tx.transaction.update({
               where: { id: transaction.id },
-              data: { status: 'COMPLETED' }
+              data: { status: 'COMPLETED' },
             });
 
             const transactionWithItems = await tx.transaction.findUnique({
               where: { id: transaction.id },
-              include: { items: true }
+              include: { items: true },
             });
 
             if (transactionWithItems) {
-              const stockLedgerEntries = [];
-              for (const item of transactionWithItems.items) {
-                let stockBefore = 0;
-                let stockAfter = 0;
-                if (transaction.outletId) {
-                  const outletStock = await tx.outletStock.findFirst({
-                    where: { outletId: transaction.outletId, productId: item.productId }
-                  });
-                  const stock = outletStock ? outletStock.stock : 0;
-                  stockAfter = stock;
-                  stockBefore = stockAfter + item.quantity;
-                } else {
-                  const product = await tx.product.findUnique({
-                    where: { id: item.productId }
-                  });
-                  const stock = product ? product.stock : 0;
-                  stockAfter = stock;
-                  stockBefore = stockAfter + item.quantity;
-                }
-
-                stockLedgerEntries.push({
-                  tenantId: transaction.tenantId,
-                  productId: item.productId,
-                  userId: transaction.userId,
-                  transactionId: transaction.id,
-                  type: 'SALE' as const,
-                  quantity: -item.quantity,
-                  stockBefore,
-                  stockAfter,
-                  outletId: transaction.outletId || null,
-                  note: `Penjualan (QRIS Lunas - Polling) - Invoice ${invoiceNumber}`
-                });
-              }
+              const stockLedgerEntries = await buildQrisSaleLedgerEntries(
+                tx,
+                transactionWithItems,
+                `Penjualan (QRIS Lunas - Polling) - Invoice ${invoiceNumber}`
+              );
 
               if (stockLedgerEntries.length > 0) {
-                await tx.stockLedger.createMany({
-                  data: stockLedgerEntries as any
-                });
+                await tx.stockLedger.createMany({ data: stockLedgerEntries });
               }
             }
           });
@@ -596,33 +524,16 @@ export async function getTransactionStatus(req: Request, res: Response) {
           await prisma.$transaction(async (tx) => {
             await tx.transaction.update({
               where: { id: transaction.id },
-              data: { status: 'VOID' }
+              data: { status: 'VOID' },
             });
 
             const transactionWithItems = await tx.transaction.findUnique({
               where: { id: transaction.id },
-              include: { items: true }
+              include: { items: true },
             });
 
             if (transactionWithItems) {
-              for (const item of transactionWithItems.items) {
-                if (transaction.outletId) {
-                  await tx.outletStock.update({
-                    where: {
-                      outletId_productId: {
-                        outletId: transaction.outletId,
-                        productId: item.productId
-                      }
-                    },
-                    data: { stock: { increment: item.quantity } }
-                  });
-                } else {
-                  await tx.product.update({
-                    where: { id: item.productId },
-                    data: { stock: { increment: item.quantity } }
-                  });
-                }
-              }
+              await restoreStockForVoidedTransaction(tx, transactionWithItems);
             }
           });
           currentStatus = 'VOID';

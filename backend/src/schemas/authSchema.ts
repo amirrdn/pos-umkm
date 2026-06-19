@@ -17,3 +17,22 @@ export const registerSchema = z.object({
   email: z.string().min(1, 'Email wajib diisi').email('Format email tidak valid'),
   password: z.string().min(1, 'Password wajib diisi').min(6, 'Password minimal harus terdiri dari 6 karakter')
 });
+
+/**
+ * Skema Validasi untuk proses Registrasi Staf Baru ke Tenant (Butuh Persetujuan)
+ */
+export const registerStaffSchema = z.object({
+  tenantId: z.string().uuid('Tenant ID tidak valid'),
+  name: z.string().min(3, 'Nama minimal harus 3 karakter').max(50, 'Nama maksimal 50 karakter'),
+  email: z.string().min(1, 'Email wajib diisi').email('Format email tidak valid'),
+  password: z.string().min(1, 'Password wajib diisi').min(6, 'Password minimal harus terdiri dari 6 karakter'),
+  outletIds: z.array(z.string().min(1, 'Outlet ID tidak valid')).min(1, 'Minimal pilih satu outlet')
+});
+
+export const verifyEmailSchema = z.object({
+  token: z.string().min(1, 'Token verifikasi wajib diisi'),
+});
+
+export const resendVerificationSchema = z.object({
+  email: z.string().min(1, 'Email wajib diisi').email('Format email tidak valid'),
+});

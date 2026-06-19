@@ -6,6 +6,7 @@ import fs from 'fs';
 import { authMiddleware } from './middlewares/authMiddleware';
 import { tenantMiddleware } from './middlewares/tenantMiddleware';
 import { requireRole } from './middlewares/roleMiddleware';
+import { startNotificationSchedulers } from './lib/notificationScheduler';
 import authRoutes from './routes/authRoutes';
 import productRoutes from './routes/productRoutes';
 import transactionRoutes from './routes/transactionRoutes';
@@ -16,6 +17,8 @@ import inventoryRoutes from './routes/inventoryRoutes';
 import customerRoutes from './routes/customerRoutes';
 import categoryRoutes from './routes/categoryRoutes';
 import outletRoutes from './routes/outletRoutes';
+import transferRoutes from './routes/transferRoutes';
+import notificationRoutes from './routes/notificationRoutes';
 
 
 dotenv.config();
@@ -64,12 +67,16 @@ app.use('/api/categories', categoryRoutes);
 
 app.use('/api/outlets', outletRoutes);
 
+app.use('/api/stock-transfers', transferRoutes);
+
+app.use('/api/notifications', notificationRoutes);
+
 
 app.get(
   '/api/admin/dashboard',
   authMiddleware,
   tenantMiddleware,
-  requireRole(['Owner', 'TENANT_ADMIN', 'Manager']),
+  requireRole(['Owner', 'Manager', 'Admin']),
   (req: Request, res: Response) => {
     res.json({
       success: true,
@@ -81,6 +88,7 @@ app.get(
 );
 
 app.listen(PORT, () => {
+  startNotificationSchedulers();
   console.log(`====================================================`);
   console.log(`🚀 Server POS Multi-Tenant berjalan di port: ${PORT}`);
   console.log(`====================================================`);

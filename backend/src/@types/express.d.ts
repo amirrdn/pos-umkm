@@ -3,6 +3,17 @@ declare global {
     interface Request {
       tenantId?: string;
       outletId?: string | null;
+      /** Outlet ter-resolve dari x-outlet-id (setelah attachActiveOutlet). */
+      activeOutlet?: {
+        id: string;
+        name: string;
+        type: 'MAIN' | 'BRANCH';
+        isActive: boolean;
+      } | null;
+      /** Owner, Manager, atau Admin platform — boleh scope outlet bebas / agregat */
+      hasTenantWideOutletAccess?: boolean;
+      /** Pemilik aplikasi SaaS (bukan pemilik toko) */
+      isPlatformAdmin?: boolean;
 
       user?: {
         id: string;
@@ -11,7 +22,7 @@ declare global {
         email: string;
         roles: string[];
         permissions: string[];
-        outletId?: string | null;
+        outletIds?: string[];
       };
     }
   }

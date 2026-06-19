@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { ProductService } from '../services/productService';
-import { createProductSchema, updateProductSchema } from '../schemas/productSchema';
+import { createProductSchema, updateProductSchema, setPriceOverrideSchema } from '../schemas/productSchema';
+import { z } from 'zod';
 
 const productService = new ProductService();
 
@@ -14,7 +15,13 @@ export class ProductController {
   async getAllProducts(req: Request, res: Response) {
     try {
       const tenantId = req.tenantId!;
-      const products = await productService.getAllProducts(tenantId, req.user?.outletId);
+      let outletId = req.outletId;
+
+      if (req.hasTenantWideOutletAccess) {
+        outletId = (req.query.outletId as string) || req.outletId || null;
+      }
+
+      const products = await productService.getAllProducts(tenantId, outletId);
 
       return res.status(200).json({
         success: true,
@@ -169,6 +176,114 @@ export class ProductController {
       return res.status(500).json({
         success: false,
         message: 'Terjadi kesalahan internal server saat mengunggah gambar.'
+      });
+    }
+  }
+
+  async setPriceOverride(req: Request, res: Response) {
+    try {
+      const tenantId = req.tenantId!;
+      const validation = setPriceOverrideSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({
+          success: false,
+          message: 'Validasi harga khusus gagal.',
+          errors: validation.error.format()
+        });
+      }
+
+      const override = await productService.setPriceOverride(tenantId, validation.data);
+
+      return res.status(200).json({
+        success: true,
+        message: 'Harga khusus cabang berhasil disimpan.',
+        data: override
+      });
+    } catch (error: any) {
+      console.error('[ProductController.setPriceOverride]', error);
+      return res.status(400).json({
+        success: false,
+        message: error.message || 'Terjadi kesalahan saat mengatur harga khusus cabang.'
+      });
+    }
+  }
+
+  async deletePriceOverride(req: Request, res: Response) {
+    try {
+      const tenantId = req.tenantId!;
+      const { outletId, productId } = req.body;
+
+      if (!outletId || !productId) {
+        return res.status(400).json({
+          success: false,
+          message: 'ID outlet dan ID produk wajib diisi.'
+        });
+      }
+
+      await productService.deletePriceOverride(tenantId, outletId, productId);
+
+      return res.status(200).json({
+        success: true,
+        message: 'Harga khusus cabang berhasil dihapus.'
+      });
+    } catch (error: any) {
+      console.error('[ProductController.deletePriceOverride]', error);
+      return res.status(400).json({
+        success: false,
+        message: error.message || 'Terjadi kesalahan saat menghapus harga khusus cabang.'
+      });
+    }
+  }
+
+  async setMinStock(req: Request, res: Response) {
+    try {
+      const tenantId = req.tenantId!;
+      const schema = z.object({
+        outletId: z.string().uuid(),
+        productId: z.string().uuid(),
+        minStock: z.number().int().nonnegative()
+      });
+
+      const validation = schema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({
+          success: false,
+          message: 'Validasi limit stok gagal.'
+        });
+      }
+
+      const stock = await productService.setMinStock(tenantId, validation.data);
+
+      return res.status(200).json({
+        success: true,
+        message: 'Limit stok minimum cabang berhasil disimpan.',
+        data: stock
+      });
+    } catch (error: any) {
+      console.error('[ProductController.setMinStock]', error);
+      return res.status(400).json({
+        success: false,
+        message: error.message || 'Terjadi kesalahan saat mengatur limit stok minimum cabang.'
+      });
+    }
+  }
+
+  async getOutletSettingsForProduct(req: Request, res: Response) {
+    try {
+      const tenantId = req.tenantId!;
+      const productId = req.params.id;
+
+      const data = await productService.getOutletSettingsForProduct(tenantId, productId);
+
+      return res.status(200).json({
+        success: true,
+        data
+      });
+    } catch (error: any) {
+      console.error('[ProductController.getOutletSettingsForProduct]', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Terjadi kesalahan saat mengambil pengaturan cabang produk.'
       });
     }
   }

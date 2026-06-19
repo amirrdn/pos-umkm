@@ -24,3 +24,9 @@ export const createProductSchema = z.object({
  * Field `stock` sengaja dihilangkan — perubahan stok hanya boleh melalui Mutasi Stok (inventory mutations).
  */
 export const updateProductSchema = createProductSchema.omit({ stock: true }).partial();
+
+export const setPriceOverrideSchema = z.object({
+  outletId: z.string().uuid('ID outlet tidak valid'),
+  productId: z.string().uuid('ID produk tidak valid'),
+  price: z.number().positive('Harga override harus lebih besar dari 0')
+});

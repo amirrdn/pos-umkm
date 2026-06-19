@@ -14,11 +14,35 @@ import { MutationType } from '@prisma/client';
 export async function getInventorySummary(req: Request, res: Response): Promise<Response> {
   try {
     const tenantId = req.tenantId!;
-    const data = await stockLedgerService.getInventorySummary(tenantId, req.user?.outletId);
+    const data = await stockLedgerService.getInventorySummary(tenantId, req.outletId);
     return res.status(200).json({ success: true, data });
   } catch (error: unknown) {
     console.error('[StockLedgerController.getInventorySummary]', error);
     return res.status(500).json({ success: false, message: 'Terjadi kesalahan saat mengambil ringkasan inventaris.' });
+  }
+}
+
+/**
+ * GET /api/inventory/low-stock
+ * Produk dengan stok di bawah minStock (minStock > 0).
+ */
+export async function getLowStockAlert(req: Request, res: Response): Promise<Response> {
+  try {
+    const tenantId = req.tenantId!;
+    const queryOutlet = req.query.outletId as string | undefined;
+    const outletId =
+      queryOutlet === 'ALL' || queryOutlet === ''
+        ? null
+        : queryOutlet ?? req.outletId ?? null;
+
+    const data = await stockLedgerService.getLowStockItems(tenantId, outletId);
+    return res.status(200).json({ success: true, data });
+  } catch (error: unknown) {
+    console.error('[StockLedgerController.getLowStockAlert]', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Terjadi kesalahan saat mengambil daftar stok rendah.',
+    });
   }
 }
 
@@ -31,7 +55,7 @@ export async function getStockLedger(req: Request, res: Response): Promise<Respo
     const tenantId = req.tenantId!;
     const { productId } = req.params;
 
-    const data = await stockLedgerService.getStockLedger(tenantId, productId, req.user?.outletId);
+    const data = await stockLedgerService.getStockLedger(tenantId, productId, req.outletId);
     return res.status(200).json({ success: true, data });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Terjadi kesalahan internal server.';
@@ -67,7 +91,7 @@ export async function createStockMutation(req: Request, res: Response): Promise<
       type: type as MutationType,
       quantity,
       note,
-    }, req.user?.outletId);
+    }, req.outletId);
 
     if (result.isPendingApproval) {
       return res.status(201).json({
@@ -79,7 +103,7 @@ export async function createStockMutation(req: Request, res: Response): Promise<
 
     return res.status(201).json({
       success: true,
-      message: `Mutasi stok berhasil dicatat. Stok baru: ${result.product.stock} unit.`,
+      message: `Mutasi stok berhasil dicatat. Stok baru: ${result.stockAfter} unit.`,
       data: result,
     });
   } catch (error: unknown) {
@@ -99,7 +123,7 @@ export async function createStockMutation(req: Request, res: Response): Promise<
 export async function getStockRequests(req: Request, res: Response): Promise<Response> {
   try {
     const tenantId = req.tenantId!;
-    const data = await stockLedgerService.listStockRequests(tenantId, req.user?.outletId);
+    const data = await stockLedgerService.listStockRequests(tenantId, req.outletId);
     return res.status(200).json({ success: true, data });
   } catch (error: unknown) {
     console.error('[StockLedgerController.getStockRequests]', error);
@@ -120,7 +144,7 @@ export async function approveRequest(req: Request, res: Response): Promise<Respo
     const data = await stockLedgerService.approveStockRequest(tenantId, id, approvedById);
     return res.status(200).json({
       success: true,
-      message: `Permintaan stok disetujui. Stok baru: ${data.product.stock} unit.`,
+      message: `Permintaan stok disetujui. Stok baru: ${data.stockAfter} unit.`,
       data
     });
   } catch (error: unknown) {

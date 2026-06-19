@@ -1,27 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
-import { useThemeStore } from '../store/useThemeStore';
 import { API_BASE_URL } from '../config';
+import { AppShellHeader } from './AppShellHeader';
 import {
   Plus,
   Edit,
   Trash2,
   RefreshCw,
-  Package,
   Tag,
   AlertCircle,
   CheckCircle,
   FileSpreadsheet,
-  ShoppingBag,
-  BarChart2,
-  Users,
-  ArrowUpDown,
-  Sun,
-  Moon,
-  LogOut,
   AlertTriangle,
-  Store
 } from 'lucide-react';
 
 interface Category {
@@ -36,7 +27,6 @@ export const CategoryMaster: React.FC = () => {
   const token = useAuthStore((state) => state.token);
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
-  const { theme, toggleTheme } = useThemeStore();
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -209,127 +199,29 @@ export const CategoryMaster: React.FC = () => {
             <AlertCircle className="h-5 w-5 text-rose-600 shrink-0" />
           )}
           <span className="text-sm font-medium">{notification.message}</span>
-          <button onClick={() => setNotification(null)} className="ml-2 hover:opacity-75 text-xs font-bold">✕</button>
+          <button onClick={() => setNotification(null)} className="cursor-pointer ml-2 hover:opacity-75 text-xs font-bold">✕</button>
         </div>
       )}
 
-      {/* HEADER UTAMA */}
-      <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-6 py-4 flex justify-between items-center shrink-0 shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="bg-indigo-600 p-2.5 rounded-xl text-white shadow-md shadow-indigo-200">
-            <Tag className="h-6 w-6" />
-          </div>
-          <div>
-            <h1 className="text-lg font-bold text-slate-800 dark:text-slate-100 leading-tight">Master Kategori</h1>
-            <p className="text-xs text-indigo-600 font-medium mt-0.5">Pengelolaan Kategori Produk & Prefix SKU</p>
-          </div>
-        </div>
-
-        {/* Menu Navigasi Global */}
-        <nav className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
-          {user?.roles.some((role) => ['Owner', 'TENANT_ADMIN', 'Manager', 'Kasir'].includes(role)) && (
-            <button
-              onClick={() => navigate('/pos')}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all"
-            >
-              <ShoppingBag className="w-3.5 h-3.5" />
-              Kasir POS
-            </button>
-          )}
-          <button
-            onClick={() => navigate('/admin/products')}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all"
-          >
-            <Package className="w-3.5 h-3.5" />
-            Produk
-          </button>
-          <button
-            onClick={() => navigate('/admin/categories')}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold rounded-lg bg-indigo-600 text-white shadow-sm"
-          >
-            <Tag className="w-3.5 h-3.5" />
-            Kategori
-          </button>
-          <button
-            onClick={() => navigate('/admin/inventory')}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all"
-          >
-            <ArrowUpDown className="w-3.5 h-3.5" />
-            Stok
-          </button>
-
-          {!user?.roles.includes('Staf Gudang') && (
-            <>
-              <button
-                onClick={() => navigate('/admin/staff')}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all"
-              >
-                <Users className="w-3.5 h-3.5" />
-                Staf
-              </button>
-              <button
-                onClick={() => navigate('/admin/customers')}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all"
-              >
-                <Users className="w-3.5 h-3.5" />
-                Pelanggan
-              </button>
-              {(user?.roles.includes('Owner') || user?.roles.includes('TENANT_ADMIN')) && (
-                <button
-                  onClick={() => navigate('/admin/outlets')}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all"
-                >
-                  <Store className="w-3.5 h-3.5" />
-                  Outlet
-                </button>
-              )}
-              <button
-                onClick={() => navigate('/admin/dashboard')}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-all"
-              >
-                <BarChart2 className="w-3.5 h-3.5" />
-                Dashboard
-              </button>
-            </>
-          )}
-        </nav>
-
-        <div className="flex items-center gap-3">
-          {/* Tombol Switcher Tema (Dark / Light) */}
-          <button
-            onClick={toggleTheme}
-            type="button"
-            className="p-2.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-all duration-150 active:scale-95"
-            title={theme === 'light' ? 'Mode Gelap' : 'Mode Terang'}
-          >
-            {theme === 'light' ? (
-              <Moon className="h-4 w-4 text-slate-600" />
-            ) : (
-              <Sun className="h-4 w-4 text-amber-400" />
-            )}
-          </button>
-
-          <div className="text-right hidden sm:block">
-            <p className="text-xs font-bold text-slate-800 dark:text-slate-200">{user?.name}</p>
-            <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase">{user?.roles.join(', ') || 'Staff'}</p>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-xl transition-all duration-150"
-            title="Keluar"
-          >
-            <LogOut className="h-5 w-5" />
-          </button>
-
+      <AppShellHeader
+        title="Master Kategori"
+        subtitle="Kategori produk & prefix SKU"
+        icon={Tag}
+        accent="indigo"
+        user={user}
+        onLogout={handleLogout}
+        showOutletSwitcher={false}
+        trailingActions={
           <button
             onClick={handleOpenCreate}
-            className="bg-indigo-600 hover:bg-indigo-700 active:scale-97 text-white px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 shadow-lg shadow-indigo-150 transition-all"
+            type="button"
+            className="cursor-pointer flex items-center gap-2 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl transition-all shadow-sm shadow-indigo-500/20 active:scale-95"
           >
-            <Plus className="h-4 w-4" />
-            Tambah Kategori
+            <Plus className="h-4 w-4 shrink-0" />
+            <span className="hidden sm:inline">Tambah Kategori</span>
           </button>
-        </div>
-      </header>
+        }
+      />
 
       {/* AREA UTAMA / DAFTAR TABEL */}
       <main className="flex-1 p-6 overflow-hidden flex flex-col bg-slate-50 dark:bg-slate-950">
@@ -344,7 +236,7 @@ export const CategoryMaster: React.FC = () => {
             </h3>
             <button
               onClick={fetchCategories}
-              className="p-2 text-slate-400 dark:text-slate-500 hover:text-indigo-600 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg transition-all"
+              className="cursor-pointer p-2 text-slate-400 dark:text-slate-500 hover:text-indigo-600 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg transition-all"
             >
               <RefreshCw className="h-4 w-4" />
             </button>
@@ -380,14 +272,14 @@ export const CategoryMaster: React.FC = () => {
                         <div className="flex items-center justify-center gap-2">
                           <button
                             onClick={() => handleOpenEdit(cat)}
-                            className="p-2 text-slate-400 dark:text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg transition-all"
+                            className="cursor-pointer p-2 text-slate-400 dark:text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg transition-all"
                             title="Edit Kategori"
                           >
                             <Edit className="h-4 w-4" />
                           </button>
                           <button
                             onClick={() => openDeleteDialog(cat)}
-                            className="p-2 text-slate-400 dark:text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-lg transition-all"
+                            className="cursor-pointer p-2 text-slate-400 dark:text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-lg transition-all"
                             title="Hapus Kategori"
                           >
                             <Trash2 className="h-4 w-4" />
@@ -404,7 +296,7 @@ export const CategoryMaster: React.FC = () => {
                 <p className="text-sm font-semibold">Belum ada kategori terdaftar.</p>
                 <button
                   onClick={handleOpenCreate}
-                  className="mt-3 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-md shadow-indigo-150 transition-all"
+                  className="cursor-pointer mt-3 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-md shadow-indigo-150 transition-all"
                 >
                   Tambah Kategori Pertama
                 </button>
@@ -417,7 +309,7 @@ export const CategoryMaster: React.FC = () => {
       {/* FORM MODAL ADD/EDIT */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}></div>
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm cursor-pointer" onClick={() => setIsModalOpen(false)}></div>
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 w-full max-w-md rounded-3xl shadow-2xl relative z-10 overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200">
 
             <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center gap-3 shrink-0">
@@ -462,13 +354,13 @@ export const CategoryMaster: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 active:scale-95 transition-all"
+                  className="cursor-pointer px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 active:scale-95 transition-all"
                 >
                   Batalkan
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-xs font-bold shadow-lg shadow-indigo-100 transition-all"
+                  className="cursor-pointer px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-xs font-bold shadow-lg shadow-indigo-100 transition-all"
                 >
                   {modalMode === 'create' ? 'Tambah Kategori' : 'Simpan Perubahan'}
                 </button>
@@ -481,7 +373,7 @@ export const CategoryMaster: React.FC = () => {
       {/* CUSTOM CONFIRMATION DELETE MODAL */}
       {isDeleteOpen && targetCategory && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={closeDeleteDialog}></div>
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm cursor-pointer" onClick={closeDeleteDialog}></div>
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 w-full max-w-sm rounded-3xl shadow-2xl relative z-10 overflow-hidden flex flex-col p-6 animate-in fade-in zoom-in-95 duration-200">
             <div className="flex flex-col items-center text-center">
               <div className="p-3.5 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-450 rounded-full border border-rose-100 dark:border-rose-950/50 mb-4 shadow-sm animate-bounce">
@@ -498,14 +390,14 @@ export const CategoryMaster: React.FC = () => {
               <button
                 onClick={closeDeleteDialog}
                 disabled={deleteLoading}
-                className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-350 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 active:scale-95 transition-all disabled:opacity-50"
+                className="cursor-pointer flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-350 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 active:scale-95 transition-all disabled:opacity-50"
               >
                 Kembali
               </button>
               <button
                 onClick={handleConfirmDelete}
                 disabled={deleteLoading}
-                className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-lg shadow-rose-150 transition-all active:scale-95 flex items-center justify-center gap-1.5 disabled:opacity-50"
+                className="cursor-pointer flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-lg shadow-rose-150 transition-all active:scale-95 flex items-center justify-center gap-1.5 disabled:opacity-50"
               >
                 {deleteLoading ? (
                   <>

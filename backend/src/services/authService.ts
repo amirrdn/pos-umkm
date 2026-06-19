@@ -1,6 +1,12 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import {
+  normalizeAuthEmail,
+  handleDuplicateRegistrationEmail,
+  deliverRegistrationVerificationEmail,
+} from '../domain/auth/emailVerification.service';
+import { LoginError, LOGIN_ERROR_MESSAGES } from '../domain/auth/login.errors';
 
 const prisma = new PrismaClient();
 
@@ -12,16 +18,18 @@ export class AuthService {
    * Melakukan autentikasi email & password dan menghasilkan token JWT jika kredensial benar.
    */
   async login(email: string, password: string) {
+    const normalizedEmail = normalizeAuthEmail(email);
     const user = await prisma.user.findFirst({
       where: {
-        email,
+        email: { equals: normalizedEmail, mode: 'insensitive' },
         deletedAt: null
       },
       include: {
-        outlet: {
-          select: {
-            id: true,
-            name: true
+        userOutlets: {
+          include: {
+            outlet: {
+              select: { id: true, name: true, type: true, code: true, isActive: true }
+            }
           }
         },
         userRoles: {
@@ -41,15 +49,25 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new Error('Kredensial login salah atau tidak valid');
+      throw new LoginError('INVALID_CREDENTIALS', LOGIN_ERROR_MESSAGES.INVALID_CREDENTIALS);
+    }
+
+    if (!user.emailVerifiedAt) {
+      throw new LoginError('EMAIL_NOT_VERIFIED', LOGIN_ERROR_MESSAGES.EMAIL_NOT_VERIFIED);
+    }
+    if (user.approvalStatus === 'PENDING') {
+      throw new LoginError('APPROVAL_PENDING', LOGIN_ERROR_MESSAGES.APPROVAL_PENDING);
+    }
+    if (user.approvalStatus === 'REJECTED') {
+      throw new LoginError('ACCOUNT_REJECTED', LOGIN_ERROR_MESSAGES.ACCOUNT_REJECTED);
     }
     if (!user.isActive) {
-      throw new Error('Akun Anda telah dinonaktifkan. Silakan hubungi administrator.');
+      throw new LoginError('ACCOUNT_DISABLED', LOGIN_ERROR_MESSAGES.ACCOUNT_DISABLED);
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
-      throw new Error('Kredensial login salah atau tidak valid');
+      throw new LoginError('INVALID_CREDENTIALS', LOGIN_ERROR_MESSAGES.INVALID_CREDENTIALS);
     }
 
     const roles = user.userRoles.map((ur) => ur.role.name);
@@ -61,6 +79,9 @@ export class AuthService {
       )
     );
 
+    const outletIds = user.userOutlets.map((uo) => uo.outletId);
+    const outlets = user.userOutlets.map((uo) => uo.outlet);
+
     const secretKey = process.env.JWT_SECRET || 'fallback_secret_key_2026';
     const token = jwt.sign(
       {
@@ -70,7 +91,7 @@ export class AuthService {
         email: user.email,
         roles,
         permissions,
-        outletId: user.outletId
+        outletIds
       },
       secretKey,
       { expiresIn: '1d' }
@@ -85,8 +106,8 @@ export class AuthService {
         email: user.email,
         roles,
         permissions,
-        outletId: user.outletId,
-        outlet: user.outlet ? { id: user.outlet.id, name: user.outlet.name } : null
+        outletIds,
+        outlets
       }
     };
   }
@@ -95,15 +116,16 @@ export class AuthService {
    * Melakukan registrasi Tenant (Toko) baru beserta Owner pertama dalam transaksi database yang terpadu.
    */
   async registerTenant(input: { tenantName: string; ownerName: string; email: string; password: string }) {
+    const normalizedEmail = normalizeAuthEmail(input.email);
     const existingUser = await prisma.user.findFirst({
       where: {
-        email: input.email,
+        email: { equals: normalizedEmail, mode: 'insensitive' },
         deletedAt: null
       }
     });
 
     if (existingUser) {
-      throw new Error('Alamat email tersebut sudah digunakan oleh pengguna lain.');
+      await handleDuplicateRegistrationEmail(existingUser);
     }
 
     const hashedPassword = await bcrypt.hash(input.password, 10);
@@ -123,12 +145,12 @@ export class AuthService {
       slug = `${slug}-${Math.floor(Math.random() * 1000)}`;
     }
 
-    return prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
       const tenant = await tx.tenant.create({
         data: {
           name: input.tenantName,
           slug,
-          email: input.email,
+          email: normalizedEmail,
           phone: '-'
         }
       });
@@ -197,9 +219,10 @@ export class AuthService {
         data: {
           tenantId: tenant.id,
           name: input.ownerName,
-          email: input.email,
+          email: normalizedEmail,
           password: hashedPassword,
-          isActive: true
+          isActive: true,
+          approvalStatus: 'APPROVED',
         }
       });
 
@@ -207,6 +230,22 @@ export class AuthService {
         data: {
           userId: user.id,
           roleId: roleOwner.id
+        }
+      });
+
+      const mainOutlet = await tx.outlet.create({
+        data: {
+          tenantId: tenant.id,
+          name: `${tenant.name} — Pusat`,
+          type: 'MAIN',
+          code: 'PST'
+        }
+      });
+
+      await tx.userOutlet.create({
+        data: {
+          userId: user.id,
+          outletId: mainOutlet.id
         }
       });
 
@@ -220,5 +259,100 @@ export class AuthService {
         }
       };
     });
+
+    await deliverRegistrationVerificationEmail({
+      email: result.user.email,
+      name: result.user.name,
+      userId: result.user.id,
+      rollback: async () => {
+        await prisma.tenant.delete({ where: { id: result.tenant.id } });
+      },
+    });
+
+    return {
+      ...result,
+      emailVerificationSent: true,
+    };
+  }
+
+  /**
+   * Melakukan registrasi Staf ke dalam Tenant yang sudah ada.
+   * Status staf secara default akan menjadi PENDING.
+   */
+  async registerStaff(input: { tenantId: string; name: string; email: string; password: string; outletIds: string[] }) {
+    const normalizedEmail = normalizeAuthEmail(input.email);
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        email: { equals: normalizedEmail, mode: 'insensitive' },
+        deletedAt: null
+      }
+    });
+
+    if (existingUser) {
+      await handleDuplicateRegistrationEmail(existingUser);
+    }
+
+    const hashedPassword = await bcrypt.hash(input.password, 10);
+
+    const result = await prisma.$transaction(async (tx) => {
+      // Pastikan tenant ada
+      const tenant = await tx.tenant.findUnique({ where: { id: input.tenantId } });
+      if (!tenant) throw new Error('Tenant tidak ditemukan.');
+
+      // Default role untuk staf yang mendaftar secara publik adalah Kasir
+      const roleKasir = await tx.role.findFirst({
+        where: { tenantId: tenant.id, name: 'Kasir' }
+      });
+
+      const user = await tx.user.create({
+        data: {
+          tenantId: tenant.id,
+          name: input.name,
+          email: normalizedEmail,
+          password: hashedPassword,
+          isActive: true,
+          approvalStatus: 'PENDING'
+        }
+      });
+
+      if (roleKasir) {
+        await tx.userRole.create({
+          data: {
+            userId: user.id,
+            roleId: roleKasir.id
+          }
+        });
+      }
+
+      const userOutlets = input.outletIds.map(outletId => ({
+        userId: user.id,
+        outletId
+      }));
+
+      await tx.userOutlet.createMany({
+        data: userOutlets
+      });
+
+      return {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        approvalStatus: user.approvalStatus
+      };
+    });
+
+    await deliverRegistrationVerificationEmail({
+      email: result.email,
+      name: result.name,
+      userId: result.id,
+      rollback: async () => {
+        await prisma.user.delete({ where: { id: result.id } });
+      },
+    });
+
+    return {
+      ...result,
+      emailVerificationSent: true,
+    };
   }
 }

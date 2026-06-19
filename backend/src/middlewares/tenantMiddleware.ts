@@ -1,7 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '../lib/prisma';
 
 /**
  * Middleware untuk mengidentifikasi dan memvalidasi Tenant dari request.
@@ -41,6 +39,20 @@ export async function tenantMiddleware(req: Request, res: Response, next: NextFu
     }
 
     req.tenantId = tenant.id;
+
+    const outletId = req.outletId;
+    if (outletId) {
+      const outlet = await prisma.outlet.findFirst({
+        where: { id: outletId, tenantId: tenant.id, deletedAt: null, isActive: true },
+        select: { id: true },
+      });
+      if (!outlet) {
+        return res.status(403).json({
+          success: false,
+          message: 'Outlet tidak aktif atau tidak tersedia untuk operasi.',
+        });
+      }
+    }
 
     return next();
   } catch (error) {

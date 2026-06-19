@@ -1,7 +1,34 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import {
+  hasTenantWideOutletAccess,
+  isPlatformAdmin,
+  isTenantOwner,
+  hasAnyRole,
+  PLATFORM_ADMIN_ROLE,
+  TENANT_OWNER_ROLE,
+  TENANT_WIDE_OUTLET_ROLES,
+} from '../utils/roles';
+import { getAssignedOutletIds } from '../utils/outletAccess';
 
-// Antarmuka untuk Data Pengguna (User)
+export {
+  isPlatformAdmin,
+  isTenantOwner,
+  hasTenantWideOutletAccess,
+  hasAnyRole,
+  PLATFORM_ADMIN_ROLE,
+  TENANT_OWNER_ROLE,
+  TENANT_WIDE_OUTLET_ROLES,
+};
+
+export interface AuthOutlet {
+  id: string;
+  name: string;
+  type?: 'MAIN' | 'BRANCH';
+  code?: string | null;
+  isActive?: boolean;
+}
+
 export interface AuthUser {
   id: string;
   name: string;
@@ -9,44 +36,81 @@ export interface AuthUser {
   roles: string[];
   permissions: string[];
   tenantId: string;
-  outletId?: string | null;
-  outlet?: { id: string; name: string } | null;
+  outletIds?: string[];
+  outlets?: AuthOutlet[];
 }
 
-// Antarmuka untuk State dan Action Otentikasi
 interface AuthState {
   token: string | null;
   user: AuthUser | null;
   isAuthenticated: boolean;
-  
-  // Actions
+  activeOutletId: string | null;
+
   login: (token: string, user: AuthUser) => void;
   logout: () => void;
+  setActiveOutlet: (outletId: string | null) => void;
+}
+
+function resolveInitialOutlet(user: AuthUser, persistedOutletId: string | null): string | null {
+  const wideAccess = hasTenantWideOutletAccess(user.roles);
+  const allowedIds = [...getAssignedOutletIds(user)];
+  const isOperational = (outletId: string) => {
+    const outlet = user.outlets?.find((o) => o.id === outletId);
+    return outlet ? outlet.isActive !== false : true;
+  };
+
+  if (persistedOutletId) {
+    if (wideAccess && isOperational(persistedOutletId)) return persistedOutletId;
+    if (allowedIds.includes(persistedOutletId) && isOperational(persistedOutletId)) {
+      return persistedOutletId;
+    }
+  }
+
+  const firstActiveAssigned = user.outlets?.find((o) => o.isActive !== false);
+  if (firstActiveAssigned) return firstActiveAssigned.id;
+
+  const firstActiveId = allowedIds.find((id) => isOperational(id));
+  if (firstActiveId) return firstActiveId;
+
+  return null;
 }
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       token: null,
       user: null,
       isAuthenticated: false,
+      activeOutletId: null,
 
-      // Menyimpan token dan data pengguna ke dalam state (dan localStorage otomatis via persist)
-      login: (token, user) => set({
-        token,
-        user,
-        isAuthenticated: true
-      }),
+      login: (token, user) => {
+        const activeOutletId = resolveInitialOutlet(user, get().activeOutletId);
+        set({
+          token,
+          user,
+          isAuthenticated: true,
+          activeOutletId,
+        });
+      },
 
-      // Menghapus data sesi otentikasi dari state (dan localStorage)
-      logout: () => set({
-        token: null,
-        user: null,
-        isAuthenticated: false
-      })
+      logout: () =>
+        set({
+          token: null,
+          user: null,
+          isAuthenticated: false,
+          activeOutletId: null,
+        }),
+
+      setActiveOutlet: (outletId) => set({ activeOutletId: outletId }),
     }),
     {
-      name: 'pos-auth-session', // Nama key di localStorage
+      name: 'pos-auth-session',
+      partialize: (state) => ({
+        token: state.token,
+        user: state.user,
+        isAuthenticated: state.isAuthenticated,
+        activeOutletId: state.activeOutletId,
+      }),
     }
   )
 );

@@ -3,7 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
 import { useThemeStore } from '../store/useThemeStore';
 import { API_BASE_URL } from '../config';
-import { Lock, Mail, RefreshCw, ShoppingBag, AlertCircle, Sun, Moon } from 'lucide-react';
+import { Lock, Mail, RefreshCw, ShoppingBag, AlertCircle, Sun, Moon, Clock3 } from 'lucide-react';
+
+type LoginErrorCode =
+  | 'EMAIL_NOT_VERIFIED'
+  | 'APPROVAL_PENDING'
+  | 'ACCOUNT_REJECTED'
+  | 'ACCOUNT_DISABLED'
+  | 'INVALID_CREDENTIALS';
 
 export const LoginView: React.FC = () => {
   const navigate = useNavigate();
@@ -14,11 +21,39 @@ export const LoginView: React.FC = () => {
   const [password, setPassword] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<LoginErrorCode | null>(null);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendMsg, setResendMsg] = useState<string | null>(null);
+
+  const handleResendVerification = async () => {
+    if (!email) {
+      setResendMsg('Isi email terlebih dahulu.');
+      return;
+    }
+    setResendLoading(true);
+    setResendMsg(null);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/auth/resend-verification`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Gagal mengirim ulang email.');
+      setResendMsg(data.message || 'Email verifikasi telah dikirim ulang.');
+    } catch (err: any) {
+      setResendMsg(err.message || 'Gagal mengirim ulang email verifikasi.');
+    } finally {
+      setResendLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setErrorMsg(null);
+    setErrorCode(null);
+    setResendMsg(null);
     if (!email || !password) {
       setErrorMsg('Email dan password wajib diisi.');
       setLoading(false);
@@ -37,6 +72,8 @@ export const LoginView: React.FC = () => {
       const data = await response.json();
 
       if (!response.ok) {
+        const code = data.code as LoginErrorCode | undefined;
+        if (code) setErrorCode(code);
         throw new Error(data.message || 'Gagal masuk sistem. Periksa kembali email dan password Anda.');
       }
 
@@ -60,7 +97,7 @@ export const LoginView: React.FC = () => {
         <button
           onClick={toggleTheme}
           type="button"
-          className="p-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-650 dark:text-slate-355 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-850 transition-all duration-150 active:scale-95 shadow-sm"
+          className="cursor-pointer p-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-650 dark:text-slate-355 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-850 transition-all duration-150 active:scale-95 shadow-sm"
           title={theme === 'light' ? 'Mode Gelap' : 'Mode Terang'}
         >
           {theme === 'light' ? (
@@ -87,11 +124,55 @@ export const LoginView: React.FC = () => {
           <p className="text-slate-400 dark:text-slate-500 text-xs mt-1.5 font-medium transition-colors duration-150">Sistem POS & Kasir Pintar</p>
         </div>
 
-        {/* ERROR MESSAGE ALERT */}
-        {errorMsg && (
-          <div className="bg-rose-50 dark:bg-rose-950/10 border border-rose-200 dark:border-rose-900/30 rounded-2xl p-4 flex gap-3 text-rose-800 dark:text-rose-300 text-xs font-semibold mb-6 animate-pulse transition-colors duration-150">
+        {/* ERROR / INFO ALERTS */}
+        {errorCode === 'EMAIL_NOT_VERIFIED' && errorMsg && (
+          <div className="bg-amber-50 dark:bg-amber-950/15 border border-amber-200 dark:border-amber-800/40 rounded-2xl p-4 mb-6">
+            <div className="flex gap-3 text-amber-900 dark:text-amber-200">
+              <Mail className="h-5 w-5 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+              <div className="space-y-2 text-xs leading-relaxed">
+                <p className="font-black text-sm">Email belum diverifikasi</p>
+                <p className="font-medium opacity-90">{errorMsg}</p>
+                <button
+                  type="button"
+                  onClick={handleResendVerification}
+                  disabled={resendLoading}
+                  className="cursor-pointer inline-flex items-center gap-1.5 text-indigo-600 dark:text-indigo-400 font-bold hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${resendLoading ? 'animate-spin' : ''}`} />
+                  {resendLoading ? 'Mengirim ulang...' : 'Kirim ulang email verifikasi'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {errorCode === 'APPROVAL_PENDING' && errorMsg && (
+          <div className="bg-sky-50 dark:bg-sky-950/15 border border-sky-200 dark:border-sky-800/40 rounded-2xl p-4 mb-6">
+            <div className="flex gap-3 text-sky-900 dark:text-sky-200">
+              <Clock3 className="h-5 w-5 shrink-0 mt-0.5 text-sky-600 dark:text-sky-400" />
+              <div className="space-y-1 text-xs leading-relaxed">
+                <p className="font-black text-sm">Menunggu persetujuan admin</p>
+                <p className="font-medium opacity-90">{errorMsg}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {errorMsg && errorCode !== 'EMAIL_NOT_VERIFIED' && errorCode !== 'APPROVAL_PENDING' && (
+          <div className="bg-rose-50 dark:bg-rose-950/10 border border-rose-200 dark:border-rose-900/30 rounded-2xl p-4 flex gap-3 text-rose-800 dark:text-rose-300 text-xs font-semibold mb-6 transition-colors duration-150">
             <AlertCircle className="h-5 w-5 text-rose-600 shrink-0" />
-            <span className="leading-relaxed">{errorMsg}</span>
+            <div className="leading-relaxed space-y-1">
+              {errorCode === 'INVALID_CREDENTIALS' && (
+                <p className="font-black text-sm text-rose-900 dark:text-rose-200">Login gagal</p>
+              )}
+              <span>{errorMsg}</span>
+            </div>
+          </div>
+        )}
+
+        {resendMsg && (
+          <div className="bg-emerald-50 dark:bg-emerald-950/10 border border-emerald-200 dark:border-emerald-900/30 rounded-2xl p-4 text-emerald-800 dark:text-emerald-300 text-xs font-semibold mb-6">
+            {resendMsg}
           </div>
         )}
 
@@ -136,10 +217,10 @@ export const LoginView: React.FC = () => {
           <button
             type="submit"
             disabled={loading}
-            className={`w-full py-4 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2 shadow-lg shadow-indigo-100 dark:shadow-indigo-950/30 transition-all ${loading
+            className={`cursor-pointer w-full py-4 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2 shadow-lg shadow-indigo-100 dark:shadow-indigo-950/30 transition-all ${loading
                 ? 'bg-indigo-400 cursor-wait shadow-none'
                 : 'bg-indigo-600 hover:bg-indigo-700 active:scale-99'
-              } mt-6`}
+              } mt-6 disabled:cursor-not-allowed`}
           >
             {loading ? (
               <>

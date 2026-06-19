@@ -1,19 +1,39 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
-import { useThemeStore } from '../store/useThemeStore';
 import { API_BASE_URL } from '../config';
+import { buildApiHeaders } from '../utils/apiHeaders';
+import { AppShellHeader } from './AppShellHeader';
 import {
-  Users, UserPlus, Shield, Power, Trash2, ArrowLeft,
+  Users, UserPlus, Shield, Power, Trash2,
   Loader2, Mail, Lock, User, Plus, X, AlertCircle, CheckCircle2,
-  Sun, Moon, ChevronDown, Search, Check, Pencil, AlertTriangle
+  ChevronDown, Search, Check, Pencil, AlertTriangle, MapPin, Store
 } from 'lucide-react';
+
+interface OutletOption {
+  id: string;
+  name: string;
+  code?: string | null;
+  type?: 'MAIN' | 'BRANCH';
+}
+
+interface OutletHierarchy {
+  main: OutletOption | null;
+  branches: OutletOption[];
+}
 
 interface StaffUser {
   id: string;
   name: string;
   email: string;
   isActive: boolean;
+  approvalStatus: string; // PENDING, APPROVED, REJECTED
+  userOutlets: {
+    outlet: {
+      id: string;
+      name: string;
+    }
+  }[];
   userRoles: {
     role: {
       id: string;
@@ -26,12 +46,20 @@ export function StaffManagementView() {
   const navigate = useNavigate();
   const token = useAuthStore((state) => state.token);
   const currentUser = useAuthStore((state) => state.user);
-  const { theme, toggleTheme } = useThemeStore();
+  const logout = useAuthStore((state) => state.logout);
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   const [staffList, setStaffList] = useState<StaffUser[]>([]);
+  const [outletHierarchy, setOutletHierarchy] = useState<OutletHierarchy>({ main: null, branches: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  const [activeTab, setActiveTab] = useState<'active' | 'pending'>('active');
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [rolesList, setRolesList] = useState<{ id: string; name: string; description: string }[]>([]);
@@ -39,7 +67,8 @@ export function StaffManagementView() {
     name: '',
     email: '',
     password: '',
-    roleId: ''
+    roleId: '',
+    outletIds: [] as string[]
   });
   const [submitting, setSubmitting] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
@@ -61,6 +90,7 @@ export function StaffManagementView() {
   useEffect(() => {
     setHighlightedIndex(0);
   }, [searchTerm, isDropdownOpen]);
+
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -143,6 +173,23 @@ export function StaffManagementView() {
     }
   };
 
+  const fetchOutletHierarchy = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/outlets/hierarchy`, {
+        headers: buildApiHeaders(),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setOutletHierarchy({
+          main: data.data?.main ?? null,
+          branches: data.data?.branches ?? [],
+        });
+      }
+    } catch (err) {
+      console.error('Gagal mengambil hierarki outlet:', err);
+    }
+  };
+
   const fetchStaff = async () => {
     try {
       setLoading(true);
@@ -169,19 +216,21 @@ export function StaffManagementView() {
       navigate('/login');
       return;
     }
-    const isAllowed = currentUser?.roles.includes('Owner') || currentUser?.roles.includes('TENANT_ADMIN') || currentUser?.roles.includes('Manager');
+    const isAllowed = currentUser?.roles.includes('Owner') || currentUser?.roles.includes('Admin') || currentUser?.roles.includes('Manager');
     if (!isAllowed) {
       navigate('/pos');
       return;
     }
     fetchStaff();
     fetchRoles();
+    fetchOutletHierarchy();
   }, [token, currentUser]);
 
   const showSuccess = (msg: string) => {
     setSuccessMsg(msg);
     setTimeout(() => setSuccessMsg(null), 3000);
   };
+
   const handleToggleStatus = async (id: string, currentStatus: boolean) => {
     try {
       setError(null);
@@ -229,6 +278,50 @@ export function StaffManagementView() {
     }
   };
 
+  const handleApproveStaff = async (id: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const res = await fetch(`${API_BASE_URL}/api/staff/${id}/approve`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || 'Gagal menyetujui pendaftaran staf.');
+      }
+      showSuccess(`Pendaftaran staf "${data.data.name}" berhasil disetujui.`);
+      fetchStaff();
+    } catch (err: any) {
+      setError(err.message);
+      setLoading(false);
+    }
+  };
+
+  const handleRejectStaff = async (id: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const res = await fetch(`${API_BASE_URL}/api/staff/${id}/reject`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || 'Gagal menolak pendaftaran staf.');
+      }
+      showSuccess(`Pendaftaran staf "${data.data.name}" ditolak.`);
+      fetchStaff();
+    } catch (err: any) {
+      setError(err.message);
+      setLoading(false);
+    }
+  };
+
   const openAddModal = () => {
     setEditingStaff(null);
     const defaultRole = rolesList.find((r: any) => r.name === 'Kasir') || rolesList[0];
@@ -236,7 +329,8 @@ export function StaffManagementView() {
       name: '',
       email: '',
       password: '',
-      roleId: defaultRole?.id || ''
+      roleId: defaultRole?.id || '',
+      outletIds: []
     });
     setModalError(null);
     setIsModalOpen(true);
@@ -248,7 +342,8 @@ export function StaffManagementView() {
       name: staff.name,
       email: staff.email,
       password: '',
-      roleId: staff.userRoles[0]?.role.id || ''
+      roleId: staff.userRoles[0]?.role.id || '',
+      outletIds: staff.userOutlets ? staff.userOutlets.map(uo => uo.outlet.id) : []
     });
     setModalError(null);
     setIsModalOpen(true);
@@ -267,7 +362,7 @@ export function StaffManagementView() {
       const method = isEdit ? 'PATCH' : 'POST';
 
       const payload = isEdit
-        ? { name: newStaff.name, roleId: newStaff.roleId }
+        ? { name: newStaff.name, roleId: newStaff.roleId, outletIds: newStaff.outletIds }
         : newStaff;
 
       const res = await fetch(url, {
@@ -287,7 +382,7 @@ export function StaffManagementView() {
       showSuccess(isEdit ? `Karyawan "${data.data.name}" berhasil diperbarui.` : `Karyawan baru "${data.data.name}" berhasil didaftarkan.`);
       setIsModalOpen(false);
       const defaultRole = rolesList.find((r: any) => r.name === 'Kasir') || rolesList[0];
-      setNewStaff({ name: '', email: '', password: '', roleId: defaultRole?.id || '' });
+      setNewStaff({ name: '', email: '', password: '', roleId: defaultRole?.id || '', outletIds: [] });
       setEditingStaff(null);
       fetchStaff();
     } catch (err: any) {
@@ -297,54 +392,69 @@ export function StaffManagementView() {
     }
   };
 
-  return (
-    <div className="min-h-screen bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans transition-colors duration-150">
-      {/* Header Premium (Glassmorphism & Gradient) */}
-      <header className="sticky top-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => navigate('/pos')}
-            className="p-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg transition-all active:scale-95 duration-200"
-            title="Kembali ke POS"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-indigo-100 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-lg border border-indigo-200 dark:border-indigo-500/20">
-              <Users className="w-6 h-6" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold tracking-tight bg-gradient-to-r from-slate-900 via-slate-700 to-indigo-600 dark:from-white dark:via-slate-200 dark:to-indigo-400 bg-clip-text text-transparent">
-                Kelola Karyawan & Staf
-              </h1>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Atur hak akses staf kasir dan admin tenant Anda</p>
-            </div>
-          </div>
-        </div>
+  const handleOutletToggle = (outletId: string) => {
+    setNewStaff(prev => {
+      const exists = prev.outletIds.includes(outletId);
+      const updated = exists
+        ? prev.outletIds.filter(id => id !== outletId)
+        : [...prev.outletIds, outletId];
+      return { ...prev, outletIds: updated };
+    });
+  };
 
-        <div className="flex items-center gap-3">
-          {/* Theme Toggle */}
-          <button
-            onClick={toggleTheme}
-            type="button"
-            className="p-2 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-all duration-150 active:scale-95"
-            title={theme === 'light' ? 'Mode Gelap' : 'Mode Terang'}
-          >
-            {theme === 'light' ? (
-              <Moon className="h-4 w-4 text-slate-600" />
-            ) : (
-              <Sun className="h-4 w-4 text-amber-400" />
-            )}
-          </button>
+  const renderOutletCheckbox = (outlet: OutletOption) => (
+    <label key={outlet.id} className="flex items-center gap-3 cursor-pointer select-none py-0.5">
+      <div className="relative flex items-center">
+        <input
+          type="checkbox"
+          checked={newStaff.outletIds.includes(outlet.id)}
+          onChange={() => handleOutletToggle(outlet.id)}
+          className="peer sr-only"
+          disabled={submitting}
+        />
+        <div className="w-4 h-4 border-2 border-slate-300 dark:border-slate-700 rounded bg-white dark:bg-slate-900 peer-checked:bg-indigo-500 peer-checked:border-indigo-500 transition-colors" />
+        <Check className="absolute inset-0 w-4 h-4 text-white scale-0 peer-checked:scale-100 transition-transform pointer-events-none" />
+      </div>
+      <span className="text-xs text-slate-700 dark:text-slate-300 font-semibold">
+        {outlet.name}
+        {outlet.code ? (
+          <span className="ml-1 text-slate-400 dark:text-slate-500 font-mono">({outlet.code})</span>
+        ) : null}
+      </span>
+    </label>
+  );
+
+  const hasOutlets = Boolean(outletHierarchy.main) || outletHierarchy.branches.length > 0;
+
+  const displayedStaff = staffList.filter(staff => {
+    if (activeTab === 'active') {
+      return staff.approvalStatus === 'APPROVED';
+    } else {
+      return staff.approvalStatus === 'PENDING';
+    }
+  });
+
+  return (
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans transition-colors duration-150">
+      <AppShellHeader
+        title="Kelola Karyawan"
+        subtitle="Hak akses staf kasir & admin tenant"
+        icon={Users}
+        accent="indigo"
+        user={currentUser}
+        onLogout={handleLogout}
+        showOutletSwitcher={false}
+        trailingActions={
           <button
             onClick={openAddModal}
-            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-sm font-semibold rounded-xl transition-all shadow-lg shadow-indigo-950/50 hover:shadow-indigo-900/30 hover:-translate-y-0.5 active:scale-95 duration-200"
+            type="button"
+            className="cursor-pointer flex items-center gap-2 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl transition-all shadow-sm shadow-indigo-500/20 active:scale-95"
           >
-            <UserPlus className="w-4 h-4" />
-            Tambah Staf
+            <UserPlus className="w-4 h-4 shrink-0" />
+            <span className="hidden sm:inline">Tambah Staf</span>
           </button>
-        </div>
-      </header>
+        }
+      />
 
       {/* Main Content */}
       <main className="flex-1 p-6 max-w-7xl mx-auto w-full">
@@ -362,6 +472,30 @@ export function StaffManagementView() {
           </div>
         )}
 
+        {/* Tabs */}
+        <div className="flex border-b border-slate-200 dark:border-slate-800 mb-6 gap-6">
+          <button
+            onClick={() => setActiveTab('active')}
+            className={`cursor-pointer pb-3 text-sm font-bold transition-all relative ${
+              activeTab === 'active'
+                ? 'text-indigo-600 dark:text-indigo-400 border-b-2 border-indigo-600 dark:border-indigo-400'
+                : 'text-slate-400 hover:text-slate-650 dark:hover:text-slate-350'
+            }`}
+          >
+            Staf Aktif ({staffList.filter(s => s.approvalStatus === 'APPROVED').length})
+          </button>
+          <button
+            onClick={() => setActiveTab('pending')}
+            className={`cursor-pointer pb-3 text-sm font-bold transition-all relative ${
+              activeTab === 'pending'
+                ? 'text-indigo-600 dark:text-indigo-400 border-b-2 border-indigo-600 dark:border-indigo-400'
+                : 'text-slate-400 hover:text-slate-650 dark:hover:text-slate-350'
+            }`}
+          >
+            Permintaan Persetujuan ({staffList.filter(s => s.approvalStatus === 'PENDING').length})
+          </button>
+        </div>
+
         {/* Tabel Karyawan */}
         <div className="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800/80 rounded-2xl overflow-hidden shadow-sm dark:shadow-xl">
           {loading ? (
@@ -369,19 +503,27 @@ export function StaffManagementView() {
               <Loader2 className="w-10 h-10 text-indigo-500 animate-spin" />
               <p className="text-slate-500 dark:text-slate-400 text-sm">Memuat daftar karyawan...</p>
             </div>
-          ) : staffList.length === 0 ? (
+          ) : displayedStaff.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
-              <Users className="w-16 h-16 text-slate-700" />
+              <Users className="w-16 h-16 text-slate-700 dark:text-slate-600" />
               <div>
-                <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-300">Belum Ada Karyawan</h3>
-                <p className="text-sm text-slate-400 dark:text-slate-500 mt-1 max-w-md">Daftarkan karyawan atau kasir Anda agar mereka dapat mulai melayani penjualan di toko Anda.</p>
+                <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-300">
+                  {activeTab === 'active' ? 'Belum Ada Karyawan' : 'Tidak Ada Permintaan Baru'}
+                </h3>
+                <p className="text-sm text-slate-400 dark:text-slate-500 mt-1 max-w-md">
+                  {activeTab === 'active'
+                    ? 'Daftarkan karyawan atau kasir Anda agar mereka dapat mulai melayani penjualan di toko Anda.'
+                    : 'Semua permintaan pendaftaran staf telah diproses.'}
+                </p>
               </div>
-              <button
-                onClick={openAddModal}
-                className="mt-2 flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-sm font-medium rounded-lg border border-slate-200 dark:border-slate-700 transition-all active:scale-95 duration-200"
-              >
-                <Plus className="w-4 h-4" /> Tambah Sekarang
-              </button>
+              {activeTab === 'active' && (
+                <button
+                  onClick={openAddModal}
+                  className="cursor-pointer mt-2 flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-sm font-medium rounded-lg border border-slate-200 dark:border-slate-700 transition-all active:scale-95 duration-200"
+                >
+                  <Plus className="w-4 h-4" /> Tambah Sekarang
+                </button>
+              )}
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -391,12 +533,13 @@ export function StaffManagementView() {
                     <th className="px-6 py-4">Karyawan</th>
                     <th className="px-6 py-4">Email</th>
                     <th className="px-6 py-4">Role</th>
+                    <th className="px-6 py-4">Outlet</th>
                     <th className="px-6 py-4">Status</th>
                     <th className="px-6 py-4 text-right">Aksi</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800/40 text-sm">
-                  {staffList.map((staff) => {
+                  {displayedStaff.map((staff) => {
                     const initials = staff.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
                     const isSelf = staff.id === currentUser?.id;
 
@@ -416,21 +559,21 @@ export function StaffManagementView() {
                                   </span>
                                 )}
                               </p>
-                              <p className="text-xs text-slate-400 dark:text-slate-500">ID: {staff.id.substring(0, 8)}...</p>
+                              <p className="text-xs text-slate-400 dark:text-slate-550">ID: {staff.id.substring(0, 8)}...</p>
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-4 text-slate-600 dark:text-slate-300">
+                        <td className="px-6 py-4 text-slate-650 dark:text-slate-300">
                           {staff.email}
                         </td>
                         <td className="px-6 py-4">
                           {staff.userRoles.map((ur) => {
                             const rName = ur.role.name;
-                            const isOwnerOrAdmin = rName === 'Owner' || rName === 'TENANT_ADMIN';
+                            const isOwnerOrPlatformAdmin = rName === 'Owner' || rName === 'Admin';
                             const isManager = rName === 'Manager';
                             const isGudang = rName === 'Staf Gudang';
                             let badgeStyle = 'bg-slate-500/10 text-slate-400 border-slate-500/20';
-                            if (isOwnerOrAdmin) {
+                            if (isOwnerOrPlatformAdmin) {
                               badgeStyle = 'bg-amber-500/10 text-amber-400 border-amber-500/20';
                             } else if (isManager) {
                               badgeStyle = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
@@ -448,57 +591,102 @@ export function StaffManagementView() {
                           })}
                         </td>
                         <td className="px-6 py-4">
-                          <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold ${staff.isActive
-                              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                              : 'bg-slate-800 text-slate-500 border border-slate-700/50'
-                            }`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${staff.isActive ? 'bg-emerald-500' : 'bg-slate-500'}`}></span>
-                            {staff.isActive ? 'Aktif' : 'Nonaktif'}
+                          <div className="flex flex-wrap gap-1 max-w-[220px]">
+                            {staff.userOutlets && staff.userOutlets.length > 0 ? (
+                              staff.userOutlets.map((uo) => (
+                                <span key={uo.outlet.id} className="inline-flex items-center gap-0.5 px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-650 dark:text-slate-300 text-[10px] font-semibold border border-slate-200 dark:border-slate-700/50 rounded-md">
+                                  <MapPin className="w-2.5 h-2.5 text-slate-400" />
+                                  {uo.outlet.name}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="text-[10px] text-slate-400 dark:text-slate-500 italic">Global / Semua Outlet</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold ${
+                            activeTab === 'pending'
+                              ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                              : staff.isActive
+                                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                : 'bg-slate-800 text-slate-500 border border-slate-700/50'
+                          }`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${
+                              activeTab === 'pending'
+                                ? 'bg-amber-400'
+                                : staff.isActive ? 'bg-emerald-500' : 'bg-slate-500'
+                            }`}></span>
+                            {activeTab === 'pending' ? 'Menunggu Approval' : staff.isActive ? 'Aktif' : 'Nonaktif'}
                           </span>
                         </td>
                         <td className="px-6 py-4 text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            {/* Toggle Aktif/Nonaktif */}
-                            <button
-                              onClick={() => handleToggleStatus(staff.id, staff.isActive)}
-                              disabled={isSelf}
-                              className={`p-2 rounded-lg border transition-all duration-200 ${isSelf
-                                  ? 'opacity-30 cursor-not-allowed border-slate-200 dark:border-slate-800 text-slate-350 dark:text-slate-650'
-                                  : staff.isActive
-                                    ? 'bg-rose-500/10 border-rose-500/20 text-rose-400 hover:bg-rose-500/20 active:scale-95'
-                                    : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 active:scale-95'
+                          {activeTab === 'pending' ? (
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                onClick={() => handleApproveStaff(staff.id)}
+                                className="cursor-pointer inline-flex items-center gap-1 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-xs font-semibold rounded-lg shadow-sm transition-all"
+                                title="Setujui Pendaftaran"
+                              >
+                                <Check className="w-3.5 h-3.5" />
+                                Setujui
+                              </button>
+                              <button
+                                onClick={() => handleRejectStaff(staff.id)}
+                                className="cursor-pointer inline-flex items-center gap-1 px-3 py-1.5 bg-rose-600 hover:bg-rose-500 active:scale-95 text-white text-xs font-semibold rounded-lg shadow-sm transition-all"
+                                title="Tolak Pendaftaran"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                                Tolak
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-end gap-2">
+                              {/* Toggle Aktif/Nonaktif */}
+                              <button
+                                onClick={() => handleToggleStatus(staff.id, staff.isActive)}
+                                disabled={isSelf}
+                                className={`cursor-pointer p-2 rounded-lg border transition-all duration-200 ${
+                                  isSelf
+                                    ? 'opacity-30 cursor-not-allowed border-slate-200 dark:border-slate-800 text-slate-350 dark:text-slate-650'
+                                    : staff.isActive
+                                      ? 'bg-rose-500/10 border-rose-500/20 text-rose-400 hover:bg-rose-500/20 active:scale-95'
+                                      : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 active:scale-95'
                                 }`}
-                              title={staff.isActive ? "Nonaktifkan Karyawan" : "Aktifkan Karyawan"}
-                            >
-                              <Power className="w-4 h-4" />
-                            </button>
+                                title={staff.isActive ? "Nonaktifkan Karyawan" : "Aktifkan Karyawan"}
+                              >
+                                <Power className="w-4 h-4" />
+                              </button>
 
-                            {/* Edit Karyawan */}
-                            <button
-                              onClick={() => openEditModal(staff)}
-                              disabled={isSelf}
-                              className={`p-2 rounded-lg border transition-all duration-200 ${isSelf
-                                  ? 'opacity-30 cursor-not-allowed border-slate-200 dark:border-slate-800 text-slate-350 dark:text-slate-650'
-                                  : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 active:scale-95 border-slate-200 dark:border-slate-700'
+                              {/* Edit Karyawan */}
+                              <button
+                                onClick={() => openEditModal(staff)}
+                                disabled={isSelf}
+                                className={`cursor-pointer p-2 rounded-lg border transition-all duration-200 ${
+                                  isSelf
+                                    ? 'opacity-30 cursor-not-allowed border-slate-200 dark:border-slate-800 text-slate-350 dark:text-slate-650'
+                                    : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 active:scale-95 border-slate-200 dark:border-slate-700'
                                 }`}
-                              title="Edit Karyawan"
-                            >
-                              <Pencil className="w-4 h-4" />
-                            </button>
+                                title="Edit Karyawan"
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </button>
 
-                            {/* Hapus Karyawan */}
-                            <button
-                              onClick={() => setDeleteTarget(staff)}
-                              disabled={isSelf}
-                              className={`p-2 rounded-lg border transition-all duration-200 ${isSelf
-                                  ? 'opacity-30 cursor-not-allowed border-slate-200 dark:border-slate-800 text-slate-350 dark:text-slate-650'
-                                  : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 active:scale-95 border-slate-200 dark:border-slate-700'
+                              {/* Hapus Karyawan */}
+                              <button
+                                onClick={() => setDeleteTarget(staff)}
+                                disabled={isSelf}
+                                className={`cursor-pointer p-2 rounded-lg border transition-all duration-200 ${
+                                  isSelf
+                                    ? 'opacity-30 cursor-not-allowed border-slate-200 dark:border-slate-800 text-slate-350 dark:text-slate-650'
+                                    : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 active:scale-95 border-slate-200 dark:border-slate-700'
                                 }`}
-                              title="Hapus Karyawan"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
+                                title="Hapus Karyawan"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          )}
                         </td>
                       </tr>
                     );
@@ -510,17 +698,17 @@ export function StaffManagementView() {
         </div>
       </main>
 
-      {/* Modal Tambah Staf (Glassmorphism + Backdrop Blur) */}
+      {/* Modal Tambah/Edit Staf (Glassmorphism + Backdrop Blur) */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           {/* Overlay */}
           <div
-            className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm"
+            className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm cursor-pointer"
             onClick={() => !submitting && setIsModalOpen(false)}
           />
 
           {/* Modal Container */}
-          <div className="relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 w-full max-w-md rounded-2xl shadow-2xl animate-in fade-in zoom-in duration-200">
+          <div className="relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 w-full max-w-md rounded-2xl shadow-2xl animate-in fade-in zoom-in duration-200 max-h-[90vh] flex flex-col">
             {/* Header Modal */}
             <div className="px-6 py-4 rounded-t-2xl border-b border-slate-150 dark:border-slate-850 flex items-center justify-between bg-slate-50/50 dark:bg-slate-950/40">
               <div className="flex items-center gap-2">
@@ -536,15 +724,15 @@ export function StaffManagementView() {
               <button
                 onClick={() => setIsModalOpen(false)}
                 disabled={submitting}
-                className="text-slate-450 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                className="cursor-pointer text-slate-450 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             {/* Form */}
-            <form onSubmit={handleCreateStaff}>
-              <div className="p-6 space-y-4">
+            <form onSubmit={handleCreateStaff} className="flex flex-col overflow-hidden">
+              <div className="p-6 space-y-4 overflow-y-auto flex-1">
                 {modalError && (
                   <div className="flex items-center gap-2.5 p-3.5 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-600 dark:text-rose-300 text-xs font-semibold">
                     <AlertCircle className="w-4 h-4 flex-shrink-0" />
@@ -619,7 +807,7 @@ export function StaffManagementView() {
                     type="button"
                     onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                     onKeyDown={handleDropdownKeyDown}
-                    className="w-full flex items-center justify-between px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 hover:border-slate-350 dark:hover:border-slate-700 rounded-xl text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 transition-all duration-200 text-left relative"
+                    className="cursor-pointer w-full flex items-center justify-between px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 hover:border-slate-350 dark:hover:border-slate-700 rounded-xl text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 transition-all duration-200 text-left relative"
                   >
                     <div className="flex items-center gap-2.5">
                       <Shield className="w-4 h-4 text-indigo-500 dark:text-indigo-400 shrink-0" />
@@ -656,7 +844,7 @@ export function StaffManagementView() {
                           <button
                             type="button"
                             onClick={() => setSearchTerm('')}
-                            className="absolute right-3.5 text-slate-400 hover:text-slate-650 dark:text-slate-500 dark:hover:text-slate-350"
+                            className="cursor-pointer absolute right-3.5 text-slate-400 hover:text-slate-650 dark:text-slate-500 dark:hover:text-slate-350"
                           >
                             <X className="w-3 h-3" />
                           </button>
@@ -683,12 +871,13 @@ export function StaffManagementView() {
                                   setSearchTerm('');
                                 }}
                                 onMouseEnter={() => setHighlightedIndex(idx)}
-                                className={`w-full flex items-center justify-between px-4 py-2.5 text-left text-xs transition-colors ${isCurrentlySelected
+                                className={`cursor-pointer w-full flex items-center justify-between px-4 py-2.5 text-left text-xs transition-colors ${
+                                  isCurrentlySelected
                                     ? 'bg-indigo-50 dark:bg-indigo-600/15'
                                     : isHighlighted
                                       ? 'bg-slate-50 dark:bg-slate-800/60'
                                       : 'bg-transparent hover:bg-slate-50 dark:hover:bg-slate-800/40'
-                                  }`}
+                                }`}
                               >
                                 <div className="space-y-0.5 pr-4">
                                   <p className={`font-bold ${isCurrentlySelected ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-800 dark:text-slate-200'}`}>
@@ -711,22 +900,58 @@ export function StaffManagementView() {
                     </div>
                   )}
                 </div>
+
+                {/* Checkbox List Outlets — grouped MAIN / Cabang */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-500 dark:text-slate-400">Pilih Outlet Penempatan</label>
+                  <div className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-xl p-3 max-h-44 overflow-y-auto space-y-3">
+                    {!hasOutlets ? (
+                      <p className="text-xs text-slate-400 dark:text-slate-600 italic">Belum ada outlet aktif.</p>
+                    ) : (
+                      <>
+                        {outletHierarchy.main && (
+                          <div>
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 mb-2 flex items-center gap-1">
+                              <Store className="w-3 h-3" />
+                              Outlet Utama
+                            </p>
+                            <div className="pl-1 space-y-1">
+                              {renderOutletCheckbox(outletHierarchy.main)}
+                            </div>
+                          </div>
+                        )}
+                        {outletHierarchy.branches.length > 0 && (
+                          <div>
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2 flex items-center gap-1">
+                              <MapPin className="w-3 h-3" />
+                              Cabang
+                            </p>
+                            <div className="pl-1 space-y-1">
+                              {outletHierarchy.branches.map(renderOutletCheckbox)}
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+
               </div>
 
               {/* Action Buttons */}
-              <div className="px-6 py-4 rounded-b-2xl bg-slate-550/10 dark:bg-slate-950/40 border-t border-slate-150 dark:border-slate-850 flex items-center justify-end gap-3">
+              <div className="px-6 py-4 bg-slate-50 dark:bg-slate-950/40 border-t border-slate-150 dark:border-slate-850 flex items-center justify-end gap-3 shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
                   disabled={submitting}
-                  className="px-4 py-2 bg-white hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-350 text-sm font-semibold rounded-xl border border-slate-200 dark:border-slate-700 transition-all"
+                  className="cursor-pointer px-4 py-2 bg-white hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-350 text-sm font-semibold rounded-xl border border-slate-200 dark:border-slate-700 transition-all"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-800 text-white text-sm font-semibold rounded-xl shadow-lg shadow-indigo-600/10 dark:shadow-indigo-950/30 transition-all"
+                  className="cursor-pointer flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-800 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-xl shadow-lg shadow-indigo-600/10 dark:shadow-indigo-950/30 transition-all animate-none"
                 >
                   {submitting ? (
                     <>
@@ -742,12 +967,13 @@ export function StaffManagementView() {
           </div>
         </div>
       )}
+
       {/* Modal Konfirmasi Hapus (Custom & Profesional) */}
       {deleteTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           {/* Overlay */}
           <div
-            className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm"
+            className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm cursor-pointer"
             onClick={() => !submitting && setDeleteTarget(null)}
           />
 
@@ -772,7 +998,7 @@ export function StaffManagementView() {
                 type="button"
                 onClick={() => setDeleteTarget(null)}
                 disabled={submitting}
-                className="flex-1 px-4 py-2.5 bg-white hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-350 text-sm font-semibold rounded-xl border border-slate-200 dark:border-slate-700 transition-all active:scale-95 duration-150"
+                className="cursor-pointer flex-1 px-4 py-2.5 bg-white hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-350 text-sm font-semibold rounded-xl border border-slate-200 dark:border-slate-700 transition-all active:scale-95 duration-150"
               >
                 Batal
               </button>
@@ -780,7 +1006,7 @@ export function StaffManagementView() {
                 type="button"
                 onClick={handleDeleteStaff}
                 disabled={submitting}
-                className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 bg-rose-600 hover:bg-rose-500 disabled:bg-rose-800 text-white text-sm font-semibold rounded-xl shadow-lg shadow-rose-600/20 transition-all active:scale-95 duration-150"
+                className="cursor-pointer flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 bg-rose-600 hover:bg-rose-500 disabled:bg-rose-800 text-white text-sm font-semibold rounded-xl shadow-lg shadow-rose-600/20 transition-all active:scale-95 duration-150"
               >
                 {submitting ? (
                   <>

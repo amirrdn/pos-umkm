@@ -9,7 +9,7 @@ const analyticsController = new AnalyticsController();
 
 router.use(authMiddleware);
 router.use(tenantMiddleware);
-router.use(requireRole(['Owner', 'TENANT_ADMIN', 'Manager']));
+router.use(requireRole(['Owner', 'Manager', 'Admin']));
 
 /**
  * Route GET /api/analytics/summary
@@ -35,10 +35,10 @@ router.get('/trend', analyticsController.getTrend.bind(analyticsController));
  */
 router.get('/cashiers', analyticsController.getCashierReports.bind(analyticsController));
 
-/**
- * Route GET /api/analytics/shifts
- * Deskripsi: Mengambil riwayat dan laporan performa penjualan per shift.
- */
+/** GET /api/analytics/breakdown — revenue/profit per outlet + agregat MAIN vs BRANCH */
+router.get('/breakdown', analyticsController.getBreakdown.bind(analyticsController));
+
+/** GET /api/analytics/shifts — laporan performa per shift */
 router.get('/shifts', analyticsController.getShiftReports.bind(analyticsController));
 
 export default router;

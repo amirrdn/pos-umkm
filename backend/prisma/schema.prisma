@@ -63,6 +63,8 @@ model Tenant {
   debtPayments  DebtPayment[]
   outlets       Outlet[]
   outletStocks  OutletStock[]
+  stockTransfers StockTransfer[]
+  outletProductPrices OutletProductPrice[]
 
   @@map("tenants")
 }
@@ -75,20 +77,25 @@ model User {
   email     String    @unique
   password  String
   isActive  Boolean   @default(true)
-  outletId  String?
+  approvalStatus String @default("PENDING") // PENDING, APPROVED, REJECTED
+  emailVerifiedAt DateTime?
+  emailVerificationToken String? @unique
+  emailVerificationExpiresAt DateTime?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime? // Indikator Soft Delete
 
   // Relasi
   tenant            Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  outlet            Outlet?       @relation(fields: [outletId], references: [id], onDelete: SetNull)
+  userOutlets       UserOutlet[]
   userRoles         UserRole[]
   transactions      Transaction[]
   shifts            Shift[]
   stockLedgers      StockLedger[]
   submittedRequests StockRequest[] @relation("submittedRequests")
   approvedRequests  StockRequest[] @relation("approvedRequests")
+  transfersRequested StockTransfer[] @relation("transfersRequested")
+  transfersApproved  StockTransfer[] @relation("transfersApproved")
 
   @@map("users")
 }
@@ -179,7 +186,6 @@ model Product {
   sku           String    // Stock Keeping Unit (Kode Barang)
   purchasePrice Decimal   @db.Decimal(12, 2) // Harga beli untuk perhitungan margin/HPP
   sellingPrice  Decimal   @db.Decimal(12, 2) // Harga jual
-  stock         Int       @default(0)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   deletedAt     DateTime? // Indikator Soft Delete
@@ -192,6 +198,8 @@ model Product {
   stockRequests    StockRequest[]
   images           ProductImage[]
   outletStocks     OutletStock[]
+  stockTransferItems StockTransferItem[]
+  outletPrices     OutletProductPrice[]
 
   // SKU harus unik di dalam tenant yang sama
   @@unique([tenantId, sku])
@@ -293,6 +301,8 @@ enum MutationType {
   ADJUSTMENT_PLUS  // Penyesuaian stok tambah (ditemukan)
   ADJUSTMENT_MINUS // Penyesuaian stok kurang (rusak/hilang)
   RETURN           // Retur barang dari pelanggan
+  TRANSFER_IN      // Stok masuk dari transfer outlet
+  TRANSFER_OUT     // Stok keluar untuk transfer outlet
 }
 
 model StockLedger {
@@ -384,26 +394,55 @@ model DebtPayment {
   @@map("debt_payments")
 }
 
+enum OutletType {
+  MAIN
+  BRANCH
+}
+
 // 15. Outlet (Cabang / Toko Multi-Outlet)
 model Outlet {
-  id        String    @id @default(uuid())
-  tenantId  String
-  name      String
-  address   String?
-  phone     String?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
+  id             String        @id @default(uuid())
+  tenantId       String
+  type           OutletType    @default(BRANCH)
+  parentOutletId String?
+  name           String
+  code           String?
+  address        String?
+  phone          String?
+  isActive       Boolean       @default(true)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  deletedAt      DateTime?
 
-  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  users         User[]
-  transactions  Transaction[]
-  shifts        Shift[]
-  stockLedgers  StockLedger[]
-  outletStocks  OutletStock[]
-  stockRequests StockRequest[]
+  tenant         Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  parentOutlet   Outlet?       @relation("OutletHierarchy", fields: [parentOutletId], references: [id], onDelete: Restrict)
+  branches       Outlet[]      @relation("OutletHierarchy")
+  userOutlets    UserOutlet[]
+  transactions   Transaction[]
+  shifts         Shift[]
+  stockLedgers   StockLedger[]
+  outletStocks   OutletStock[]
+  stockRequests  StockRequest[]
+  transfersFrom  StockTransfer[] @relation("transfersFrom")
+  transfersTo    StockTransfer[] @relation("transfersTo")
+  outletPrices   OutletProductPrice[]
 
+  @@unique([tenantId, code])
+  @@index([tenantId, type])
   @@map("outlets")
+}
+
+// 15.5 UserOutlet (Relasi Many-to-Many antara User dan Outlet)
+model UserOutlet {
+  id       String @id @default(uuid())
+  userId   String
+  outletId String
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  outlet Outlet @relation(fields: [outletId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, outletId])
+  @@map("user_outlets")
 }
 
 // 16. OutletStock (Stok Produk per Outlet)
@@ -413,6 +452,7 @@ model OutletStock {
   outletId  String
   productId String
   stock     Int      @default(0)
+  minStock  Int      @default(0)
 
   tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   outlet  Outlet  @relation(fields: [outletId], references: [id], onDelete: Cascade)
@@ -420,4 +460,62 @@ model OutletStock {
 
   @@unique([outletId, productId])
   @@map("outlet_stocks")
+}
+
+enum TransferStatus {
+  DRAFT
+  IN_TRANSIT
+  COMPLETED
+  CANCELLED
+}
+
+model StockTransfer {
+  id             String         @id @default(uuid())
+  tenantId       String
+  fromOutletId   String
+  toOutletId     String
+  requestedById  String
+  approvedById   String?
+  status         TransferStatus @default(DRAFT)
+  note           String?
+  completedAt    DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  tenant         Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  fromOutlet     Outlet         @relation("transfersFrom", fields: [fromOutletId], references: [id], onDelete: Restrict)
+  toOutlet       Outlet         @relation("transfersTo", fields: [toOutletId], references: [id], onDelete: Restrict)
+  requestedBy    User           @relation("transfersRequested", fields: [requestedById], references: [id], onDelete: Restrict)
+  approvedBy     User?          @relation("transfersApproved", fields: [approvedById], references: [id], onDelete: SetNull)
+  items          StockTransferItem[]
+
+  @@map("stock_transfers")
+}
+
+model StockTransferItem {
+  id         String        @id @default(uuid())
+  transferId String
+  productId  String
+  quantity   Int
+
+  transfer   StockTransfer @relation(fields: [transferId], references: [id], onDelete: Cascade)
+  product    Product       @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@unique([transferId, productId])
+  @@map("stock_transfer_items")
+}
+
+model OutletProductPrice {
+  id        String   @id @default(uuid())
+  tenantId  String
+  outletId  String
+  productId String
+  price     Decimal  @db.Decimal(12, 2)
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  outlet    Outlet   @relation(fields: [outletId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([outletId, productId])
+  @@map("outlet_product_prices")
 }
