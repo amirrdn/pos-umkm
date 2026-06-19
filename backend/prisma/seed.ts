@@ -27,11 +27,13 @@ async function main() {
   // a.5 SEEDING DEFAULT OUTLET
   await prisma.outlet.upsert({
     where: { id: 'outlet-default-uuid-111' },
-    update: {},
+    update: { type: 'MAIN' },
     create: {
       id: 'outlet-default-uuid-111',
       tenantId: tenant.id,
       name: 'Toko Utama Pusat',
+      type: 'MAIN',
+      code: 'PST',
       address: 'Jl. Jenderal Sudirman No. 1, Jakarta',
       phone: '021-5551234'
     }
@@ -273,7 +275,8 @@ async function main() {
   const user = await prisma.user.upsert({
     where: { email: 'owner@tokoutama.com' },
     update: {
-      password: hashedPassword // Selalu reset password ke default saat seed
+      password: hashedPassword,
+      approvalStatus: 'APPROVED',
     },
     create: {
       id: 'user-admin-111',
@@ -281,7 +284,8 @@ async function main() {
       name: 'Budi Owner',
       email: 'owner@tokoutama.com',
       password: hashedPassword,
-      isActive: true
+      isActive: true,
+      approvalStatus: 'APPROVED',
     }
   });
 
@@ -320,7 +324,8 @@ async function main() {
   const kasirUser = await prisma.user.upsert({
     where: { email: 'kasir@tokoutama.com' },
     update: {
-      password: hashedPassword // Reset password ke default saat seed
+      password: hashedPassword,
+      approvalStatus: 'APPROVED',
     },
     create: {
       id: 'user-kasir-222',
@@ -328,7 +333,8 @@ async function main() {
       name: 'Asep Kasir',
       email: 'kasir@tokoutama.com',
       password: hashedPassword,
-      isActive: true
+      isActive: true,
+      approvalStatus: 'APPROVED',
     }
   });
 

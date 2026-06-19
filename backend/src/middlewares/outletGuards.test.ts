@@ -82,6 +82,25 @@ describe('outletGuards', () => {
       expect(res.body).toMatchObject({ code: 'OUTLET_NOT_FOUND' });
       expect(next).not.toHaveBeenCalled();
     });
+
+    it('returns 403 when outlet is inactive', async () => {
+      mockFindFirst.mockResolvedValue({
+        id: 'branch-1',
+        name: 'Cabang Tutup',
+        type: OutletType.BRANCH,
+        isActive: false,
+      });
+
+      const req = { tenantId: 't1', outletId: 'branch-1' } as Request;
+      const res = mockRes();
+      const next = vi.fn();
+
+      await attachActiveOutlet(req, res, next);
+
+      expect(res.statusCode).toBe(403);
+      expect(res.body).toMatchObject({ code: 'OUTLET_INACTIVE' });
+      expect(next).not.toHaveBeenCalled();
+    });
   });
 
   describe('requireMainOutlet', () => {

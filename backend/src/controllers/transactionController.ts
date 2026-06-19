@@ -4,7 +4,7 @@ import { z } from 'zod';
 import {
   buildQrisSaleLedgerEntries,
   decrementOutletStock,
-  restoreStockForVoidedTransaction,
+  getOutletStockLevel,
 } from '../domain/inventory';
 import { prisma } from '../lib/prisma';
 import { MidtransService } from '../services/midtransService';
@@ -20,6 +20,7 @@ export const checkoutSchema = z.object({
   discountValue: z.number().nonnegative('Nilai diskon tidak boleh negatif').optional(),
   applyTax: z.boolean().optional(),
   customerId: z.string().nullable().optional(),
+  shiftId: z.string().uuid('ID Shift harus berupa format UUID yang valid').optional(),
   items: z.array(
     z.object({
       productId: z.string().uuid('ID Produk harus berupa format UUID yang valid'),
@@ -46,7 +47,7 @@ export async function checkout(req: Request, res: Response) {
       });
     }
 
-    const { items, discountType, discountValue, applyTax, paymentMethod, customerId } = validation.data;
+    const { items, discountType, discountValue, applyTax, paymentMethod, customerId, shiftId } = validation.data;
 
     const tenantId = req.tenantId!;
     const userId = req.user!.id;
@@ -118,25 +119,38 @@ export async function checkout(req: Request, res: Response) {
           subtotal: itemSubtotal,
         });
 
-        const { stockBefore, stockAfter } = await decrementOutletStock(
-          tx,
-          tenantId,
-          outletId,
-          product.id,
-          item.quantity
-        );
+        const { stockBefore, stockAfter } =
+          paymentMethod === 'QRIS'
+            ? await (async () => {
+                const level = await getOutletStockLevel(outletId, product.id, tx);
+                if (level < item.quantity) {
+                  throw new Error(
+                    `Stok tidak mencukupi untuk ${product.name}. Tersedia: ${level}, diminta: ${item.quantity}.`
+                  );
+                }
+                return { stockBefore: level, stockAfter: level - item.quantity };
+              })()
+            : await decrementOutletStock(
+                tx,
+                tenantId,
+                outletId,
+                product.id,
+                item.quantity
+              );
 
-        stockLedgerEntries.push({
-          tenantId,
-          productId: product.id,
-          userId,
-          type: 'SALE' as const,
-          quantity: -item.quantity,
-          stockBefore,
-          stockAfter,
-          outletId,
-          note: `Penjualan - Invoice`,
-        });
+        if (paymentMethod !== 'QRIS') {
+          stockLedgerEntries.push({
+            tenantId,
+            productId: product.id,
+            userId,
+            type: 'SALE' as const,
+            quantity: -item.quantity,
+            stockBefore,
+            stockAfter,
+            outletId,
+            note: `Penjualan - Invoice`,
+          });
+        }
       }
 
       let discountAmount = new Prisma.Decimal(0);
@@ -189,12 +203,29 @@ export async function checkout(req: Request, res: Response) {
         }
       }
 
+      if (shiftId) {
+        const openShift = await tx.shift.findFirst({
+          where: {
+            id: shiftId,
+            tenantId,
+            userId,
+            outletId: req.outletId,
+            status: 'OPEN',
+          },
+          select: { id: true },
+        });
+
+        if (!openShift) {
+          throw new Error('Shift tidak valid, sudah ditutup, atau tidak terbuka di outlet ini.');
+        }
+      }
+
       const transaction = await tx.transaction.create({
         data: {
           tenantId,
           userId,
           outletId: req.outletId || null,
-          shiftId: req.body.shiftId ?? null,
+          shiftId: shiftId ?? null,
           customerId: customerId || null,
           paymentMethod: paymentMethod ?? 'CASH',
           invoiceNumber,
@@ -276,6 +307,11 @@ export async function checkout(req: Request, res: Response) {
         });
       } catch (midtransError: any) {
         console.error('Midtrans API Charge Error:', midtransError);
+        try {
+          await prisma.transaction.delete({ where: { id: result.id } });
+        } catch (cleanupError) {
+          console.error('Gagal menghapus transaksi QRIS gagal:', cleanupError);
+        }
         return res.status(500).json({
           success: false,
           message: `Gagal membuat pembayaran QRIS: ${midtransError.message}`
@@ -442,14 +478,9 @@ export async function handleMidtransWebhook(req: Request, res: Response) {
           where: { id: transaction.id },
           data: { status: 'VOID' },
         });
-
-        await restoreStockForVoidedTransaction(tx, {
-          ...transaction,
-          items: transaction.items,
-        });
       });
 
-      return res.status(200).json({ success: true, message: 'Pembayaran dibatalkan, stok dikembalikan.' });
+      return res.status(200).json({ success: true, message: 'Pembayaran dibatalkan.' });
     }
 
     return res.status(200).json({ success: true, message: `Status pending/lainnya: ${transaction_status}` });
@@ -521,20 +552,9 @@ export async function getTransactionStatus(req: Request, res: Response) {
           });
           currentStatus = 'COMPLETED';
         } else if (['expire', 'cancel', 'deny'].includes(midtransStatus)) {
-          await prisma.$transaction(async (tx) => {
-            await tx.transaction.update({
-              where: { id: transaction.id },
-              data: { status: 'VOID' },
-            });
-
-            const transactionWithItems = await tx.transaction.findUnique({
-              where: { id: transaction.id },
-              include: { items: true },
-            });
-
-            if (transactionWithItems) {
-              await restoreStockForVoidedTransaction(tx, transactionWithItems);
-            }
+          await prisma.transaction.update({
+            where: { id: transaction.id },
+            data: { status: 'VOID' },
           });
           currentStatus = 'VOID';
         }

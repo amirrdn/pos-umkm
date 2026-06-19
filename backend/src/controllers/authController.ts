@@ -8,6 +8,7 @@ import {
   RegistrationEmailError,
 } from '../domain/auth/emailVerification.service';
 import { LoginError } from '../domain/auth/login.errors';
+import { prisma } from '../lib/prisma';
 
 const authService = new AuthService();
 
@@ -181,11 +182,10 @@ export class AuthController {
    */
   async getTenants(_req: Request, res: Response) {
     try {
-      const { PrismaClient } = require('@prisma/client');
-      const prisma = new PrismaClient();
       const tenants = await prisma.tenant.findMany({
-        where: { isActive: true },
-        select: { id: true, name: true }
+        where: { status: 'ACTIVE', deletedAt: null },
+        select: { id: true, name: true },
+        orderBy: { name: 'asc' },
       });
       return res.status(200).json({ success: true, data: tenants });
     } catch (error) {
@@ -200,11 +200,10 @@ export class AuthController {
   async getTenantOutlets(req: Request, res: Response) {
     try {
       const { tenantId } = req.params;
-      const { PrismaClient } = require('@prisma/client');
-      const prisma = new PrismaClient();
       const outlets = await prisma.outlet.findMany({
-        where: { tenantId, deletedAt: null },
-        select: { id: true, name: true }
+        where: { tenantId, deletedAt: null, isActive: true },
+        select: { id: true, name: true },
+        orderBy: { name: 'asc' },
       });
       return res.status(200).json({ success: true, data: outlets });
     } catch (error) {

@@ -27,6 +27,13 @@ export async function openShift(req: Request, res: Response): Promise<Response> 
     const userId = req.user!.id;
     const outletId = req.outletId;
 
+    if (!outletId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Shift wajib dibuka dengan outlet aktif (header x-outlet-id).',
+      });
+    }
+
     const shift = await shiftService.openShift({ tenantId, userId, cashStart, outletId });
 
     return res.status(201).json({

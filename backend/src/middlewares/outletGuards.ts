@@ -38,6 +38,14 @@ export async function attachActiveOutlet(
       });
     }
 
+    if (!outlet.isActive) {
+      return res.status(403).json({
+        success: false,
+        code: 'OUTLET_INACTIVE',
+        message: 'Outlet tidak aktif. Pilih cabang lain atau hubungi admin.',
+      });
+    }
+
     req.activeOutlet = outlet;
     return next();
   } catch (error) {

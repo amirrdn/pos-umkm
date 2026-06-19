@@ -77,7 +77,7 @@ model User {
   email     String    @unique
   password  String
   isActive  Boolean   @default(true)
-  approvalStatus String @default("PENDING") // PENDING, APPROVED, REJECTED
+  approvalStatus String @default("APPROVED") // PENDING, APPROVED, REJECTED
   emailVerifiedAt DateTime?
   emailVerificationToken String? @unique
   emailVerificationExpiresAt DateTime?
