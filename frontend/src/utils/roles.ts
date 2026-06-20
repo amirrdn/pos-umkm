@@ -1,5 +1,6 @@
 /** Pemilik aplikasi SaaS UMKM — akses lintas tenant & fitur platform */
 export const PLATFORM_ADMIN_ROLE = 'Admin';
+export const PLATFORM_ADMIN_ROLE_LABEL = 'Admin Platform';
 
 /** Pemilik toko (tenant) */
 export const TENANT_OWNER_ROLE = 'Owner';
@@ -9,6 +10,15 @@ export const TENANT_WIDE_OUTLET_ROLES = [TENANT_OWNER_ROLE, 'Manager', PLATFORM_
 
 export function isPlatformAdmin(roles: string[]): boolean {
   return roles.includes(PLATFORM_ADMIN_ROLE);
+}
+
+/** Owner tenant atau Admin platform — boleh mengelola billing/langganan */
+export function canManageSubscription(roles: string[]): boolean {
+  return isTenantOwner(roles) || isPlatformAdmin(roles);
+}
+
+export function getRoleDisplayLabel(role: string): string {
+  return role === PLATFORM_ADMIN_ROLE ? PLATFORM_ADMIN_ROLE_LABEL : role;
 }
 
 export function isTenantOwner(roles: string[]): boolean {

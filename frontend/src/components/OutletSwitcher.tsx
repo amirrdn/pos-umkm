@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Store } from 'lucide-react';
 import { API_BASE_URL } from '../config';
-import { useAuthStore, hasTenantWideOutletAccess } from '../store/useAuthStore';
+import { useAuthStore, hasTenantWideOutletAccess, isPlatformAdmin } from '../store/useAuthStore';
 import { buildApiHeaders } from '../utils/apiHeaders';
 import { getAssignedOutletIds } from '../utils/outletAccess';
 import { AppSelect, type AppSelectGroup } from './AppSelect';
@@ -107,6 +107,7 @@ export function OutletSwitcher({
   }, [user, outlets, activeOutletId, allowAllOutlets, setActiveOutlet]);
 
   if (!user) return null;
+  if (isPlatformAdmin(user.roles)) return null;
   if (outlets.length === 0 && !loading) return null;
 
   const showDropdown = tenantWideAccess ? outlets.length > 0 : outlets.length > 1;

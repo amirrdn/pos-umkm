@@ -1,9 +1,16 @@
 import crypto from 'crypto';
 import { prisma } from '../../lib/prisma';
-import { sendMail } from '../../lib/mail';
+import { getEmailProvider, sendMail } from '../../lib/mail';
 
 const TOKEN_BYTES = 32;
 const TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24 jam
+const APP_NAME = 'SaaSPOS';
+const VERIFICATION_EXPIRES_HOURS = TOKEN_TTL_MS / (60 * 60 * 1000);
+
+function getAccountVerificationTemplateId(): string | null {
+  const templateId = process.env.RESEND_TEMPLATE_ACCOUNT_VERIFICATION?.trim();
+  return templateId || null;
+}
 
 export class EmailAlreadyRegisteredError extends Error {
   readonly code: 'EMAIL_NOT_VERIFIED_RESENT' | 'EMAIL_ALREADY_USED';
@@ -81,23 +88,41 @@ export async function sendAccountVerificationEmail(input: {
   token: string;
 }): Promise<boolean> {
   const verifyUrl = buildVerificationUrl(input.token);
+  const useResendTemplate =
+    getEmailProvider() === 'resend' && getAccountVerificationTemplateId() !== null;
+  const templateId = getAccountVerificationTemplateId();
+
+  const text = [
+    `Halo ${input.name},`,
+    '',
+    `Terima kasih telah mendaftar di ${APP_NAME}.`,
+    'Silakan verifikasi alamat email Anda untuk mengaktifkan akun:',
+    '',
+    verifyUrl,
+    '',
+    `Tautan berlaku selama ${VERIFICATION_EXPIRES_HOURS} jam. Jika Anda tidak mendaftar, abaikan email ini.`,
+    '',
+    `— Tim ${APP_NAME}`,
+  ].join('\n');
 
   try {
     const sent = await sendMail({
       to: [input.email],
-      subject: 'Verifikasi Email — Aktivasi Akun SaaSPOS',
-      text: [
-        `Halo ${input.name},`,
-        '',
-        'Terima kasih telah mendaftar di SaaSPOS.',
-        'Silakan verifikasi alamat email Anda untuk mengaktifkan akun:',
-        '',
-        verifyUrl,
-        '',
-        'Tautan berlaku selama 24 jam. Jika Anda tidak mendaftar, abaikan email ini.',
-        '',
-        '— Tim SaaSPOS',
-      ].join('\n'),
+      subject: `Verifikasi Email — Aktivasi Akun ${APP_NAME}`,
+      text,
+      ...(useResendTemplate && templateId
+        ? {
+            template: {
+              id: templateId,
+              variables: {
+                USER_NAME: input.name,
+                VERIFY_URL: verifyUrl,
+                EXPIRES_IN_HOURS: String(VERIFICATION_EXPIRES_HOURS),
+                APP_NAME,
+              },
+            },
+          }
+        : {}),
     });
 
     if (!sent) {
@@ -114,7 +139,7 @@ export async function sendAccountVerificationEmail(input: {
     return sent;
   } catch {
     throw new RegistrationEmailError(
-      'Gagal mengirim email verifikasi. Periksa konfigurasi SMTP (host, port, SMTP_SECURE). Registrasi dibatalkan.'
+      'Gagal mengirim email verifikasi. Periksa konfigurasi email (EMAIL_PROVIDER, Gmail SMTP, atau Resend). Registrasi dibatalkan.'
     );
   }
 }

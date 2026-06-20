@@ -4,8 +4,10 @@ import {
   hasTenantWideOutletAccess,
   isPlatformAdmin,
   isTenantOwner,
+  canManageSubscription,
   hasAnyRole,
   PLATFORM_ADMIN_ROLE,
+  PLATFORM_ADMIN_ROLE_LABEL,
   TENANT_OWNER_ROLE,
   TENANT_WIDE_OUTLET_ROLES,
 } from '../utils/roles';
@@ -14,9 +16,11 @@ import { getAssignedOutletIds } from '../utils/outletAccess';
 export {
   isPlatformAdmin,
   isTenantOwner,
+  canManageSubscription,
   hasTenantWideOutletAccess,
   hasAnyRole,
   PLATFORM_ADMIN_ROLE,
+  PLATFORM_ADMIN_ROLE_LABEL,
   TENANT_OWNER_ROLE,
   TENANT_WIDE_OUTLET_ROLES,
 };
@@ -52,6 +56,10 @@ interface AuthState {
 }
 
 function resolveInitialOutlet(user: AuthUser, persistedOutletId: string | null): string | null {
+  if (isPlatformAdmin(user.roles)) {
+    return null;
+  }
+
   const wideAccess = hasTenantWideOutletAccess(user.roles);
   const allowedIds = [...getAssignedOutletIds(user)];
   const isOperational = (outletId: string) => {

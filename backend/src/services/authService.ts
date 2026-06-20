@@ -7,6 +7,7 @@ import {
   deliverRegistrationVerificationEmail,
 } from '../domain/auth/emailVerification.service';
 import { LoginError, LOGIN_ERROR_MESSAGES } from '../domain/auth/login.errors';
+import { resolveAuthRoles } from '../lib/roles';
 
 /**
  * Service Layer untuk Autentikasi Pengguna.
@@ -68,7 +69,7 @@ export class AuthService {
       throw new LoginError('INVALID_CREDENTIALS', LOGIN_ERROR_MESSAGES.INVALID_CREDENTIALS);
     }
 
-    const roles = user.userRoles.map((ur) => ur.role.name);
+    const roles = resolveAuthRoles(user.userRoles);
     const permissions = Array.from(
       new Set(
         user.userRoles.flatMap((ur) =>

@@ -14,9 +14,12 @@ import {
   Sun,
   Moon,
   LogOut,
+  CreditCard,
+  Sparkles,
 } from 'lucide-react';
 import { useThemeStore } from '../store/useThemeStore';
 import type { AuthUser } from '../store/useAuthStore';
+import { canManageSubscription, getRoleDisplayLabel, isPlatformAdmin } from '../utils/roles';
 import { OutletSwitcher } from './OutletSwitcher';
 import { DraftTransferNavBadge } from './DraftTransferNavBadge';
 
@@ -70,7 +73,9 @@ export function AppShellHeader({
   const location = useLocation();
   const { theme, toggleTheme } = useThemeStore();
 
-  const primaryRole = user?.roles[0] ?? 'Staff';
+  const platformAdmin = isPlatformAdmin(user?.roles ?? []);
+  const primaryRole = getRoleDisplayLabel(user?.roles[0] ?? 'Staff');
+  const effectiveShowOutletSwitcher = showOutletSwitcher && !platformAdmin;
   const showPosNav = user?.roles.some((r) => ['Owner', 'Manager', 'Admin', 'Kasir'].includes(r));
   const showAdminNav =
     user?.roles.includes('Owner') ||
@@ -79,6 +84,7 @@ export function AppShellHeader({
     user?.roles.includes('Staf Gudang');
   const showManagementNav = showAdminNav && !user?.roles.includes('Staf Gudang');
   const showOutletNav = user?.roles.includes('Owner') || user?.roles.includes('Admin');
+  const showSubscriptionNav = canManageSubscription(user?.roles ?? []);
 
   const navItemClass = (path: string) =>
     `cursor-pointer flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-lg whitespace-nowrap transition-all duration-150 ${
@@ -108,7 +114,7 @@ export function AppShellHeader({
             </div>
           </div>
 
-          {showOutletSwitcher && (
+          {effectiveShowOutletSwitcher && (
             <>
               <div className="hidden md:block h-9 w-px bg-slate-200 dark:bg-slate-700 shrink-0" />
               <div className="hidden sm:flex items-center gap-2 min-w-0">
@@ -155,6 +161,11 @@ export function AppShellHeader({
             >
               {primaryRole}
             </span>
+            {platformAdmin && (
+              <span className="hidden lg:inline text-[10px] font-bold px-1.5 py-0.5 rounded-md uppercase tracking-wide bg-violet-100 dark:bg-violet-950/50 text-violet-700 dark:text-violet-300">
+                Lintas Tenant
+              </span>
+            )}
           </div>
 
           <button
@@ -219,6 +230,18 @@ export function AppShellHeader({
                   <BarChart2 className="w-3.5 h-3.5 shrink-0" />
                   Dashboard
                 </button>
+                {showSubscriptionNav && (
+                  <>
+                    <button onClick={() => navigate('/admin/billing')} className={navItemClass('/admin/billing')}>
+                      <CreditCard className="w-3.5 h-3.5 shrink-0" />
+                      Billing
+                    </button>
+                    <button onClick={() => navigate('/admin/pricing')} className={navItemClass('/admin/pricing')}>
+                      <Sparkles className="w-3.5 h-3.5 shrink-0" />
+                      Paket
+                    </button>
+                  </>
+                )}
               </>
             )}
           </>

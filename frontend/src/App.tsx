@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { useAuthStore } from './store/useAuthStore';
+import { useAuthStore, isPlatformAdmin } from './store/useAuthStore';
 import { useThemeStore } from './store/useThemeStore';
 import { LoginView } from './components/LoginView';
 import { PosView } from './components/PosView';
@@ -20,6 +20,11 @@ import { CustomerManagementView } from './components/CustomerManagementView';
 import CustomerDisplay from './components/CustomerDisplay';
 import { OutletManagementView } from './components/OutletManagementView';
 import { NotificationPoller } from './components/NotificationPoller';
+import { PlatformConsoleLayout } from './layouts/PlatformConsoleLayout';
+import { PlatformDashboard } from './components/platform/PlatformDashboard';
+import { PlatformTenantsView } from './components/platform/PlatformTenantsView';
+import { PlatformBillingView } from './components/platform/PlatformBillingView';
+import { PlatformTenantDetailView } from './components/platform/PlatformTenantDetailView';
 
 
 /**
@@ -35,6 +40,10 @@ const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode;
     return <Navigate to="/login" replace />;
   }
 
+  if (user && isPlatformAdmin(user.roles)) {
+    return <Navigate to="/platform" replace />;
+  }
+
   if (allowedRoles && user) {
     const hasRole = user.roles.some((role) => allowedRoles.includes(role));
     if (!hasRole) {
@@ -48,9 +57,33 @@ const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode;
   return <>{children}</>;
 };
 
+const PlatformRoute = ({ children }: { children: React.ReactNode }) => {
+  const token = useAuthStore((state) => state.token);
+  const user = useAuthStore((state) => state.user);
+
+  if (!token) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (!user || !isPlatformAdmin(user.roles)) {
+    return <Navigate to="/pos" replace />;
+  }
+
+  return <>{children}</>;
+};
+
+function getDefaultAuthedPath(user: ReturnType<typeof useAuthStore.getState>['user']) {
+  if (user && isPlatformAdmin(user.roles)) {
+    return '/platform';
+  }
+  return '/pos';
+}
+
 function App() {
   const token = useAuthStore((state) => state.token);
+  const user = useAuthStore((state) => state.user);
   const theme = useThemeStore((state) => state.theme);
+  const defaultAuthedPath = getDefaultAuthedPath(user);
 
   useEffect(() => {
     if (theme === 'dark') {
@@ -68,15 +101,15 @@ function App() {
         <Route
           path="/"
           element={
-            token ? <Navigate to="/pos" replace /> : <LandingPage />
+            token ? <Navigate to={defaultAuthedPath} replace /> : <LandingPage />
           }
         />
 
-        {/* Rute Register (dialihkan ke POS jika sudah login) */}
+        {/* Rute Register (dialihkan ke halaman utama jika sudah login) */}
         <Route
           path="/register"
           element={
-            token ? <Navigate to="/pos" replace /> : <RegisterView />
+            token ? <Navigate to={defaultAuthedPath} replace /> : <RegisterView />
           }
         />
 
@@ -87,12 +120,27 @@ function App() {
         <Route
           path="/login"
           element={
-            token ? <Navigate to="/pos" replace /> : <LoginView />
+            token ? <Navigate to={defaultAuthedPath} replace /> : <LoginView />
           }
         />
 
         {/* Rute Dokumentasi (Publik) */}
         <Route path="/docs" element={<UserDocumentation />} />
+
+        {/* Platform Console — khusus Admin Platform SaaS */}
+        <Route
+          path="/platform"
+          element={
+            <PlatformRoute>
+              <PlatformConsoleLayout />
+            </PlatformRoute>
+          }
+        >
+          <Route index element={<PlatformDashboard />} />
+          <Route path="tenants" element={<PlatformTenantsView />} />
+          <Route path="tenants/:tenantId" element={<PlatformTenantDetailView />} />
+          <Route path="billing" element={<PlatformBillingView />} />
+        </Route>
 
         {/* Rute POS Terproteksi (Kasir, Manager, Owner) */}
         <Route

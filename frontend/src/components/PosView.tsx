@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useCartStore } from '../store/useCartStore';
-import { useAuthStore, isTenantOwner } from '../store/useAuthStore';
+import { useAuthStore, canManageSubscription, isPlatformAdmin } from '../store/useAuthStore';
+import { getRoleDisplayLabel } from '../utils/roles';
 import { useShiftStore } from '../store/useShiftStore';
 import { useSubscriptionStore } from '../store/useSubscriptionStore';
 import { useReactToPrint } from 'react-to-print';
@@ -76,11 +77,17 @@ export const PosView: React.FC = () => {
   const token = useAuthStore((state) => state.token);
   const user = useAuthStore((state) => state.user);
   const activeOutletId = useAuthStore((state) => state.activeOutletId);
+  const setActiveOutlet = useAuthStore((state) => state.setActiveOutlet);
   const logout = useAuthStore((state) => state.logout);
   const navigate = useNavigate();
   const location = useLocation();
   const { theme, toggleTheme } = useThemeStore();
   const { subscription, fetchActiveSubscription } = useSubscriptionStore();
+  const userRoles = user?.roles ?? [];
+  const platformAdmin = isPlatformAdmin(userRoles);
+  const managesSubscription = canManageSubscription(userRoles);
+  const subscriptionBypass = platformAdmin || subscription?.platformAdminBypass === true;
+  const debtFeatureEnabled = subscriptionBypass || (subscription?.features.maxDebtLimit ?? 0) > 0;
 
   const {
     activeShift,
@@ -130,6 +137,29 @@ export const PosView: React.FC = () => {
       fetchActiveSubscription();
     }
   }, [token, activeOutletId]);
+
+  useEffect(() => {
+    if (!platformAdmin || activeOutletId || !token) return;
+
+    const resolveSilentOutlet = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/outlets?operationalOnly=true`, {
+          headers: buildApiHeaders(),
+        });
+        const data = await response.json();
+        if (!response.ok) return;
+        const outlets = data.data ?? [];
+        const mainOutlet = outlets.find((o: { type?: string }) => o.type === 'MAIN') ?? outlets[0];
+        if (mainOutlet?.id) {
+          setActiveOutlet(mainOutlet.id);
+        }
+      } catch (err) {
+        console.error('Gagal menyiapkan outlet operasional untuk admin platform:', err);
+      }
+    };
+
+    resolveSilentOutlet();
+  }, [platformAdmin, activeOutletId, token, setActiveOutlet]);
 
   const restoreLocalStock = () => {
     setProducts(prevProducts =>
@@ -288,17 +318,17 @@ export const PosView: React.FC = () => {
           showToast('error', err.message || 'Koneksi ke API produk gagal.');
         }
       } finally {
-        setLoadingProducts(false);
-      }
-    };
+      setLoadingProducts(false);
+    }
+  };
 
-    if (token && activeOutletId) {
+    if (token && (activeOutletId || platformAdmin)) {
       fetchProducts();
-    } else if (token && !activeOutletId) {
+    } else if (token && !activeOutletId && !platformAdmin) {
       setProducts([]);
       setLoadingProducts(false);
     }
-  }, [token, activeOutletId]);
+  }, [token, activeOutletId, platformAdmin]);
 
   const filteredProducts = products.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -387,13 +417,13 @@ Terima kasih atas kunjungan Anda!`;
       return;
     }
 
-    // Periksa status langganan sebelum checkout
-    if (subscription?.status === 'EXPIRED') {
+    // Periksa status langganan sebelum checkout (kecuali Admin platform)
+    if (!subscriptionBypass && subscription?.status === 'EXPIRED') {
       showToast('error', 'Aksi ditolak: Masa langganan Anda telah habis. Aksi kasir diblokir.');
       return;
     }
 
-    if (subscription?.usage.transactions.isFull) {
+    if (!subscriptionBypass && subscription?.usage.transactions.isFull) {
       showToast('error', 'Aksi ditolak: Batas maksimal kuota transaksi bulanan paket Anda telah tercapai. Harap upgrade paket Anda.');
       return;
     }
@@ -550,7 +580,7 @@ Terima kasih atas kunjungan Anda!`;
     setSelectedCustomer(null);
   }, [activeOutletId]);
 
-  const primaryRole = user?.roles[0] ?? 'Kasir';
+  const primaryRole = getRoleDisplayLabel(user?.roles[0] ?? 'Kasir');
   const showAdminNav =
     user?.roles.includes('Owner') ||
     user?.roles.includes('Admin') ||
@@ -648,12 +678,22 @@ Terima kasih atas kunjungan Anda!`;
 
             <div className="hidden md:block h-9 w-px bg-slate-200 dark:bg-slate-700 shrink-0" />
 
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="hidden lg:inline text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 shrink-0">
-                Outlet
-              </span>
-              <OutletSwitcher operationalOnly size="md" className="min-w-0" />
-            </div>
+            {!platformAdmin && (
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="hidden lg:inline text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 shrink-0">
+                  Outlet
+                </span>
+                <OutletSwitcher operationalOnly size="md" className="min-w-0" />
+              </div>
+            )}
+
+            {platformAdmin && (
+              <div className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl bg-violet-50 dark:bg-violet-950/30 border border-violet-200/80 dark:border-violet-800/50">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-violet-700 dark:text-violet-300">
+                  Admin Platform SaaS
+                </span>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
@@ -765,10 +805,16 @@ Terima kasih atas kunjungan Anda!`;
                     <BarChart2 className="w-3.5 h-3.5 shrink-0" />
                     Dashboard
                   </button>
-                  {isTenantOwner(user?.roles ?? []) && (
+                  {managesSubscription && (
                     <button onClick={() => navigate('/admin/billing')} className={navItemClass('/admin/billing')}>
                       <CreditCard className="w-3.5 h-3.5 shrink-0" />
                       Billing
+                    </button>
+                  )}
+                  {managesSubscription && (
+                    <button onClick={() => navigate('/admin/pricing')} className={navItemClass('/admin/pricing')}>
+                      <Package className="w-3.5 h-3.5 shrink-0" />
+                      Paket
                     </button>
                   )}
                 </>
@@ -779,13 +825,13 @@ Terima kasih atas kunjungan Anda!`;
       </header>
 
       {/* Banner Peringatan Langganan */}
-      {subscription && subscription.status === 'EXPIRED' && (
+      {subscription && !subscriptionBypass && subscription.status === 'EXPIRED' && (
         <div className="bg-rose-600 text-white px-5 py-3 text-xs font-bold flex justify-between items-center shrink-0 shadow-md">
           <div className="flex items-center gap-2">
             <AlertTriangle className="h-4 w-4 animate-bounce" />
             <span>Masa aktif langganan Anda telah kedaluwarsa. Aplikasi saat ini terkunci (Mode Read-Only). Aksi kasir diblokir hingga pembayaran diperbarui.</span>
           </div>
-          {isTenantOwner(user?.roles ?? []) && (
+          {managesSubscription && (
             <button
               onClick={() => navigate('/admin/billing')}
               className="cursor-pointer bg-white text-rose-650 px-3.5 py-1.5 rounded-lg font-black hover:bg-slate-100 transition-all text-[10px] uppercase shadow-sm active:scale-97"
@@ -796,13 +842,13 @@ Terima kasih atas kunjungan Anda!`;
         </div>
       )}
 
-      {subscription && !subscription.usage.transactions.isFull && subscription.usage.transactions.isNearLimit && subscription.status !== 'EXPIRED' && (
+      {subscription && !subscriptionBypass && !subscription.usage.transactions.isFull && subscription.usage.transactions.isNearLimit && subscription.status !== 'EXPIRED' && (
         <div className="bg-amber-500 text-slate-900 px-5 py-2.5 text-xs font-bold flex justify-between items-center shrink-0 shadow-sm">
           <div className="flex items-center gap-2">
             <AlertTriangle className="h-4 w-4" />
             <span>Kuota transaksi bulanan Anda hampir habis ({subscription.usage.transactions.current} / {subscription.usage.transactions.limit} trxs). Harap lakukan upgrade paket untuk kelancaran kasir.</span>
           </div>
-          {isTenantOwner(user?.roles ?? []) && (
+          {managesSubscription && (
             <button
               onClick={() => navigate('/admin/billing')}
               className="cursor-pointer bg-slate-900 text-white px-3.5 py-1.5 rounded-lg font-black hover:bg-slate-800 transition-all text-[10px] uppercase shadow-sm active:scale-97"
@@ -813,13 +859,13 @@ Terima kasih atas kunjungan Anda!`;
         </div>
       )}
 
-      {subscription && subscription.usage.transactions.isFull && subscription.status !== 'EXPIRED' && (
+      {subscription && !subscriptionBypass && subscription.usage.transactions.isFull && subscription.status !== 'EXPIRED' && (
         <div className="bg-rose-600 text-white px-5 py-3 text-xs font-bold flex justify-between items-center shrink-0 shadow-md">
           <div className="flex items-center gap-2">
             <AlertTriangle className="h-4 w-4 animate-bounce" />
             <span>Kuota transaksi bulanan Anda telah penuh ({subscription.usage.transactions.current} / {subscription.usage.transactions.limit} trxs). Checkout POS ditangguhkan.</span>
           </div>
-          {isTenantOwner(user?.roles ?? []) && (
+          {managesSubscription && (
             <button
               onClick={() => navigate('/admin/billing')}
               className="cursor-pointer bg-white text-rose-600 px-3.5 py-1.5 rounded-lg font-black hover:bg-slate-100 transition-all text-[10px] uppercase shadow-sm active:scale-97"
@@ -1072,15 +1118,21 @@ Terima kasih atas kunjungan Anda!`;
                   </button>
                   <button
                     type="button"
-                    disabled={!selectedCustomer}
+                    disabled={!selectedCustomer || !debtFeatureEnabled}
                     onClick={() => setPaymentMethod('DEBT')}
-                    className={`cursor-pointer flex items-center justify-center gap-1 py-2 rounded-xl border text-[10px] font-bold transition-all ${!selectedCustomer
+                    className={`cursor-pointer flex items-center justify-center gap-1 py-2 rounded-xl border text-[10px] font-bold transition-all ${!selectedCustomer || !debtFeatureEnabled
                         ? 'bg-slate-100 dark:bg-slate-850/60 border-slate-200 dark:border-slate-800 text-slate-400 dark:text-slate-655 cursor-not-allowed opacity-50'
                         : paymentMethod === 'DEBT'
                         ? 'bg-indigo-600 border-indigo-600 text-white shadow-md shadow-indigo-150'
                         : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
                       }`}
-                    title={!selectedCustomer ? 'Pilih pelanggan terlebih dahulu untuk metode HUTANG' : 'Metode Hutang'}
+                    title={
+                      !debtFeatureEnabled
+                        ? 'Fitur hutang tidak tersedia di paket Anda'
+                        : !selectedCustomer
+                          ? 'Pilih pelanggan terlebih dahulu untuk metode HUTANG'
+                          : 'Metode Hutang'
+                    }
                   >
                     <Users className="h-3.5 w-3.5" />
                     Hutang

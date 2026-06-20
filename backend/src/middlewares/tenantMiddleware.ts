@@ -4,6 +4,7 @@ import { prisma } from '../lib/prisma';
 /**
  * Middleware untuk mengidentifikasi dan memvalidasi Tenant dari request.
  * Informasi tenant dapat dikirim via header custom 'x-tenant-id' atau diekstrak dari payload JWT.
+ * Admin platform boleh menginspeksi tenant non-aktif (kedaluwarsa/ditangguhkan).
  */
 export async function tenantMiddleware(req: Request, res: Response, next: NextFunction) {
   try {
@@ -16,25 +17,25 @@ export async function tenantMiddleware(req: Request, res: Response, next: NextFu
     if (!tenantId) {
       return res.status(400).json({
         success: false,
-        message: 'Akses Ditolak: Header tenant (x-tenant-id) atau konteks tenant tidak ditemukan.'
+        message: 'Akses Ditolak: Header tenant (x-tenant-id) atau konteks tenant tidak ditemukan.',
       });
     }
 
     const tenant = await prisma.tenant.findUnique({
-      where: { id: tenantId }
+      where: { id: tenantId },
     });
 
-    if (!tenant) {
+    if (!tenant || tenant.deletedAt !== null) {
       return res.status(404).json({
         success: false,
-        message: 'Tenant tidak terdaftar di sistem kami.'
+        message: 'Tenant tidak terdaftar di sistem kami.',
       });
     }
 
-    if (tenant.status !== 'ACTIVE' || tenant.deletedAt !== null) {
+    if (!req.isPlatformAdmin && tenant.status !== 'ACTIVE') {
       return res.status(403).json({
         success: false,
-        message: 'Tenant ditangguhkan atau tidak lagi aktif. Silakan hubungi administrator.'
+        message: 'Tenant ditangguhkan atau tidak lagi aktif. Silakan hubungi administrator.',
       });
     }
 
@@ -59,7 +60,7 @@ export async function tenantMiddleware(req: Request, res: Response, next: NextFu
     console.error('Error pada Tenant Middleware:', error);
     return res.status(500).json({
       success: false,
-      message: 'Terjadi kesalahan internal server saat memproses identifikasi tenant.'
+      message: 'Terjadi kesalahan internal server saat memproses identifikasi tenant.',
     });
   }
 }

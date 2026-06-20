@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
+import { getRoleDisplayLabel, isPlatformAdmin } from '../utils/roles';
 import { API_BASE_URL } from '../config';
 import { buildApiHeaders } from '../utils/apiHeaders';
 import { AppShellHeader } from './AppShellHeader';
@@ -438,7 +439,11 @@ export function StaffManagementView() {
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans transition-colors duration-150">
       <AppShellHeader
         title="Kelola Karyawan"
-        subtitle="Hak akses staf kasir & admin tenant"
+        subtitle={
+          isPlatformAdmin(currentUser?.roles ?? [])
+            ? 'Panel Admin Platform SaaS — kelola staf tenant'
+            : 'Hak akses staf kasir & admin tenant'
+        }
         icon={Users}
         accent="indigo"
         user={currentUser}
@@ -569,11 +574,14 @@ export function StaffManagementView() {
                         <td className="px-6 py-4">
                           {staff.userRoles.map((ur) => {
                             const rName = ur.role.name;
-                            const isOwnerOrPlatformAdmin = rName === 'Owner' || rName === 'Admin';
+                            const isPlatformAdminRole = rName === 'Admin';
+                            const isOwner = rName === 'Owner';
                             const isManager = rName === 'Manager';
                             const isGudang = rName === 'Staf Gudang';
                             let badgeStyle = 'bg-slate-500/10 text-slate-400 border-slate-500/20';
-                            if (isOwnerOrPlatformAdmin) {
+                            if (isPlatformAdminRole) {
+                              badgeStyle = 'bg-violet-500/10 text-violet-400 border-violet-500/20';
+                            } else if (isOwner) {
                               badgeStyle = 'bg-amber-500/10 text-amber-400 border-amber-500/20';
                             } else if (isManager) {
                               badgeStyle = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
@@ -585,14 +593,19 @@ export function StaffManagementView() {
                             return (
                               <span key={ur.role.name} className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border ${badgeStyle}`}>
                                 <Shield className="w-3.5 h-3.5" />
-                                {rName}
+                                {getRoleDisplayLabel(rName)}
                               </span>
                             );
                           })}
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex flex-wrap gap-1 max-w-[220px]">
-                            {staff.userOutlets && staff.userOutlets.length > 0 ? (
+                            {staff.userRoles.some((ur) => ur.role.name === 'Admin') ? (
+                              <span className="inline-flex items-center gap-0.5 px-2 py-0.5 bg-violet-500/10 text-violet-400 text-[10px] font-semibold border border-violet-500/20 rounded-md">
+                                <Shield className="w-2.5 h-2.5" />
+                                Lintas Tenant
+                              </span>
+                            ) : staff.userOutlets && staff.userOutlets.length > 0 ? (
                               staff.userOutlets.map((uo) => (
                                 <span key={uo.outlet.id} className="inline-flex items-center gap-0.5 px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-650 dark:text-slate-300 text-[10px] font-semibold border border-slate-200 dark:border-slate-700/50 rounded-md">
                                   <MapPin className="w-2.5 h-2.5 text-slate-400" />

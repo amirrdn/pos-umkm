@@ -20,6 +20,7 @@ import outletRoutes from './routes/outletRoutes';
 import transferRoutes from './routes/transferRoutes';
 import notificationRoutes from './routes/notificationRoutes';
 import subscriptionRoutes from './routes/subscriptionRoutes';
+import platformRoutes from './routes/platformRoutes';
 import { checkSubscriptionStatus } from './middlewares/subscriptionGuard';
 
 
@@ -76,6 +77,7 @@ app.use('/api/notifications', notificationRoutes);
 
 app.use('/api/subscriptions', subscriptionRoutes);
 
+app.use('/api/platform', platformRoutes);
 
 app.get(
   '/api/admin/dashboard',

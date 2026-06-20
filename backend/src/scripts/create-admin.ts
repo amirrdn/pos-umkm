@@ -21,14 +21,45 @@ async function run() {
   try {
     const email = '4mir.rdn@gmail.com';
     const password = 'password123';
-    const tenantId = 'tenant-uuid-xyz-123';
-    const outletId = 'outlet-default-uuid-111';
-
-    console.log(`Mengecek tenant ${tenantId}...`);
-    const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
+    // Cari tenant secara dinamis:
+    // 1. Cari berdasarkan slug 'toko-berkah-makmur'
+    // 2. Jika tidak ada, cari tenant non-default pertama (yang bukan 'tenant-uuid-xyz-123')
+    // 3. Fallback ke 'tenant-uuid-xyz-123' (seeder tenant)
+    let tenant = await prisma.tenant.findUnique({ where: { slug: 'toko-berkah-makmur' } });
     if (!tenant) {
-      throw new Error(`Tenant dengan ID ${tenantId} tidak ditemukan. Silakan jalankan seeder terlebih dahulu.`);
+      tenant = await prisma.tenant.findFirst({
+        where: { id: { not: 'tenant-uuid-xyz-123' } }
+      });
     }
+    if (!tenant) {
+      tenant = await prisma.tenant.findUnique({ where: { id: 'tenant-uuid-xyz-123' } });
+    }
+
+    if (!tenant) {
+      throw new Error('Tidak ada tenant sama sekali di database. Silakan jalankan seeder atau registrasi tenant terlebih dahulu.');
+    }
+
+    const tenantId = tenant.id;
+    console.log(`Menggunakan tenant: ${tenant.name} (${tenantId})`);
+
+    // Cari outlet secara dinamis:
+    // 1. Cari outlet type 'MAIN' untuk tenant ini
+    // 2. Jika tidak ada, cari outlet pertama untuk tenant ini
+    let outlet = await prisma.outlet.findFirst({
+      where: { tenantId, type: 'MAIN' }
+    });
+    if (!outlet) {
+      outlet = await prisma.outlet.findFirst({
+        where: { tenantId }
+      });
+    }
+
+    if (!outlet) {
+      throw new Error(`Tenant ${tenant.name} (${tenantId}) tidak memiliki outlet. Silakan buat outlet terlebih dahulu.`);
+    }
+
+    const outletId = outlet.id;
+    console.log(`Outlet referensi tenant: ${outlet.name} (${outletId}) — tidak diikat ke platform admin.`);
 
     console.log(`Meng-hash password...`);
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -78,18 +109,7 @@ async function run() {
     await prisma.userOutlet.deleteMany({
       where: { userId: user.id }
     });
-
-    console.log(`Menghubungkan ke outlet...`);
-    const outlet = await prisma.outlet.findUnique({ where: { id: outletId } });
-    if (outlet) {
-      await prisma.userOutlet.create({
-        data: {
-          userId: user.id,
-          outletId
-        }
-      });
-      console.log('Hubungan ke default outlet berhasil.');
-    }
+    console.log('Platform Admin tidak diikat ke outlet tertentu (akses lintas tenant).');
 
     console.log(`✅ Sukses! User admin ${email} berhasil ditambahkan/diperbarui.`);
   } catch (error) {
