@@ -17,8 +17,8 @@ import { TenantSwitcher } from '../components/platform/TenantSwitcher';
 
 const NAV_ITEMS = [
   { path: '/platform', label: 'Dashboard', icon: LayoutDashboard, exact: true },
-  { path: '/platform/tenants', label: 'Tenant', icon: Building2 },
-  { path: '/platform/billing', label: 'Billing', icon: CreditCard },
+  { path: '/platform/tenants', label: 'Tenant', icon: Building2, exact: false },
+  { path: '/platform/billing', label: 'Billing', icon: CreditCard, exact: false },
 ] as const;
 
 export function PlatformConsoleLayout() {
