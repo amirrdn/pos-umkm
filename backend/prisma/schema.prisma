@@ -87,6 +87,7 @@ model Tenant {
   outletProductPrices OutletProductPrice[]
   subscriptionInvoices SubscriptionInvoice[]
   subscriptionHistories SubscriptionHistory[]
+  platformSessions      PlatformAdminSession[]
 
   @@map("tenants")
 }
@@ -94,7 +95,7 @@ model Tenant {
 // 2. User (Pengguna dalam Tenant)
 model User {
   id        String    @id @default(uuid())
-  tenantId  String
+  tenantId  String?
   name      String
   email     String    @unique
   password  String
@@ -108,7 +109,7 @@ model User {
   deletedAt DateTime? // Indikator Soft Delete
 
   // Relasi
-  tenant            Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant            Tenant?       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   userOutlets       UserOutlet[]
   userRoles         UserRole[]
   transactions      Transaction[]
@@ -118,6 +119,7 @@ model User {
   approvedRequests  StockRequest[] @relation("approvedRequests")
   transfersRequested StockTransfer[] @relation("transfersRequested")
   transfersApproved  StockTransfer[] @relation("transfersApproved")
+  platformSessions  PlatformAdminSession[]
 
   @@map("users")
 }
@@ -576,4 +578,31 @@ model SubscriptionHistory {
   tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@map("subscription_histories")
+}
+
+model PlatformAdminSession {
+  id             String   @id @default(uuid())
+  platformUserId String
+  activeTenantId String
+  switchedAt     DateTime @default(now())
+  ipAddress      String?
+  userAgent      String?
+
+  platformUser User   @relation(fields: [platformUserId], references: [id], onDelete: Cascade)
+  activeTenant Tenant @relation(fields: [activeTenantId], references: [id], onDelete: Cascade)
+
+  @@map("platform_admin_sessions")
+}
+
+model PlatformAuditLog {
+  id          String   @id @default(uuid())
+  actorUserId String
+  tenantId    String?  // tenant yang terdampak
+  action      String   // TENANT_SUSPEND, TIER_OVERRIDE, IMPERSONATE_START, ...
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  @@index([actorUserId, createdAt])
+  @@index([tenantId, createdAt])
+  @@map("platform_audit_logs")
 }

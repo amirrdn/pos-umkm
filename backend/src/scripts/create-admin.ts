@@ -25,42 +25,6 @@ async function run() {
     // 1. Cari berdasarkan slug 'toko-berkah-makmur'
     // 2. Jika tidak ada, cari tenant non-default pertama (yang bukan 'tenant-uuid-xyz-123')
     // 3. Fallback ke 'tenant-uuid-xyz-123' (seeder tenant)
-    let tenant = await prisma.tenant.findUnique({ where: { slug: 'toko-berkah-makmur' } });
-    if (!tenant) {
-      tenant = await prisma.tenant.findFirst({
-        where: { id: { not: 'tenant-uuid-xyz-123' } }
-      });
-    }
-    if (!tenant) {
-      tenant = await prisma.tenant.findUnique({ where: { id: 'tenant-uuid-xyz-123' } });
-    }
-
-    if (!tenant) {
-      throw new Error('Tidak ada tenant sama sekali di database. Silakan jalankan seeder atau registrasi tenant terlebih dahulu.');
-    }
-
-    const tenantId = tenant.id;
-    console.log(`Menggunakan tenant: ${tenant.name} (${tenantId})`);
-
-    // Cari outlet secara dinamis:
-    // 1. Cari outlet type 'MAIN' untuk tenant ini
-    // 2. Jika tidak ada, cari outlet pertama untuk tenant ini
-    let outlet = await prisma.outlet.findFirst({
-      where: { tenantId, type: 'MAIN' }
-    });
-    if (!outlet) {
-      outlet = await prisma.outlet.findFirst({
-        where: { tenantId }
-      });
-    }
-
-    if (!outlet) {
-      throw new Error(`Tenant ${tenant.name} (${tenantId}) tidak memiliki outlet. Silakan buat outlet terlebih dahulu.`);
-    }
-
-    const outletId = outlet.id;
-    console.log(`Outlet referensi tenant: ${outlet.name} (${outletId}) — tidak diikat ke platform admin.`);
-
     console.log(`Meng-hash password...`);
     const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -73,11 +37,11 @@ async function run() {
         password: hashedPassword,
         isActive: true,
         approvalStatus: 'APPROVED',
-        tenantId,
+        tenantId: null,
       },
       create: {
         id: userId,
-        tenantId,
+        tenantId: null,
         name: 'Amir Admin',
         email,
         password: hashedPassword,

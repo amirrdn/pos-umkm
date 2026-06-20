@@ -17,7 +17,9 @@ export function requirePermission(requiredPermission: string) {
         });
       }
 
-      if (req.tenantId && req.user.tenantId !== req.tenantId) {
+      const isPlatformAdminUser = isPlatformAdmin(req.user.roles);
+
+      if (req.tenantId && req.user.tenantId !== req.tenantId && !isPlatformAdminUser) {
         return res.status(403).json({
           success: false,
           message: 'Akses Ditolak: Anda tidak memiliki akses ke lingkungan tenant ini.'
@@ -25,8 +27,6 @@ export function requirePermission(requiredPermission: string) {
       }
 
       const hasPermission = req.user.permissions.includes(requiredPermission);
-
-      const isPlatformAdminUser = isPlatformAdmin(req.user.roles);
 
       if (!hasPermission && !isPlatformAdminUser) {
         return res.status(403).json({
@@ -60,7 +60,9 @@ export function requireRole(requiredRoles: string[]) {
       });
     }
 
-    if (req.tenantId && req.user.tenantId !== req.tenantId) {
+    const isPlatformAdminUser = isPlatformAdmin(req.user.roles);
+
+    if (req.tenantId && req.user.tenantId !== req.tenantId && !isPlatformAdminUser) {
       return res.status(403).json({
         success: false,
         message: 'Akses Ditolak: Konflik lingkungan tenant.'

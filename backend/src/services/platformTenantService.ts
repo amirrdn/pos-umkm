@@ -1,4 +1,5 @@
 import { prisma } from '../lib/prisma';
+import { TenantStatus, SubscriptionTier } from '@prisma/client';
 
 export class PlatformTenantService {
   static async listTenants() {
@@ -79,5 +80,81 @@ export class PlatformTenantService {
     }
 
     return tenant;
+  }
+
+  static async updateTenantStatus(tenantId: string, status: TenantStatus, actorUserId: string) {
+    const tenant = await prisma.tenant.findFirst({
+      where: { id: tenantId, deletedAt: null }
+    });
+
+    if (!tenant) {
+      throw new Error('Tenant tidak ditemukan.');
+    }
+
+    await prisma.$transaction([
+      prisma.tenant.update({
+        where: { id: tenantId },
+        data: { status }
+      }),
+      prisma.platformAuditLog.create({
+        data: {
+          actorUserId,
+          tenantId,
+          action: status === 'SUSPENDED' ? 'TENANT_SUSPEND' : 'TENANT_ACTIVATE',
+          metadata: { status }
+        }
+      })
+    ]);
+
+    return { id: tenantId, status };
+  }
+
+  static async overrideSubscription(
+    tenantId: string,
+    tier: SubscriptionTier,
+    expiresAt: Date | null,
+    actorUserId: string,
+    note?: string
+  ) {
+    const tenant = await prisma.tenant.findFirst({
+      where: { id: tenantId, deletedAt: null }
+    });
+
+    if (!tenant) {
+      throw new Error('Tenant tidak ditemukan.');
+    }
+
+    const oldTier = tenant.subscriptionTier;
+
+    await prisma.$transaction([
+      prisma.tenant.update({
+        where: { id: tenantId },
+        data: {
+          subscriptionTier: tier,
+          subscriptionStatus: 'ACTIVE',
+          subscriptionExpiresAt: expiresAt,
+        }
+      }),
+      prisma.subscriptionHistory.create({
+        data: {
+          tenantId,
+          oldTier,
+          newTier: tier,
+          action: tier === oldTier ? 'RENEWAL' : (tier === 'FREE' ? 'DOWNGRADE' : 'UPGRADE'),
+          note: note || 'Platform Admin Override',
+          changedById: actorUserId
+        }
+      }),
+      prisma.platformAuditLog.create({
+        data: {
+          actorUserId,
+          tenantId,
+          action: 'TIER_OVERRIDE',
+          metadata: { tier, expiresAt, note: note || null }
+        }
+      })
+    ]);
+
+    return { id: tenantId, subscriptionTier: tier, subscriptionExpiresAt: expiresAt };
   }
 }
