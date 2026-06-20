@@ -110,6 +110,7 @@ export const PosView: React.FC = () => {
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string>('SEMUA');
+  const [showCartPanel, setShowCartPanel] = useState<boolean>(false);
 
   const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false);
   const [currentTransaction, setCurrentTransaction] = useState<any>(null);
@@ -399,6 +400,7 @@ Terima kasih atas kunjungan Anda!`;
 
   const handleFinishTransaction = () => {
     setShowSuccessModal(false);
+    setShowCartPanel(false);
     clearCart();
     setPaymentMethod('CASH');
     setCurrentTransaction(null);
@@ -595,11 +597,16 @@ Terima kasih atas kunjungan Anda!`;
   };
 
   const navItemClass = (path: string) =>
-    `cursor-pointer flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-lg whitespace-nowrap transition-all duration-150 ${
+    `cursor-pointer flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-2 text-[11px] sm:text-xs font-semibold rounded-lg whitespace-nowrap transition-all duration-150 shrink-0 ${
       isNavActive(path)
         ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-500/20'
         : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white'
     }`;
+
+  const cartItemCount = useMemo(
+    () => cart.reduce((sum, item) => sum + item.quantity, 0),
+    [cart],
+  );
 
   const shiftStartedLabel = useMemo(() => {
     if (!activeShift?.startTime) return null;
@@ -608,6 +615,26 @@ Terima kasih atas kunjungan Anda!`;
       minute: '2-digit',
     });
   }, [activeShift?.startTime]);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 1024px)');
+    const onChange = () => {
+      if (mq.matches) setShowCartPanel(false);
+    };
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+
+  useEffect(() => {
+    if (showCartPanel) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [showCartPanel]);
 
   return (
     <div className="h-screen w-screen bg-slate-50 dark:bg-slate-950 flex flex-col font-sans overflow-hidden transition-colors duration-150">
@@ -660,17 +687,17 @@ Terima kasih atas kunjungan Anda!`;
       {/* HEADER UTAMA */}
       <header className="shrink-0 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-sm">
         {/* Bar konteks operasional */}
-        <div className="px-5 py-3 flex items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800/80">
-          <div className="flex items-center gap-4 min-w-0">
-            <div className="flex items-center gap-3 shrink-0">
-              <div className="bg-gradient-to-br from-indigo-600 to-indigo-700 p-2.5 rounded-xl text-white shadow-md shadow-indigo-500/25">
-                <ShoppingBag className="h-5 w-5" />
+        <div className="px-3 sm:px-5 py-2.5 sm:py-3 flex items-center justify-between gap-2 sm:gap-4 border-b border-slate-100 dark:border-slate-800/80">
+          <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
+            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+              <div className="bg-gradient-to-br from-indigo-600 to-indigo-700 p-2 sm:p-2.5 rounded-xl text-white shadow-md shadow-indigo-500/25">
+                <ShoppingBag className="h-4 w-4 sm:h-5 sm:w-5" />
               </div>
-              <div className="hidden sm:block">
-                <h1 className="text-base font-bold text-slate-900 dark:text-white leading-tight tracking-tight">
+              <div>
+                <h1 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white leading-tight tracking-tight">
                   SaaS POS
                 </h1>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 font-medium">
                   Terminal Kasir
                 </p>
               </div>
@@ -679,7 +706,7 @@ Terima kasih atas kunjungan Anda!`;
             <div className="hidden md:block h-9 w-px bg-slate-200 dark:bg-slate-700 shrink-0" />
 
             {!platformAdmin && (
-              <div className="flex items-center gap-2 min-w-0">
+              <div className="hidden sm:flex items-center gap-2 min-w-0 max-w-[140px] md:max-w-none">
                 <span className="hidden lg:inline text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 shrink-0">
                   Outlet
                 </span>
@@ -688,37 +715,50 @@ Terima kasih atas kunjungan Anda!`;
             )}
 
             {platformAdmin && (
-              <div className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl bg-violet-50 dark:bg-violet-950/30 border border-violet-200/80 dark:border-violet-800/50">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-violet-700 dark:text-violet-300">
-                  Admin Platform SaaS
+              <div className="hidden md:flex items-center gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-violet-50 dark:bg-violet-950/30 border border-violet-200/80 dark:border-violet-800/50">
+                <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-violet-700 dark:text-violet-300">
+                  Admin Platform
                 </span>
               </div>
             )}
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             {activeShift && (
-              <div className="hidden sm:flex items-center gap-2.5 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-800/50 px-3 py-2 rounded-xl">
-                <span className="relative flex h-2 w-2">
+              <div className="flex items-center gap-1.5 sm:gap-2.5 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-800/50 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl">
+                <span className="relative flex h-2 w-2 shrink-0">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
                 </span>
                 <div className="leading-tight">
-                  <p className="text-[11px] font-bold text-emerald-800 dark:text-emerald-300">Shift Aktif</p>
+                  <p className="text-[10px] sm:text-[11px] font-bold text-emerald-800 dark:text-emerald-300">Shift Aktif</p>
                   {shiftStartedLabel && (
-                    <p className="text-[10px] text-emerald-600/80 dark:text-emerald-400/80">
+                    <p className="hidden sm:block text-[10px] text-emerald-600/80 dark:text-emerald-400/80">
                       Mulai {shiftStartedLabel}
                     </p>
                   )}
                 </div>
                 <button
                   onClick={() => setShowCloseShiftModal(true)}
-                  className="cursor-pointer ml-1 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-950/40 rounded-md transition-colors"
+                  className="cursor-pointer px-1.5 sm:px-2 py-1 text-[9px] sm:text-[10px] font-bold uppercase tracking-wide text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-950/40 rounded-md transition-colors"
                 >
                   Tutup
                 </button>
               </div>
             )}
+
+            <button
+              onClick={() => setShowCartPanel(true)}
+              className="cursor-pointer lg:hidden relative p-2 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 rounded-xl hover:bg-indigo-100 dark:hover:bg-indigo-950/60 transition-all active:scale-95"
+              title="Keranjang Belanja"
+            >
+              <ShoppingBag className="h-4 w-4" />
+              {cartItemCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 flex items-center justify-center bg-indigo-600 text-white text-[9px] font-bold rounded-full">
+                  {cartItemCount}
+                </span>
+              )}
+            </button>
 
             <button
               onClick={toggleTheme}
@@ -757,13 +797,19 @@ Terima kasih atas kunjungan Anda!`;
           </div>
         </div>
 
+        {!platformAdmin && (
+          <div className="sm:hidden px-3 pb-2.5 border-b border-slate-100 dark:border-slate-800/80">
+            <OutletSwitcher operationalOnly size="sm" className="w-full" />
+          </div>
+        )}
+
         {/* Bar navigasi */}
-        <nav className="px-5 py-2 flex items-center gap-1 overflow-x-auto scrollbar-none">
-          <button onClick={() => navigate('/pos')} className={navItemClass('/pos')}>
+        <nav className="px-3 sm:px-5 py-2 flex items-center gap-1 overflow-x-auto scrollbar-none snap-x snap-mandatory [-webkit-overflow-scrolling:touch]">
+          <button onClick={() => navigate('/pos')} className={`${navItemClass('/pos')} snap-start`}>
             <ShoppingBag className="w-3.5 h-3.5 shrink-0" />
             Kasir
           </button>
-          <button onClick={() => navigate('/pos/history')} className={navItemClass('/pos/history')}>
+          <button onClick={() => navigate('/pos/history')} className={`${navItemClass('/pos/history')} snap-start`}>
             <History className="w-3.5 h-3.5 shrink-0" />
             Riwayat
           </button>
@@ -826,7 +872,7 @@ Terima kasih atas kunjungan Anda!`;
 
       {/* Banner Peringatan Langganan */}
       {subscription && !subscriptionBypass && subscription.status === 'EXPIRED' && (
-        <div className="bg-rose-600 text-white px-5 py-3 text-xs font-bold flex justify-between items-center shrink-0 shadow-md">
+        <div className="bg-rose-600 text-white px-3 sm:px-5 py-3 text-xs font-bold flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 shrink-0 shadow-md">
           <div className="flex items-center gap-2">
             <AlertTriangle className="h-4 w-4 animate-bounce" />
             <span>Masa aktif langganan Anda telah kedaluwarsa. Aplikasi saat ini terkunci (Mode Read-Only). Aksi kasir diblokir hingga pembayaran diperbarui.</span>
@@ -843,7 +889,7 @@ Terima kasih atas kunjungan Anda!`;
       )}
 
       {subscription && !subscriptionBypass && !subscription.usage.transactions.isFull && subscription.usage.transactions.isNearLimit && subscription.status !== 'EXPIRED' && (
-        <div className="bg-amber-500 text-slate-900 px-5 py-2.5 text-xs font-bold flex justify-between items-center shrink-0 shadow-sm">
+        <div className="bg-amber-500 text-slate-900 px-3 sm:px-5 py-2.5 text-xs font-bold flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 shrink-0 shadow-sm">
           <div className="flex items-center gap-2">
             <AlertTriangle className="h-4 w-4" />
             <span>Kuota transaksi bulanan Anda hampir habis ({subscription.usage.transactions.current} / {subscription.usage.transactions.limit} trxs). Harap lakukan upgrade paket untuk kelancaran kasir.</span>
@@ -860,7 +906,7 @@ Terima kasih atas kunjungan Anda!`;
       )}
 
       {subscription && !subscriptionBypass && subscription.usage.transactions.isFull && subscription.status !== 'EXPIRED' && (
-        <div className="bg-rose-600 text-white px-5 py-3 text-xs font-bold flex justify-between items-center shrink-0 shadow-md">
+        <div className="bg-rose-600 text-white px-3 sm:px-5 py-3 text-xs font-bold flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 shrink-0 shadow-md">
           <div className="flex items-center gap-2">
             <AlertTriangle className="h-4 w-4 animate-bounce" />
             <span>Kuota transaksi bulanan Anda telah penuh ({subscription.usage.transactions.current} / {subscription.usage.transactions.limit} trxs). Checkout POS ditangguhkan.</span>
@@ -877,19 +923,19 @@ Terima kasih atas kunjungan Anda!`;
       )}
 
       {/* KONTEN UTAMA */}
-      <main className="flex-1 flex overflow-hidden">
+      <main className="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
 
-        {/* KOLOM KIRI (70%): Area Katalog Produk */}
-        <section className="w-[70%] h-full flex flex-col p-6 overflow-hidden">
+        {/* KOLOM KIRI: Area Katalog Produk */}
+        <section className="flex-1 lg:w-[65%] xl:w-[70%] h-full flex flex-col p-3 sm:p-4 lg:p-6 overflow-hidden min-h-0 pb-20 lg:pb-6">
 
           {/* Filter Kategori & Pencarian */}
-          <div className="flex justify-between items-center mb-6 shrink-0 gap-4">
-            <div className="flex gap-2 overflow-x-auto pb-1">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 sm:mb-6 shrink-0 gap-3 sm:gap-4">
+            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none snap-x snap-mandatory [-webkit-overflow-scrolling:touch] -mx-1 px-1">
               {categoriesList.map((cat) => (
                 <button
                   key={cat}
                   onClick={() => setSelectedCategory(cat)}
-                  className={`cursor-pointer px-4 py-2 rounded-xl text-sm font-semibold transition-all whitespace-nowrap ${selectedCategory === cat
+                  className={`cursor-pointer px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all whitespace-nowrap snap-start shrink-0 ${selectedCategory === cat
                       ? 'bg-indigo-600 text-white shadow-md shadow-indigo-150'
                       : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-350 hover:bg-slate-50 dark:hover:bg-slate-800'
                     }`}
@@ -900,7 +946,7 @@ Terima kasih atas kunjungan Anda!`;
             </div>
 
             {/* Kolom Pencarian */}
-            <div className="relative w-80 shrink-0">
+            <div className="relative w-full sm:w-64 lg:w-80 shrink-0">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
               <input
                 type="text"
@@ -920,7 +966,7 @@ Terima kasih atas kunjungan Anda!`;
                 <p className="text-sm font-semibold text-slate-500">Loading produk...</p>
               </div>
             ) : filteredProducts.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
+              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 lg:gap-5">
                 {filteredProducts.map((product) => {
                   const remainingStock = getRemainingStock(product.id, product.stock);
                   const isOutOfStock = remainingStock <= 0;
@@ -941,7 +987,7 @@ Terima kasih atas kunjungan Anda!`;
                         }`}
                     >
                       {/* Gambar Produk */}
-                      <div className="h-44 w-full bg-slate-100 dark:bg-slate-800 overflow-hidden relative shrink-0">
+                      <div className="h-28 sm:h-36 lg:h-44 w-full bg-slate-100 dark:bg-slate-800 overflow-hidden relative shrink-0">
                         <img
                           src={product.imageUrl}
                           alt={product.name}
@@ -1006,18 +1052,47 @@ Terima kasih atas kunjungan Anda!`;
           </div>
         </section>
 
-        {/* KOLOM KANAN (30%): Panel Keranjang Belanja */}
-        <section className="w-[30%] h-full bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden shadow-2xl relative z-10">
+        {/* Backdrop keranjang mobile/tablet */}
+        {showCartPanel && (
+          <button
+            type="button"
+            aria-label="Tutup keranjang"
+            onClick={() => setShowCartPanel(false)}
+            className="fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-[2px] lg:hidden cursor-pointer"
+          />
+        )}
+
+        {/* KOLOM KANAN: Panel Keranjang Belanja */}
+        <section
+          className={`
+            flex flex-col overflow-hidden bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-2xl
+            h-full
+            fixed inset-y-0 right-0 z-50 w-full max-w-md border-l
+            transition-transform duration-300 ease-out lg:transition-none
+            lg:static lg:z-10 lg:max-w-none lg:w-[35%] xl:w-[30%] lg:translate-x-0 lg:shadow-2xl
+            ${showCartPanel ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'}
+          `}
+        >
 
           {/* Header Panel */}
-          <div className="py-3 px-5 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center shrink-0">
+          <div className="py-3 px-4 sm:px-5 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center shrink-0">
             <h2 className="font-bold text-slate-800 dark:text-slate-100 text-sm flex items-center gap-2">
               <ShoppingBag className="h-4 w-4 text-indigo-600" />
               Keranjang Belanja
             </h2>
-            <span className="bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold px-2 py-0.5 rounded-full">
-              {cart.reduce((sum, item) => sum + item.quantity, 0)} Item
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                {cartItemCount} Item
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowCartPanel(false)}
+                className="cursor-pointer lg:hidden p-1.5 rounded-lg text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                aria-label="Tutup keranjang"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
           </div>
 
           {/* Area Konten Scrollable: Daftar Barang & Form Input */}
@@ -1352,6 +1427,43 @@ Terima kasih atas kunjungan Anda!`;
             </button>
           </div>
         </section>
+
+        {/* Bottom bar keranjang — mobile & tablet */}
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-30 px-3 pb-3 pt-2 bg-gradient-to-t from-slate-50 via-slate-50/95 to-transparent dark:from-slate-950 dark:via-slate-950/95 pointer-events-none">
+          <button
+            type="button"
+            onClick={() => setShowCartPanel(true)}
+            className={`pointer-events-auto w-full flex items-center justify-between gap-3 px-4 py-3 rounded-2xl border shadow-lg transition-all active:scale-[0.99] ${
+              cartItemCount > 0
+                ? 'bg-indigo-600 border-indigo-500 text-white shadow-indigo-500/25'
+                : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
+            }`}
+          >
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className={`relative shrink-0 p-2 rounded-xl ${cartItemCount > 0 ? 'bg-white/20' : 'bg-indigo-50 dark:bg-indigo-950/40'}`}>
+                <ShoppingBag className={`h-4 w-4 ${cartItemCount > 0 ? 'text-white' : 'text-indigo-600 dark:text-indigo-400'}`} />
+                {cartItemCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 flex items-center justify-center bg-white text-indigo-600 text-[9px] font-bold rounded-full">
+                    {cartItemCount}
+                  </span>
+                )}
+              </div>
+              <div className="text-left min-w-0">
+                <p className={`text-xs font-bold truncate ${cartItemCount > 0 ? 'text-white' : ''}`}>
+                  {cartItemCount > 0 ? `${cartItemCount} Item di Keranjang` : 'Keranjang Belanja'}
+                </p>
+                {cartItemCount > 0 && (
+                  <p className="text-[10px] font-semibold text-indigo-100 truncate">
+                    Rp {grandTotal.toLocaleString('id-ID')}
+                  </p>
+                )}
+              </div>
+            </div>
+            <span className={`text-[10px] font-bold uppercase tracking-wide shrink-0 ${cartItemCount > 0 ? 'text-white' : 'text-indigo-600 dark:text-indigo-400'}`}>
+              {cartItemCount > 0 ? 'Checkout' : 'Buka'}
+            </span>
+          </button>
+        </div>
       </main>
 
       {/* Modal Sukses Transaksi */}

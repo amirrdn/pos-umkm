@@ -257,7 +257,7 @@ export class AuthService {
           role: 'Owner'
         }
       };
-    });
+    }, { maxWait: 15000, timeout: 30000 });
 
     await deliverRegistrationVerificationEmail({
       email: result.user.email,
@@ -356,7 +356,7 @@ export class AuthService {
         email: user.email,
         approvalStatus: user.approvalStatus
       };
-    });
+    }, { maxWait: 15000, timeout: 30000 });
 
     await deliverRegistrationVerificationEmail({
       email: result.email,

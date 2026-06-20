@@ -309,7 +309,7 @@ export async function checkout(req: Request, res: Response) {
       }
 
       return transaction;
-    });
+    }, { maxWait: 15000, timeout: 30000 });
 
     let finalResult = result;
     let qrString = '';
@@ -506,7 +506,7 @@ export async function handleMidtransWebhook(req: Request, res: Response) {
         if (stockLedgerEntries.length > 0) {
           await tx.stockLedger.createMany({ data: stockLedgerEntries });
         }
-      });
+      }, { maxWait: 15000, timeout: 30000 });
 
       return res.status(200).json({ success: true, message: 'Pembayaran settlement berhasil diproses.' });
     }
@@ -517,7 +517,7 @@ export async function handleMidtransWebhook(req: Request, res: Response) {
           where: { id: transaction.id },
           data: { status: 'VOID' },
         });
-      });
+      }, { maxWait: 15000, timeout: 30000 });
 
       return res.status(200).json({ success: true, message: 'Pembayaran dibatalkan.' });
     }
@@ -588,7 +588,7 @@ export async function getTransactionStatus(req: Request, res: Response) {
                 await tx.stockLedger.createMany({ data: stockLedgerEntries });
               }
             }
-          });
+          }, { maxWait: 15000, timeout: 30000 });
           currentStatus = 'COMPLETED';
         } else if (['expire', 'cancel', 'deny'].includes(midtransStatus)) {
           await prisma.transaction.update({

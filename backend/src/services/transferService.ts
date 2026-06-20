@@ -136,7 +136,7 @@ export async function createTransfer(tenantId: string, userId: string, input: Cr
     });
 
     return transfer;
-  });
+  }, { maxWait: 15000, timeout: 30000 });
 }
 
 /**
@@ -220,7 +220,7 @@ export async function approveTransfer(tenantId: string, userId: string, transfer
     });
 
     return updatedTransfer;
-  });
+  }, { maxWait: 15000, timeout: 30000 });
 }
 
 /**
@@ -327,7 +327,7 @@ export async function completeTransfer(tenantId: string, userId: string, transfe
     });
 
     return updatedTransfer;
-  });
+  }, { maxWait: 15000, timeout: 30000 });
 }
 
 /**
@@ -435,7 +435,7 @@ export async function cancelTransfer(tenantId: string, userId: string, transferI
     });
 
     return updatedTransfer;
-  });
+  }, { maxWait: 15000, timeout: 30000 });
 }
 
 /**
