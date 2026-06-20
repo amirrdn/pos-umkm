@@ -49,7 +49,7 @@ export const uploadSingleImage = (req: Request, res: Response, next: NextFunctio
         {
           folder: 'saaspos-products',
         },
-        (error, result) => {
+        (error: any, result: any) => {
           if (error) {
             console.error('Cloudinary Upload Stream Error:', error);
             res.status(500).json({
