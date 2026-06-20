@@ -6,8 +6,13 @@ export interface MailMessage {
   text: string;
 }
 
+const cleanEnv = (val: string | undefined): string => {
+  if (!val) return '';
+  return val.replace(/^["']|["']$/g, '').trim();
+};
+
 export function isMailConfigured(): boolean {
-  return Boolean(process.env.SMTP_HOST && process.env.SMTP_FROM);
+  return Boolean(cleanEnv(process.env.SMTP_HOST) && cleanEnv(process.env.SMTP_FROM));
 }
 
 /** Kirim email jika SMTP dikonfigurasi; no-op + log jika belum. */
@@ -24,24 +29,26 @@ export async function sendMail(message: MailMessage): Promise<boolean> {
     return false;
   }
 
-  const port = Number(process.env.SMTP_PORT ?? 587);
+  const rawPort = cleanEnv(process.env.SMTP_PORT);
+  const port = rawPort ? Number(rawPort) : 587;
+  const rawSecure = cleanEnv(process.env.SMTP_SECURE);
   const secure =
-    process.env.SMTP_SECURE === 'true' || (process.env.SMTP_SECURE !== 'false' && port === 465);
+    rawSecure === 'true' || (rawSecure !== 'false' && port === 465);
 
   const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
+    host: cleanEnv(process.env.SMTP_HOST),
     port,
     secure,
     requireTLS: !secure && port === 587,
     auth:
-      process.env.SMTP_USER && process.env.SMTP_PASS
-        ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
+      cleanEnv(process.env.SMTP_USER) && cleanEnv(process.env.SMTP_PASS)
+        ? { user: cleanEnv(process.env.SMTP_USER), pass: cleanEnv(process.env.SMTP_PASS) }
         : undefined,
   });
 
   try {
     await transporter.sendMail({
-      from: process.env.SMTP_FROM,
+      from: cleanEnv(process.env.SMTP_FROM),
       to: message.to.join(', '),
       subject: message.subject,
       text: message.text,
