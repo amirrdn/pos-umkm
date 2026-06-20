@@ -2,9 +2,10 @@ import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
 
 async function run() {
-  const dbUrl = process.argv[2];
+  require('dotenv').config();
+  const dbUrl = process.argv[2] || process.env.DATABASE_URL;
   if (!dbUrl) {
-    console.error('Silakan masukkan DATABASE_URL sebagai argumen!');
+    console.error('Silakan masukkan DATABASE_URL sebagai argumen atau set di file .env!');
     process.exit(1);
   }
 
@@ -53,41 +54,18 @@ async function run() {
       },
     });
 
-    console.log(`Menghubungkan ke role Owner...`);
-    const roleOwner = await prisma.role.findFirst({
-      where: { name: 'Owner', tenantId }
+    console.log(`Menghapus seluruh hubungan role lama untuk ${email}...`);
+    await prisma.userRole.deleteMany({
+      where: { userId: user.id }
     });
-    if (roleOwner) {
-      await prisma.userRole.upsert({
-        where: {
-          userId_roleId: {
-            userId: user.id,
-            roleId: roleOwner.id
-          }
-        },
-        update: {},
-        create: {
-          userId: user.id,
-          roleId: roleOwner.id
-        }
-      });
-      console.log('Hubungan ke role Owner berhasil.');
-    }
 
     console.log(`Menghubungkan ke role platform Admin...`);
     const rolePlatformAdmin = await prisma.role.findFirst({
       where: { name: 'Admin', tenantId: null }
     });
     if (rolePlatformAdmin) {
-      await prisma.userRole.upsert({
-        where: {
-          userId_roleId: {
-            userId: user.id,
-            roleId: rolePlatformAdmin.id
-          }
-        },
-        update: {},
-        create: {
+      await prisma.userRole.create({
+        data: {
           userId: user.id,
           roleId: rolePlatformAdmin.id
         }
