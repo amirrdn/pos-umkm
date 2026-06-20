@@ -53,14 +53,38 @@ export async function checkout(req: Request, res: Response) {
     const tenantId = req.tenantId!;
     const userId = req.user!.id;
 
+    const subscriptionAccess = { bypassLimits: req.isPlatformAdmin };
+
     // Periksa batas kuota transaksi bulanan
-    const canCreateTransaction = await SubscriptionService.checkTransactionLimit(tenantId);
+    const canCreateTransaction = await SubscriptionService.checkTransactionLimit(
+      tenantId,
+      subscriptionAccess
+    );
     if (!canCreateTransaction) {
       return res.status(403).json({
         success: false,
         error: 'LIMIT_EXCEEDED',
         message: 'Batas maksimal kuota transaksi bulanan untuk paket Anda telah tercapai. Silakan lakukan upgrade untuk melanjutkan penjualan.'
       });
+    }
+
+    if (paymentMethod === 'DEBT') {
+      if (!customerId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Pelanggan wajib dipilih untuk metode pembayaran HUTANG.',
+        });
+      }
+
+      try {
+        await SubscriptionService.assertDebtPaymentAllowed(tenantId, subscriptionAccess);
+      } catch (error: any) {
+        return res.status(403).json({
+          success: false,
+          error: 'TIER_INSUFFICIENT',
+          message: error.message,
+        });
+      }
     }
 
     const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');

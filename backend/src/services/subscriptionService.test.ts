@@ -119,6 +119,32 @@ describe('SubscriptionService', () => {
       expect(details.usage.transactions.isFull).toBe(false);
     });
 
+    it('returns enterprise-level effective access for platform admin bypass', async () => {
+      mockPrisma.tenant.findUnique.mockResolvedValue({
+        subscriptionTier: SubscriptionTier.FREE,
+        subscriptionStatus: SubscriptionStatus.EXPIRED,
+        subscriptionExpiresAt: null,
+        lastBillingAt: null,
+      });
+
+      mockPrisma.product.count.mockResolvedValue(100);
+      mockPrisma.outlet.count.mockResolvedValue(5);
+      mockPrisma.user.count.mockResolvedValue(10);
+      mockPrisma.transaction.count.mockResolvedValue(500);
+
+      const details = await SubscriptionService.getSubscriptionDetails(tenantId, {
+        bypassLimits: true,
+      });
+
+      expect(details.tier).toBe(SubscriptionTier.FREE);
+      expect(details.status).toBe(SubscriptionStatus.ACTIVE);
+      expect(details.platformAdminBypass).toBe(true);
+      expect(details.usage.products.isFull).toBe(false);
+      expect(details.usage.transactions.isFull).toBe(false);
+      expect(details.features.hasCogs).toBe(true);
+      expect(details.features.maxDebtLimit).toBe(Infinity);
+    });
+
     it('identifies near limit and full statuses correctly', async () => {
       mockPrisma.tenant.findUnique.mockResolvedValue({
         subscriptionTier: SubscriptionTier.FREE,
@@ -205,6 +231,29 @@ describe('SubscriptionService', () => {
       mockPrisma.transaction.count.mockResolvedValue(150);
       const canCreate = await SubscriptionService.checkTransactionLimit(tenantId);
       expect(canCreate).toBe(false);
+    });
+
+    it('bypasses all limit checks for platform admin', async () => {
+      mockPrisma.product.count.mockResolvedValue(999);
+      mockPrisma.outlet.count.mockResolvedValue(999);
+      mockPrisma.user.count.mockResolvedValue(999);
+      mockPrisma.transaction.count.mockResolvedValue(999);
+
+      await expect(
+        SubscriptionService.checkProductLimit(tenantId, { bypassLimits: true })
+      ).resolves.toBe(true);
+      await expect(
+        SubscriptionService.checkOutletLimit(tenantId, { bypassLimits: true })
+      ).resolves.toBe(true);
+      await expect(
+        SubscriptionService.checkStaffLimit(tenantId, { bypassLimits: true })
+      ).resolves.toBe(true);
+      await expect(
+        SubscriptionService.checkTransactionLimit(tenantId, { bypassLimits: true })
+      ).resolves.toBe(true);
+      await expect(
+        SubscriptionService.assertDebtPaymentAllowed(tenantId, { bypassLimits: true })
+      ).resolves.toBeUndefined();
     });
   });
 

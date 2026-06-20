@@ -14,6 +14,7 @@ export interface SubscriptionDetails {
   status: 'ACTIVE' | 'PAID_PENDING' | 'EXPIRED' | 'SUSPENDED';
   expiresAt: string | null;
   lastBillingAt: string | null;
+  platformAdminBypass?: boolean;
   usage: {
     products: UsageDetail;
     outlets: UsageDetail;

@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../lib/prisma';
 import { SubscriptionTier, SubscriptionStatus } from '@prisma/client';
 import jwt from 'jsonwebtoken';
+import { isPlatformAdmin } from '../lib/roles';
 
 /**
  * Middleware untuk mengecek apakah langganan tenant saat ini kedaluwarsa.
@@ -9,22 +10,32 @@ import jwt from 'jsonwebtoken';
  */
 export async function checkSubscriptionStatus(req: Request, res: Response, next: NextFunction) {
   try {
-    let tenantId = req.header('x-tenant-id') || req.header('X-Tenant-Id') as string;
+    let tenantId = (req.header('x-tenant-id') || req.header('X-Tenant-Id')) ?? undefined;
+    let platformAdminBypass = req.isPlatformAdmin === true;
 
     // Jika tidak ada header tenantId, coba ekstrak dari Bearer token JWT jika ada
     const authHeader = req.headers.authorization;
-    if (!tenantId && authHeader) {
+    if (authHeader) {
       const parts = authHeader.split(' ');
       if (parts.length === 2 && parts[0] === 'Bearer') {
         const token = parts[1];
         const secretKey = process.env.JWT_SECRET || 'fallback_secret_key_2026';
         try {
-          const decoded = jwt.verify(token, secretKey) as any;
-          tenantId = decoded.tenantId;
+          const decoded = jwt.verify(token, secretKey) as { tenantId?: string; roles?: string[] };
+          if (!tenantId && decoded.tenantId) {
+            tenantId = decoded.tenantId;
+          }
+          if (!platformAdminBypass && Array.isArray(decoded.roles)) {
+            platformAdminBypass = isPlatformAdmin(decoded.roles);
+          }
         } catch (jwtErr) {
           // Abaikan error di sini, validasi token utama dilakukan oleh authMiddleware
         }
       }
+    }
+
+    if (platformAdminBypass) {
+      return next();
     }
 
     // Jika tidak ada context tenantId, lewati saja
@@ -67,6 +78,10 @@ export async function checkSubscriptionStatus(req: Request, res: Response, next:
 export function requireTier(allowedTiers: SubscriptionTier[]) {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
+      if (req.isPlatformAdmin) {
+        return next();
+      }
+
       const tenantId = req.tenantId;
       if (!tenantId) {
         return res.status(400).json({

@@ -111,6 +111,22 @@ describe('subscriptionGuard', () => {
 
       expect(next).toHaveBeenCalledOnce();
     });
+
+    it('allows write requests for platform admin even if tenant is EXPIRED', async () => {
+      const req = createTestRequest({
+        method: 'POST',
+        headers: { 'x-tenant-id': tenantId },
+        originalUrl: '/api/products',
+        isPlatformAdmin: true,
+      });
+      const res = createMockResponse();
+      const next = vi.fn();
+
+      await checkSubscriptionStatus(req, res, next);
+
+      expect(next).toHaveBeenCalledOnce();
+      expect(mockPrisma.tenant.findUnique).not.toHaveBeenCalled();
+    });
   });
 
   describe('requireTier', () => {
@@ -210,6 +226,21 @@ describe('subscriptionGuard', () => {
       await middleware(req, res, next);
 
       expect(next).toHaveBeenCalledOnce();
+    });
+
+    it('calls next() for platform admin regardless of tenant tier', async () => {
+      const req = createTestRequest({
+        tenantId,
+        isPlatformAdmin: true,
+      });
+      const res = createMockResponse();
+      const next = vi.fn();
+
+      const middleware = requireTier([SubscriptionTier.ENTERPRISE]);
+      await middleware(req, res, next);
+
+      expect(next).toHaveBeenCalledOnce();
+      expect(mockPrisma.tenant.findUnique).not.toHaveBeenCalled();
     });
   });
 });

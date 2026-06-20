@@ -9,7 +9,9 @@ export class SubscriptionController {
   async getActiveSubscription(req: Request, res: Response) {
     try {
       const tenantId = req.tenantId!;
-      const details = await SubscriptionService.getSubscriptionDetails(tenantId);
+      const details = await SubscriptionService.getSubscriptionDetails(tenantId, {
+        bypassLimits: req.isPlatformAdmin,
+      });
 
       return res.status(200).json({
         success: true,

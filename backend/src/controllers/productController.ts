@@ -55,7 +55,9 @@ export class ProductController {
       }
 
       // Periksa batas kuota produk
-      const canCreateProduct = await SubscriptionService.checkProductLimit(tenantId);
+      const canCreateProduct = await SubscriptionService.checkProductLimit(tenantId, {
+        bypassLimits: req.isPlatformAdmin,
+      });
       if (!canCreateProduct) {
         return res.status(403).json({
           success: false,

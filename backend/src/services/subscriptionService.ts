@@ -38,11 +38,35 @@ export const TIER_LIMITS = {
   },
 };
 
+export interface SubscriptionAccessOptions {
+  /** Admin platform — akses penuh tanpa batas kuota/fitur premium */
+  bypassLimits?: boolean;
+}
+
+const PLATFORM_ADMIN_EFFECTIVE_LIMITS = TIER_LIMITS[SubscriptionTier.ENTERPRISE];
+
+function buildUsageMetric(
+  current: number,
+  limit: number
+): {
+  current: number;
+  limit: number;
+  isNearLimit: boolean;
+  isFull: boolean;
+} {
+  return {
+    current,
+    limit,
+    isNearLimit: limit !== Infinity && current >= limit * 0.9,
+    isFull: limit !== Infinity && current >= limit,
+  };
+}
+
 export class SubscriptionService {
   /**
    * Mendapatkan status paket dan tingkat kapasitas penggunaan data saat ini.
    */
-  static async getSubscriptionDetails(tenantId: string) {
+  static async getSubscriptionDetails(tenantId: string, options?: SubscriptionAccessOptions) {
     const tenant = await prisma.tenant.findUnique({
       where: { id: tenantId },
       select: {
@@ -57,7 +81,10 @@ export class SubscriptionService {
       throw new Error('Tenant tidak ditemukan.');
     }
 
-    const currentLimits = TIER_LIMITS[tenant.subscriptionTier];
+    const bypassLimits = options?.bypassLimits === true;
+    const currentLimits = bypassLimits
+      ? PLATFORM_ADMIN_EFFECTIVE_LIMITS
+      : TIER_LIMITS[tenant.subscriptionTier];
 
     // Mengoptimalkan kueri dengan menjalankan count secara paralel
     const startOfMonth = new Date();
@@ -78,34 +105,15 @@ export class SubscriptionService {
 
     return {
       tier: tenant.subscriptionTier,
-      status: tenant.subscriptionStatus,
+      status: bypassLimits ? SubscriptionStatus.ACTIVE : tenant.subscriptionStatus,
       expiresAt: tenant.subscriptionExpiresAt,
       lastBillingAt: tenant.lastBillingAt,
+      platformAdminBypass: bypassLimits,
       usage: {
-        products: {
-          current: productCount,
-          limit: currentLimits.maxProducts,
-          isNearLimit: currentLimits.maxProducts !== Infinity && productCount >= currentLimits.maxProducts * 0.9,
-          isFull: currentLimits.maxProducts !== Infinity && productCount >= currentLimits.maxProducts,
-        },
-        outlets: {
-          current: outletCount,
-          limit: currentLimits.maxOutlets,
-          isNearLimit: currentLimits.maxOutlets !== Infinity && outletCount >= currentLimits.maxOutlets,
-          isFull: currentLimits.maxOutlets !== Infinity && outletCount >= currentLimits.maxOutlets,
-        },
-        staff: {
-          current: staffCount,
-          limit: currentLimits.maxStaff,
-          isNearLimit: currentLimits.maxStaff !== Infinity && staffCount >= currentLimits.maxStaff,
-          isFull: currentLimits.maxStaff !== Infinity && staffCount >= currentLimits.maxStaff,
-        },
-        transactions: {
-          current: transactionCount,
-          limit: currentLimits.maxTransactionsPerMonth,
-          isNearLimit: currentLimits.maxTransactionsPerMonth !== Infinity && transactionCount >= currentLimits.maxTransactionsPerMonth * 0.9,
-          isFull: currentLimits.maxTransactionsPerMonth !== Infinity && transactionCount >= currentLimits.maxTransactionsPerMonth,
-        },
+        products: buildUsageMetric(productCount, currentLimits.maxProducts),
+        outlets: buildUsageMetric(outletCount, currentLimits.maxOutlets),
+        staff: buildUsageMetric(staffCount, currentLimits.maxStaff),
+        transactions: buildUsageMetric(transactionCount, currentLimits.maxTransactionsPerMonth),
       },
       features: {
         hasQris: currentLimits.hasQris,
@@ -118,24 +126,53 @@ export class SubscriptionService {
   /**
    * Pengecekan sisa kapasitas data sebelum membuat record baru.
    */
-  static async checkProductLimit(tenantId: string): Promise<boolean> {
+  static async checkProductLimit(
+    tenantId: string,
+    options?: SubscriptionAccessOptions
+  ): Promise<boolean> {
+    if (options?.bypassLimits) return true;
     const details = await this.getSubscriptionDetails(tenantId);
     return !details.usage.products.isFull;
   }
 
-  static async checkOutletLimit(tenantId: string): Promise<boolean> {
+  static async checkOutletLimit(
+    tenantId: string,
+    options?: SubscriptionAccessOptions
+  ): Promise<boolean> {
+    if (options?.bypassLimits) return true;
     const details = await this.getSubscriptionDetails(tenantId);
     return !details.usage.outlets.isFull;
   }
 
-  static async checkStaffLimit(tenantId: string): Promise<boolean> {
+  static async checkStaffLimit(
+    tenantId: string,
+    options?: SubscriptionAccessOptions
+  ): Promise<boolean> {
+    if (options?.bypassLimits) return true;
     const details = await this.getSubscriptionDetails(tenantId);
     return !details.usage.staff.isFull;
   }
 
-  static async checkTransactionLimit(tenantId: string): Promise<boolean> {
+  static async checkTransactionLimit(
+    tenantId: string,
+    options?: SubscriptionAccessOptions
+  ): Promise<boolean> {
+    if (options?.bypassLimits) return true;
     const details = await this.getSubscriptionDetails(tenantId);
     return !details.usage.transactions.isFull;
+  }
+
+  static async assertDebtPaymentAllowed(
+    tenantId: string,
+    options?: SubscriptionAccessOptions
+  ): Promise<void> {
+    if (options?.bypassLimits) return;
+    const details = await this.getSubscriptionDetails(tenantId);
+    if (details.features.maxDebtLimit === 0) {
+      throw new Error(
+        'Fitur hutang pelanggan tidak tersedia pada paket Anda. Silakan upgrade ke paket Tumbuh atau Enterprise.'
+      );
+    }
   }
 
   /**

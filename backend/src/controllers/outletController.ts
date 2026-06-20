@@ -98,7 +98,9 @@ export class OutletController {
       }
 
       // Periksa batas kuota outlet
-      const canCreateOutlet = await SubscriptionService.checkOutletLimit(tenantId);
+      const canCreateOutlet = await SubscriptionService.checkOutletLimit(tenantId, {
+        bypassLimits: req.isPlatformAdmin,
+      });
       if (!canCreateOutlet) {
         return res.status(403).json({
           success: false,
