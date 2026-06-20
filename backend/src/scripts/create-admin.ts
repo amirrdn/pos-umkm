@@ -42,6 +42,7 @@ async function run() {
         password: hashedPassword,
         isActive: true,
         approvalStatus: 'APPROVED',
+        tenantId,
       },
       create: {
         id: userId,
@@ -73,18 +74,16 @@ async function run() {
       console.log('Hubungan ke role platform Admin berhasil.');
     }
 
+    console.log(`Menghapus seluruh hubungan outlet lama untuk ${email}...`);
+    await prisma.userOutlet.deleteMany({
+      where: { userId: user.id }
+    });
+
     console.log(`Menghubungkan ke outlet...`);
     const outlet = await prisma.outlet.findUnique({ where: { id: outletId } });
     if (outlet) {
-      await prisma.userOutlet.upsert({
-        where: {
-          userId_outletId: {
-            userId: user.id,
-            outletId
-          }
-        },
-        update: {},
-        create: {
+      await prisma.userOutlet.create({
+        data: {
           userId: user.id,
           outletId
         }
