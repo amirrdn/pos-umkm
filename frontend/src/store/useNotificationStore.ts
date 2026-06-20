@@ -1,7 +1,9 @@
 import { create } from 'zustand';
 import { API_BASE_URL } from '../config';
 import { useAuthStore } from './useAuthStore';
-import { isTenantOwner } from '../utils/roles';
+import { isTenantOwner, isPlatformAdmin } from '../utils/roles';
+import { usePlatformStore } from './usePlatformStore';
+import { apiClient } from '../api/apiClient';
 
 const POLL_INTERVAL_MS = 60_000;
 const SSE_FALLBACK_AFTER_MS = 5_000;
@@ -39,15 +41,9 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/notifications/draft-count`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'x-tenant-id': user.tenantId,
-        },
-      });
-      const data = await response.json();
-      if (response.ok && data.success) {
-        set({ draftTransferCount: data.data?.count ?? 0 });
+      const response = await apiClient.get('/api/notifications/draft-count');
+      if (response.data?.success) {
+        set({ draftTransferCount: response.data.data?.count ?? 0 });
       }
     } catch (err) {
       console.error('Gagal mengambil count transfer DRAFT:', err);
@@ -70,7 +66,14 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
 
     if (typeof EventSource !== 'undefined') {
       try {
-        const url = `${API_BASE_URL}/api/notifications/stream?token=${encodeURIComponent(token)}`;
+        let tenantId = user.tenantId;
+        if (isPlatformAdmin(user.roles)) {
+          const activeTenantId = usePlatformStore.getState().activeTenantId;
+          if (activeTenantId) {
+            tenantId = activeTenantId;
+          }
+        }
+        const url = `${API_BASE_URL}/api/notifications/stream?token=${token}&tenantId=${tenantId}`;
         const sse = new EventSource(url);
 
         sse.addEventListener('draft_transfer', (event) => {

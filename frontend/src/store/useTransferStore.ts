@@ -1,6 +1,5 @@
 import { create } from 'zustand';
-import { API_BASE_URL } from '../config';
-import { useAuthStore } from './useAuthStore';
+import { apiClient } from '../api/apiClient';
 
 export interface TransferItem {
   id: string;
@@ -54,30 +53,12 @@ export const useTransferStore = create<TransferState>((set, get) => ({
   error: null,
 
   fetchTransfers: async (filters = {}) => {
-    const { token, user } = useAuthStore.getState();
-    if (!token || !user) return;
-
     set({ loading: true, error: null });
     try {
-      const queryParams = new URLSearchParams();
-      if (filters.fromOutletId) queryParams.append('fromOutletId', filters.fromOutletId);
-      if (filters.toOutletId) queryParams.append('toOutletId', filters.toOutletId);
-      if (filters.status) queryParams.append('status', filters.status);
-
-      const response = await fetch(`${API_BASE_URL}/api/stock-transfers?${queryParams.toString()}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'x-tenant-id': user.tenantId
-        }
+      const response = await apiClient.get('/api/stock-transfers', {
+        params: filters
       });
-
-      const resData = await response.json();
-      if (!response.ok) {
-        throw new Error(resData.message || 'Gagal mengambil data transfer stok.');
-      }
-
-      set({ transfers: resData.data || [], loading: false });
+      set({ transfers: response.data.data || [], loading: false });
     } catch (err: any) {
       console.error(err);
       set({ error: err.message || 'Terjadi kesalahan.', loading: false });
@@ -85,28 +66,11 @@ export const useTransferStore = create<TransferState>((set, get) => ({
   },
 
   createTransfer: async (data) => {
-    const { token, user } = useAuthStore.getState();
-    if (!token || !user) return { success: false, message: 'Tidak diotorisasi' };
-
     set({ loading: true, error: null });
     try {
-      const response = await fetch(`${API_BASE_URL}/api/stock-transfers`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-          'x-tenant-id': user.tenantId
-        },
-        body: JSON.stringify(data)
-      });
-
-      const resData = await response.json();
-      if (!response.ok) {
-        throw new Error(resData.message || 'Gagal membuat transfer stok.');
-      }
-
+      const response = await apiClient.post('/api/stock-transfers', data);
       await get().fetchTransfers();
-      return { success: true, data: resData.data };
+      return { success: true, data: response.data.data };
     } catch (err: any) {
       console.error(err);
       set({ error: err.message || 'Terjadi kesalahan.', loading: false });
@@ -115,26 +79,11 @@ export const useTransferStore = create<TransferState>((set, get) => ({
   },
 
   approveTransfer: async (id) => {
-    const { token, user } = useAuthStore.getState();
-    if (!token || !user) return { success: false, message: 'Tidak diotorisasi' };
-
     set({ loading: true, error: null });
     try {
-      const response = await fetch(`${API_BASE_URL}/api/stock-transfers/${id}/approve`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'x-tenant-id': user.tenantId
-        }
-      });
-
-      const resData = await response.json();
-      if (!response.ok) {
-        throw new Error(resData.message || 'Gagal menyetujui transfer stok.');
-      }
-
+      const response = await apiClient.patch(`/api/stock-transfers/${id}/approve`);
       await get().fetchTransfers();
-      return { success: true, data: resData.data };
+      return { success: true, data: response.data.data };
     } catch (err: any) {
       console.error(err);
       set({ error: err.message || 'Terjadi kesalahan.', loading: false });
@@ -143,26 +92,11 @@ export const useTransferStore = create<TransferState>((set, get) => ({
   },
 
   completeTransfer: async (id) => {
-    const { token, user } = useAuthStore.getState();
-    if (!token || !user) return { success: false, message: 'Tidak diotorisasi' };
-
     set({ loading: true, error: null });
     try {
-      const response = await fetch(`${API_BASE_URL}/api/stock-transfers/${id}/complete`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'x-tenant-id': user.tenantId
-        }
-      });
-
-      const resData = await response.json();
-      if (!response.ok) {
-        throw new Error(resData.message || 'Gagal menyelesaikan transfer stok.');
-      }
-
+      const response = await apiClient.patch(`/api/stock-transfers/${id}/complete`);
       await get().fetchTransfers();
-      return { success: true, data: resData.data };
+      return { success: true, data: response.data.data };
     } catch (err: any) {
       console.error(err);
       set({ error: err.message || 'Terjadi kesalahan.', loading: false });
@@ -171,30 +105,15 @@ export const useTransferStore = create<TransferState>((set, get) => ({
   },
 
   cancelTransfer: async (id) => {
-    const { token, user } = useAuthStore.getState();
-    if (!token || !user) return { success: false, message: 'Tidak diotorisasi' };
-
     set({ loading: true, error: null });
     try {
-      const response = await fetch(`${API_BASE_URL}/api/stock-transfers/${id}/cancel`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'x-tenant-id': user.tenantId
-        }
-      });
-
-      const resData = await response.json();
-      if (!response.ok) {
-        throw new Error(resData.message || 'Gagal membatalkan transfer stok.');
-      }
-
+      const response = await apiClient.patch(`/api/stock-transfers/${id}/cancel`);
       await get().fetchTransfers();
-      return { success: true, data: resData.data };
+      return { success: true, data: response.data.data };
     } catch (err: any) {
       console.error(err);
       set({ error: err.message || 'Terjadi kesalahan.', loading: false });
       return { success: false, message: err.message || 'Terjadi kesalahan.' };
     }
-  }
+  },
 }));

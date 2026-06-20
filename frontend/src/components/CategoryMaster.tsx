@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
-import { API_BASE_URL } from '../config';
+import { apiClient } from '../api/apiClient';
 import { AppShellHeader } from './AppShellHeader';
 import {
   Plus,
@@ -57,21 +57,8 @@ export const CategoryMaster: React.FC = () => {
   const fetchCategories = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/categories`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-          'x-tenant-id': user?.tenantId || ''
-        }
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.message || 'Gagal mengambil data kategori.');
-      }
-
-      setCategories(data.data || []);
+      const response = await apiClient.get('/api/categories');
+      setCategories(response.data.data || []);
     } catch (err: any) {
       console.error(err);
       showToast('error', err.message || 'Koneksi ke API kategori gagal.');
@@ -115,27 +102,11 @@ export const CategoryMaster: React.FC = () => {
       prefix: prefix.trim().toUpperCase()
     };
 
-    const url = modalMode === 'create'
-      ? `${API_BASE_URL}/api/categories`
-      : `${API_BASE_URL}/api/categories/${currentId}`;
-
-    const method = modalMode === 'create' ? 'POST' : 'PUT';
-
     try {
-      const response = await fetch(url, {
-        method: method,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-          'x-tenant-id': user?.tenantId || ''
-        },
-        body: JSON.stringify(payload)
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Gagal menyimpan kategori.');
+      if (modalMode === 'create') {
+        await apiClient.post('/api/categories', payload);
+      } else {
+        await apiClient.put(`/api/categories/${currentId}`, payload);
       }
 
       showToast('success', modalMode === 'create' ? 'Kategori baru berhasil ditambahkan.' : 'Kategori berhasil diperbarui.');
@@ -160,19 +131,7 @@ export const CategoryMaster: React.FC = () => {
     if (!targetCategory) return;
     setDeleteLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/categories/${targetCategory.id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'x-tenant-id': user?.tenantId || ''
-        }
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.message || 'Gagal menghapus kategori.');
-      }
-
+      await apiClient.delete(`/api/categories/${targetCategory.id}`);
       showToast('success', 'Kategori berhasil dihapus.');
       closeDeleteDialog();
       fetchCategories();

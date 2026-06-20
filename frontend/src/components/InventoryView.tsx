@@ -6,8 +6,7 @@ import { useOutletStore, type Outlet } from '../store/useOutletStore';
 import { useNotificationStore, canReceiveDraftTransferNotifications } from '../store/useNotificationStore';
 import { AppShellHeader } from './AppShellHeader';
 import { AppSelect, type AppSelectGroup } from './AppSelect';
-import { API_BASE_URL } from '../config';
-import { buildApiHeaders } from '../utils/apiHeaders';
+import { apiClient } from '../api/apiClient';
 import {
   getAssignedOutletIds,
   isOutletAssignedToUser,
@@ -158,12 +157,9 @@ export function InventoryView() {
 
   const fetchLowStock = async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/inventory/low-stock`, {
-        headers: buildApiHeaders(),
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setLowStockItems(data.data.items ?? []);
+      const res = await apiClient.get('/api/inventory/low-stock');
+      if (res.data.success) {
+        setLowStockItems(res.data.data.items ?? []);
       }
     } catch (err) {
       console.error('Gagal mengambil stok rendah:', err);
@@ -174,14 +170,8 @@ export function InventoryView() {
     try {
       setLoading(true);
       setError(null);
-      const res = await fetch(`${API_BASE_URL}/api/inventory`, {
-        headers: buildApiHeaders(),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.message || 'Gagal mengambil data inventaris.');
-      }
-      setProducts(data.data);
+      const res = await apiClient.get('/api/inventory');
+      setProducts(res.data.data);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -191,14 +181,9 @@ export function InventoryView() {
 
   const fetchSettings = async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/inventory/settings`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setRequireStockApproval(data.data.requireStockApproval);
+      const res = await apiClient.get('/api/inventory/settings');
+      if (res.data.success) {
+        setRequireStockApproval(res.data.data.requireStockApproval);
       }
     } catch (err) {
       console.error('Gagal mengambil pengaturan:', err);
@@ -208,14 +193,9 @@ export function InventoryView() {
   const fetchStockRequests = async () => {
     try {
       setRequestsLoading(true);
-      const res = await fetch(`${API_BASE_URL}/api/inventory/requests`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setStockRequests(data.data);
+      const res = await apiClient.get('/api/inventory/requests');
+      if (res.data.success) {
+        setStockRequests(res.data.data);
       }
     } catch (err) {
       console.error('Gagal mengambil antrean persetujuan:', err);
@@ -228,18 +208,7 @@ export function InventoryView() {
     try {
       setSettingsLoading(true);
       setError(null);
-      const res = await fetch(`${API_BASE_URL}/api/inventory/settings`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ requireStockApproval: !requireStockApproval })
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.message || 'Gagal mengubah pengaturan.');
-      }
+      await apiClient.put('/api/inventory/settings', { requireStockApproval: !requireStockApproval });
       setRequireStockApproval(!requireStockApproval);
       showSuccess(`Pengaturan persetujuan stok berhasil diperbarui.`);
     } catch (err: any) {
@@ -252,17 +221,8 @@ export function InventoryView() {
   const handleProcessRequest = async (id: string, action: 'approve' | 'reject') => {
     try {
       setError(null);
-      const res = await fetch(`${API_BASE_URL}/api/inventory/requests/${id}/${action}`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.message || 'Gagal memproses permintaan.');
-      }
-      showSuccess(data.message || 'Permintaan mutasi stok berhasil diproses.');
+      const res = await apiClient.post(`/api/inventory/requests/${id}/${action}`);
+      showSuccess(res.data.message || 'Permintaan mutasi stok berhasil diproses.');
       fetchStockRequests();
       fetchInventory();
       fetchLowStock();
@@ -296,17 +256,13 @@ export function InventoryView() {
     const fetchSourceOutletInventory = async () => {
       try {
         setSourceOutletLoading(true);
-        const res = await fetch(`${API_BASE_URL}/api/inventory`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'x-outlet-id': transferForm.fromOutletId
-          }
+        const res = await apiClient.get('/api/inventory', {
+          headers: { 'x-outlet-id': transferForm.fromOutletId }
         });
-        const data = await res.json();
-        if (res.ok && data.success) {
-          setSourceOutletProducts(data.data);
+        if (res.data.success) {
+          setSourceOutletProducts(res.data.data);
         } else {
-          console.error('Gagal mengambil stok outlet asal:', data.message);
+          console.error('Gagal mengambil stok outlet asal:', res.data.message);
         }
       } catch (err) {
         console.error('Gagal mengambil stok outlet asal:', err);
@@ -327,12 +283,11 @@ export function InventoryView() {
     const fetchOutletStock = async () => {
       setMutationStockLoading(true);
       try {
-        const res = await fetch(`${API_BASE_URL}/api/inventory/${selectedProduct.id}/ledger`, {
-          headers: buildApiHeaders({ 'x-outlet-id': mutationForm.outletId }),
+        const res = await apiClient.get(`/api/inventory/${selectedProduct.id}/ledger`, {
+          headers: { 'x-outlet-id': mutationForm.outletId },
         });
-        const data = await res.json();
-        if (res.ok && data.success) {
-          setMutationOutletStock(data.data.product?.stock ?? 0);
+        if (res.data.success) {
+          setMutationOutletStock(res.data.data.product?.stock ?? 0);
         }
       } catch (err) {
         console.error('Gagal mengambil stok outlet:', err);
@@ -473,24 +428,16 @@ export function InventoryView() {
       setMutationSubmitting(true);
       setMutationError(null);
 
-      const res = await fetch(`${API_BASE_URL}/api/inventory/mutate`, {
-        method: 'POST',
-        headers: {
-          ...buildApiHeaders({ 'x-outlet-id': mutationForm.outletId }),
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          productId: selectedProduct.id,
-          type: mutationForm.type,
-          quantity: Number(mutationForm.quantity),
-          note: mutationForm.note
-        })
+      const res = await apiClient.post('/api/inventory/mutate', {
+        productId: selectedProduct.id,
+        type: mutationForm.type,
+        quantity: Number(mutationForm.quantity),
+        note: mutationForm.note
+      }, {
+        headers: { 'x-outlet-id': mutationForm.outletId }
       });
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.message || 'Gagal melakukan mutasi stok.');
-      }
+      const data = res.data;
 
       if (data.data?.isPendingApproval) {
         showSuccess(data.message || 'Permintaan mutasi stok berhasil diajukan.');
@@ -515,16 +462,8 @@ export function InventoryView() {
     setIsLedgerModalOpen(true);
     setLedgerLoading(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/inventory/${product.id}/ledger`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.message || 'Gagal mengambil kartu stok.');
-      }
-      setLedgerEntries(data.data.ledger);
+      const res = await apiClient.get(`/api/inventory/${product.id}/ledger`);
+      setLedgerEntries(res.data.data.ledger);
     } catch (err: any) {
       alert(err.message);
       setIsLedgerModalOpen(false);

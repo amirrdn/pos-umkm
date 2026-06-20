@@ -1,5 +1,4 @@
-import { API_BASE_URL } from '../config';
-import { buildApiHeaders } from '../utils/apiHeaders';
+import { apiClient } from './apiClient';
 
 export interface CheckoutPayload {
   paymentMethod: string;
@@ -17,62 +16,32 @@ export interface CheckoutPayload {
  * Mengambil daftar produk aktif untuk tenant dari server.
  */
 export async function getProductsApi(): Promise<any> {
-  const response = await fetch(`${API_BASE_URL}/api/products`, {
-    method: 'GET',
-    headers: buildApiHeaders({ 'Content-Type': 'application/json' }),
-  });
-
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data.message || 'Gagal mengambil data produk dari server.');
-  }
-  return data;
+  const response = await apiClient.get('/api/products');
+  return response.data;
 }
 
 /**
  * Resolves outlet operasional secara otomatis untuk platform admin.
  */
 export async function resolveSilentOutletApi(): Promise<any> {
-  const response = await fetch(`${API_BASE_URL}/api/outlets?operationalOnly=true`, {
-    headers: buildApiHeaders(),
+  const response = await apiClient.get('/api/outlets', {
+    params: { operationalOnly: 'true' }
   });
-
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data.message || 'Gagal menyiapkan outlet operasional.');
-  }
-  return data;
+  return response.data;
 }
 
 /**
  * Mengecek status transaksi QRIS ke server.
  */
 export async function getTransactionStatusApi(invoiceNumber: string): Promise<any> {
-  const response = await fetch(`${API_BASE_URL}/api/transactions/status/${invoiceNumber}`, {
-    method: 'GET',
-    headers: buildApiHeaders(),
-  });
-
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data.message || 'Gagal mengecek status transaksi.');
-  }
-  return data;
+  const response = await apiClient.get(`/api/transactions/status/${invoiceNumber}`);
+  return response.data;
 }
 
 /**
  * Memproses checkout transaksi POS.
  */
 export async function checkoutApi(payload: CheckoutPayload): Promise<any> {
-  const response = await fetch(`${API_BASE_URL}/api/transactions/checkout`, {
-    method: 'POST',
-    headers: buildApiHeaders({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify(payload),
-  });
-
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data.message || 'Gagal memproses transaksi.');
-  }
-  return data;
+  const response = await apiClient.post('/api/transactions/checkout', payload);
+  return response.data;
 }

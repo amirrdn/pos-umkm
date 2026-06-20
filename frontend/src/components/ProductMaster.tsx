@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
+import { apiClient } from '../api/apiClient';
 import { API_BASE_URL } from '../config';
 import { AppShellHeader } from './AppShellHeader';
 import { AppSelect } from './AppSelect';
@@ -74,15 +75,9 @@ export const ProductMaster: React.FC = () => {
 
   const fetchOutlets = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/outlets`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'x-tenant-id': user?.tenantId || ''
-        }
-      });
-      const data = await response.json();
-      if (response.ok && data.success) {
-        setOutlets(data.data || []);
+      const response = await apiClient.get('/api/outlets');
+      if (response.data.success) {
+        setOutlets(response.data.data || []);
       }
     } catch (err) {
       console.error('Gagal mengambil daftar outlet:', err);
@@ -91,31 +86,19 @@ export const ProductMaster: React.FC = () => {
 
   const fetchOutletSettings = async (prodId: string) => {
     try {
-      const outletRes = await fetch(`${API_BASE_URL}/api/outlets`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'x-tenant-id': user?.tenantId || ''
-        }
-      });
-      const outletJson = await outletRes.json();
-      if (outletRes.ok && outletJson.success) {
-        setOutlets(outletJson.data || []);
+      const outletRes = await apiClient.get('/api/outlets');
+      if (outletRes.data.success) {
+        setOutlets(outletRes.data.data || []);
       }
 
-      const settingsRes = await fetch(`${API_BASE_URL}/api/products/${prodId}/outlet-settings`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'x-tenant-id': user?.tenantId || ''
-        }
-      });
-      const settingsJson = await settingsRes.json();
-      if (settingsRes.ok && settingsJson.success) {
+      const settingsRes = await apiClient.get(`/api/products/${prodId}/outlet-settings`);
+      if (settingsRes.data.success) {
         const priceMap: Record<string, number> = {};
         const stockMap: Record<string, number> = {};
-        (settingsJson.data.prices || []).forEach((p: any) => {
+        (settingsRes.data.data.prices || []).forEach((p: any) => {
           priceMap[p.outletId] = Number(p.price);
         });
-        (settingsJson.data.stocks || []).forEach((s: any) => {
+        (settingsRes.data.data.stocks || []).forEach((s: any) => {
           stockMap[s.outletId] = Number(s.minStock);
         });
         setOverridePrices(priceMap);
@@ -129,92 +112,41 @@ export const ProductMaster: React.FC = () => {
   const handleSavePrice = async (outletId: string, price: number | undefined) => {
     try {
       if (price === undefined || isNaN(price) || price <= 0) {
-        const res = await fetch(`${API_BASE_URL}/api/products/price-override`, {
-          method: 'DELETE',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-            'x-tenant-id': user?.tenantId || ''
-          },
-          body: JSON.stringify({ outletId, productId: currentId })
+        await apiClient.delete('/api/products/price-override', {
+          data: { outletId, productId: currentId }
         });
-        if (res.ok) {
-          showToast('success', 'Harga khusus cabang dihapus (menggunakan harga dasar).');
-          const newPrices = { ...overridePrices };
-          delete newPrices[outletId];
-          setOverridePrices(newPrices);
-        } else {
-          const data = await res.json();
-          showToast('error', data.message || 'Gagal menghapus harga khusus.');
-        }
+        showToast('success', 'Harga khusus cabang dihapus (menggunakan harga dasar).');
+        const newPrices = { ...overridePrices };
+        delete newPrices[outletId];
+        setOverridePrices(newPrices);
       } else {
-        const res = await fetch(`${API_BASE_URL}/api/products/price-override`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-            'x-tenant-id': user?.tenantId || ''
-          },
-          body: JSON.stringify({ outletId, productId: currentId, price })
-        });
-        if (res.ok) {
-          showToast('success', 'Harga khusus cabang berhasil disimpan!');
-        } else {
-          const data = await res.json();
-          showToast('error', data.message || 'Gagal menyimpan harga khusus.');
-        }
+        await apiClient.post('/api/products/price-override', { outletId, productId: currentId, price });
+        showToast('success', 'Harga khusus cabang berhasil disimpan!');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      showToast('error', 'Terjadi kesalahan jaringan.');
+      showToast('error', err.message || 'Gagal memproses harga khusus.');
     }
   };
 
   const handleSaveMinStock = async (outletId: string, minStock: number) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/products/min-stock`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-          'x-tenant-id': user?.tenantId || ''
-        },
-        body: JSON.stringify({ outletId, productId: currentId, minStock })
-      });
-      if (res.ok) {
-        showToast('success', 'Limit stok minimum cabang berhasil disimpan!');
-      } else {
-        const data = await res.json();
-        showToast('error', data.message || 'Gagal menyimpan limit stok.');
-      }
-    } catch (err) {
+      await apiClient.post('/api/products/min-stock', { outletId, productId: currentId, minStock });
+      showToast('success', 'Limit stok minimum cabang berhasil disimpan!');
+    } catch (err: any) {
       console.error(err);
-      showToast('error', 'Terjadi kesalahan jaringan.');
+      showToast('error', err.message || 'Gagal menyimpan limit stok.');
     }
   };
 
   const fetchProducts = async (selectedOutletId: string = filterOutletId) => {
     setLoading(true);
     try {
-      const url = selectedOutletId
-        ? `${API_BASE_URL}/api/products?outletId=${selectedOutletId}`
-        : `${API_BASE_URL}/api/products`;
-
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-          'x-tenant-id': user?.tenantId || ''
-        }
+      const response = await apiClient.get('/api/products', {
+        params: selectedOutletId ? { outletId: selectedOutletId } : {}
       });
 
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.message || 'Gagal mengambil data produk.');
-      }
-
-      const mapped = data.data.map((item: any) => ({
+      const mapped = response.data.data.map((item: any) => ({
         id: item.id,
         sku: item.sku,
         name: item.name,
@@ -238,15 +170,9 @@ export const ProductMaster: React.FC = () => {
 
   const fetchCategories = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/categories`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'x-tenant-id': user?.tenantId || ''
-        }
-      });
-      const data = await response.json();
-      if (response.ok && data.success) {
-        setCategories(data.data || []);
+      const response = await apiClient.get('/api/categories');
+      if (response.data.success) {
+        setCategories(response.data.data || []);
       }
     } catch (err) {
       console.error('Gagal mengambil kategori:', err);
@@ -256,14 +182,9 @@ export const ProductMaster: React.FC = () => {
   const fetchNextSku = async (catId: string) => {
     if (!catId) return;
     try {
-      const response = await fetch(`${API_BASE_URL}/api/categories/${catId}/next-sku`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      const data = await response.json();
-      if (response.ok && data.success) {
-        setSku(data.data.nextSku);
+      const response = await apiClient.get(`/api/categories/${catId}/next-sku`);
+      if (response.data.success) {
+        setSku(response.data.data.nextSku);
       }
     } catch (err) {
       console.error('Gagal mengambil SKU otomatis:', err);
@@ -278,21 +199,29 @@ export const ProductMaster: React.FC = () => {
     }
   }, [token]);
 
+  useEffect(() => {
+    if (modalMode === 'create' && isAutoSku) {
+      const defaultCatId = categories[0]?.id || categoryId;
+      fetchNextSku(defaultCatId);
+    }
+  }, [categories, modalMode, isAutoSku]);
+
   const handleOpenCreate = () => {
     setModalMode('create');
-    setActiveTab('general');
     setCurrentId('');
     setName('');
-    const defaultCatId = categories.length > 0 ? categories[0].id : '';
-    setCategoryId(defaultCatId);
     setSku('');
     setPurchasePrice(0);
     setSellingPrice(0);
     setStock(0);
     setImages([]);
     setIsAutoSku(true);
-    if (defaultCatId) {
-      fetchNextSku(defaultCatId);
+    setOverridePrices({});
+    setMinStocks({});
+    setActiveTab('general');
+    if (categories.length > 0) {
+      setCategoryId(categories[0].id);
+      fetchNextSku(categories[0].id);
     }
     setIsModalOpen(true);
   };
@@ -323,35 +252,24 @@ export const ProductMaster: React.FC = () => {
       return;
     }
 
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-    if (!allowedTypes.includes(file.type)) {
-      showToast('error', 'Format file tidak didukung. Hanya diperbolehkan JPG, PNG, GIF, atau WEBP.');
-      return;
-    }
-
     const formData = new FormData();
     formData.append('image', file);
 
     setUploading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/products/upload`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
-        body: formData
+      const response = await apiClient.post('/api/products/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
       });
 
-      const data = await response.json();
-      if (response.ok && data.success) {
+      if (response.data.success) {
         showToast('success', 'Gambar berhasil diunggah.');
-        setImages([...images, { url: data.url, isMain: images.length === 0 }]);
+        setImages([...images, { url: response.data.url, isMain: images.length === 0 }]);
       } else {
-        showToast('error', data.message || 'Gagal mengunggah gambar.');
+        showToast('error', response.data.message || 'Gagal mengunggah gambar.');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Image Upload Error:', err);
-      showToast('error', 'Terjadi kesalahan jaringan saat mengunggah gambar.');
+      showToast('error', err.message || 'Terjadi kesalahan jaringan saat mengunggah gambar.');
     } finally {
       setUploading(false);
       e.target.value = '';
@@ -365,52 +283,26 @@ export const ProductMaster: React.FC = () => {
       return;
     }
 
-    const payload = modalMode === 'create'
-      ? {
-        categoryId,
-        name,
-        sku,
-        purchasePrice,
-        sellingPrice,
-        stock,
-        images: images.filter(img => img.url.trim() !== '')
-      }
-      : {
-        categoryId,
-        name,
-        sku,
-        purchasePrice,
-        sellingPrice,
-        stock,
-        images: images.filter(img => img.url.trim() !== '')
-      };
-
-    const url = modalMode === 'create'
-      ? `${API_BASE_URL}/api/products`
-      : `${API_BASE_URL}/api/products/${currentId}`;
-
-    const method = modalMode === 'create' ? 'POST' : 'PUT';
+    const payload = {
+      categoryId,
+      name,
+      sku,
+      purchasePrice,
+      sellingPrice,
+      stock,
+      images: images.filter(img => img.url.trim() !== '')
+    };
 
     try {
-      const response = await fetch(url, {
-        method: method,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-          'x-tenant-id': user?.tenantId || ''
-        },
-        body: JSON.stringify(payload)
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.message || 'Gagal menyimpan produk.');
+      if (modalMode === 'create') {
+        await apiClient.post('/api/products', payload);
+      } else {
+        await apiClient.put(`/api/products/${currentId}`, payload);
       }
 
       showToast('success', modalMode === 'create' ? 'Produk berhasil ditambahkan!' : 'Produk berhasil diperbarui!');
       setIsModalOpen(false);
       fetchProducts();
-
     } catch (err: any) {
       console.error(err);
       showToast('error', err.message || 'Terjadi kesalahan saat memproses data.');
@@ -422,23 +314,9 @@ export const ProductMaster: React.FC = () => {
     if (!confirmed) return;
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/products/${productId}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-          'x-tenant-id': user?.tenantId || ''
-        }
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.message || 'Gagal menghapus produk.');
-      }
-
+      await apiClient.delete(`/api/products/${productId}`);
       showToast('success', 'Produk berhasil dihapus.');
       fetchProducts();
-
     } catch (err: any) {
       console.error(err);
       showToast('error', err.message || 'Terjadi kesalahan saat menghapus.');

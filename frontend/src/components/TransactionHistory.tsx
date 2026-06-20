@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
+import { apiClient } from '../api/apiClient';
+import { isPlatformAdmin } from '../utils/roles';
 import { useReactToPrint } from 'react-to-print';
 import { ReceiptTemplate } from './ReceiptTemplate';
 import { AppShellHeader } from './AppShellHeader';
-import { API_BASE_URL } from '../config';
 import {
   History,
   Search,
@@ -76,23 +77,15 @@ export const TransactionHistory: React.FC = () => {
     if (selectedTransaction && selectedTransaction.status === 'PENDING' && selectedTransaction.paymentMethod === 'QRIS') {
       pollingIntervalRef.current = setInterval(async () => {
         try {
-          const response = await fetch(`${API_BASE_URL}/api/transactions/status/${selectedTransaction.invoiceNumber}`, {
-            headers: {
-              'x-tenant-id': user?.tenantId || '',
-              'Authorization': `Bearer ${token}`
-            }
-          });
-          if (response.ok) {
-            const resData = await response.json();
-            if (resData.data?.status !== 'PENDING') {
-              setSelectedTransaction(prev => {
-                if (!prev) return null;
-                return { ...prev, status: resData.data.status };
-              });
-              fetchHistory();
-              if (pollingIntervalRef.current) {
-                clearInterval(pollingIntervalRef.current);
-              }
+          const response = await apiClient.get(`/api/transactions/status/${selectedTransaction.invoiceNumber}`);
+          if (response.data.data?.status !== 'PENDING') {
+            setSelectedTransaction(prev => {
+              if (!prev) return null;
+              return { ...prev, status: response.data.data.status };
+            });
+            fetchHistory();
+            if (pollingIntervalRef.current) {
+              clearInterval(pollingIntervalRef.current);
             }
           }
         } catch (err) {
@@ -110,24 +103,13 @@ export const TransactionHistory: React.FC = () => {
     contentRef: componentRef,
   });
   const fetchHistory = async () => {
-    if (!token || !user?.tenantId) return;
+    const isPlatformAdminUser = user && isPlatformAdmin(user.roles);
+    if (!token || (!isPlatformAdminUser && !user?.tenantId)) return;
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/transactions/history`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-          'x-tenant-id': user.tenantId
-        }
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.message || 'Gagal mengambil data riwayat transaksi.');
-      }
-      setTransactions(data.data || []);
+      const response = await apiClient.get('/api/transactions/history');
+      setTransactions(response.data.data || []);
     } catch (err: any) {
       console.error(err);
       setError(err.message || 'Terjadi kesalahan saat menghubungi server.');
