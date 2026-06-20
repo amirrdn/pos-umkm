@@ -1,23 +1,15 @@
 import { Request, Response, NextFunction } from 'express';
 import multer from 'multer';
-import path from 'path';
-import fs from 'fs';
+import { v2 as cloudinary } from 'cloudinary';
 
-const uploadsDir = path.join(__dirname, '../../uploads');
-
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => {
-    if (!fs.existsSync(uploadsDir)) {
-      fs.mkdirSync(uploadsDir, { recursive: true });
-    }
-    cb(null, uploadsDir);
-  },
-  filename: (_req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    const ext = path.extname(file.originalname);
-    cb(null, `img-${uniqueSuffix}${ext}`);
-  }
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
 });
+
+const storage = multer.memoryStorage();
 
 const fileFilter = (_req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
   const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
@@ -37,7 +29,7 @@ export const upload = multer({
 });
 
 export const uploadSingleImage = (req: Request, res: Response, next: NextFunction): void => {
-  upload.single('image')(req, res, (err: any) => {
+  upload.single('image')(req, res, async (err: any) => {
     if (err) {
       res.status(400).json({
         success: false,
@@ -45,7 +37,48 @@ export const uploadSingleImage = (req: Request, res: Response, next: NextFunctio
       });
       return;
     }
-    next();
+
+    if (!req.file) {
+      next();
+      return;
+    }
+
+    try {
+      // Upload file buffer to Cloudinary using upload_stream
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          folder: 'saaspos-products',
+        },
+        (error, result) => {
+          if (error) {
+            console.error('Cloudinary Upload Stream Error:', error);
+            res.status(500).json({
+              success: false,
+              message: 'Gagal mengunggah gambar ke cloud storage: ' + error.message,
+            });
+            return;
+          }
+
+          if (result) {
+            // Attach secure url to request so controller can access it
+            (req as any).fileUrl = result.secure_url;
+            next();
+          } else {
+            res.status(500).json({
+              success: false,
+              message: 'Gagal mendapatkan response unggahan cloud storage.',
+            });
+          }
+        }
+      );
+
+      uploadStream.end(req.file.buffer);
+    } catch (uploadError: any) {
+      console.error('Cloudinary Middleware Catch Error:', uploadError);
+      res.status(500).json({
+        success: false,
+        message: 'Terjadi kesalahan sistem saat mengunggah ke Cloudinary.'
+      });
+    }
   });
 };
-

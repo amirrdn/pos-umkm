@@ -57,6 +57,7 @@ coverage/
 backend/src/test-*.ts
 
 # --- Editor / IDE ---
+.cursor/
 .vscode/
 .idea/
 *.suo
