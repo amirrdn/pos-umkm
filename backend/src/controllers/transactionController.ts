@@ -3,8 +3,6 @@ import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import {
   buildQrisSaleLedgerEntries,
-  decrementOutletStock,
-  getOutletStockLevel,
 } from '../domain/inventory';
 import { prisma } from '../lib/prisma';
 import { MidtransService } from '../services/midtransService';
@@ -100,46 +98,53 @@ export async function checkout(req: Request, res: Response) {
         costAtTransaction: Prisma.Decimal;
         subtotal: Prisma.Decimal;
       }[] = [];
-      const stockLedgerEntries: {
-        tenantId: string;
-        productId: string;
-        userId: string;
-        type: 'SALE';
-        quantity: number;
-        stockBefore: number;
-        stockAfter: number;
-        outletId?: string | null;
-        note: string;
-      }[] = [];
+      const stockLedgerEntries: Prisma.StockLedgerCreateManyInput[] = [];
+      const stockUpdates: { productId: string; newStock: number; stockBefore: number }[] = [];
 
+      if (!req.outletId) {
+        throw new Error('Aksi ditolak: Transaksi POS wajib dikaitkan dengan Outlet aktif.');
+      }
+      const outletId = req.outletId;
+
+      // 1. Batch fetch products matching items in the cart
+      const productIds = items.map(item => item.productId);
+      const products = await tx.product.findMany({
+        where: {
+          id: { in: productIds },
+          tenantId: tenantId,
+          deletedAt: null
+        }
+      });
+
+      const productMap = new Map(products.map(p => [p.id, p]));
+
+      // 2. Batch fetch price overrides for the active outlet
+      const priceOverrides = await tx.outletProductPrice.findMany({
+        where: {
+          outletId,
+          productId: { in: productIds }
+        }
+      });
+      const priceOverrideMap = new Map(priceOverrides.map(po => [po.productId, po.price]));
+
+      // 3. Batch fetch current stock levels for the active outlet
+      const stockLevels = await tx.outletStock.findMany({
+        where: {
+          outletId,
+          productId: { in: productIds }
+        }
+      });
+      const stockMap = new Map(stockLevels.map(sl => [sl.productId, sl.stock]));
+
+      // 4. Validate and compute items in-memory
       for (const item of items) {
-        const product = await tx.product.findFirst({
-          where: {
-            id: item.productId,
-            tenantId: tenantId,
-            deletedAt: null
-          }
-        });
-
+        const product = productMap.get(item.productId);
         if (!product) {
           throw new Error(`Produk dengan ID ${item.productId} tidak ditemukan di tenant Anda.`);
         }
 
-        if (!req.outletId) {
-          throw new Error('Aksi ditolak: Transaksi POS wajib dikaitkan dengan Outlet aktif.');
-        }
-
-        const outletId = req.outletId;
-
-        const priceOverride = await tx.outletProductPrice.findUnique({
-          where: {
-            outletId_productId: {
-              outletId,
-              productId: product.id,
-            },
-          },
-        });
-        const activeSellingPrice = priceOverride ? priceOverride.price : product.sellingPrice;
+        const priceOverride = priceOverrideMap.get(product.id);
+        const activeSellingPrice = priceOverride !== undefined ? priceOverride : product.sellingPrice;
 
         const sellingPrice = new Prisma.Decimal(activeSellingPrice);
         const costPrice = new Prisma.Decimal(product.purchasePrice);
@@ -154,36 +159,29 @@ export async function checkout(req: Request, res: Response) {
           subtotal: itemSubtotal,
         });
 
-        const { stockBefore, stockAfter } =
-          paymentMethod === 'QRIS'
-            ? await (async () => {
-                const level = await getOutletStockLevel(outletId, product.id, tx);
-                if (level < item.quantity) {
-                  throw new Error(
-                    `Stok tidak mencukupi untuk ${product.name}. Tersedia: ${level}, diminta: ${item.quantity}.`
-                  );
-                }
-                return { stockBefore: level, stockAfter: level - item.quantity };
-              })()
-            : await decrementOutletStock(
-                tx,
-                tenantId,
-                outletId,
-                product.id,
-                item.quantity
-              );
+        // Resolve stock level
+        const stockBefore = stockMap.get(product.id) ?? 0;
+        const stockAfter = stockBefore - item.quantity;
+
+        if (stockAfter < 0) {
+          throw new Error(
+            `Stok tidak mencukupi untuk ${product.name}. Tersedia: ${stockBefore}, diminta: ${item.quantity}.`
+          );
+        }
+
+        stockUpdates.push({ productId: product.id, newStock: stockAfter, stockBefore });
 
         if (paymentMethod !== 'QRIS') {
           stockLedgerEntries.push({
             tenantId,
             productId: product.id,
             userId,
-            type: 'SALE' as const,
+            type: 'SALE',
             quantity: -item.quantity,
             stockBefore,
             stockAfter,
             outletId,
-            note: `Penjualan - Invoice`,
+            note: 'Penjualan - Invoice',
           });
         }
       }
@@ -255,6 +253,30 @@ export async function checkout(req: Request, res: Response) {
         }
       }
 
+      // 5. Update stock levels for non-QRIS payments (sequential writes, no N+1 reads)
+      if (paymentMethod !== 'QRIS') {
+        for (const update of stockUpdates) {
+          await tx.outletStock.upsert({
+            where: {
+              outletId_productId: {
+                outletId,
+                productId: update.productId,
+              },
+            },
+            create: {
+              tenantId,
+              outletId,
+              productId: update.productId,
+              stock: update.newStock,
+            },
+            update: {
+              stock: update.newStock,
+            },
+          });
+        }
+      }
+
+      // 6. Create transaction record
       const transaction = await tx.transaction.create({
         data: {
           tenantId,
@@ -298,13 +320,14 @@ export async function checkout(req: Request, res: Response) {
         }
       });
 
+      // 7. Write stock ledger entries for non-QRIS payments
       if (paymentMethod !== 'QRIS' && stockLedgerEntries.length > 0) {
         await tx.stockLedger.createMany({
           data: stockLedgerEntries.map(entry => ({
             ...entry,
             transactionId: transaction.id,
             note: `${entry.note} ${invoiceNumber}`,
-          })) as any,
+          })),
         });
       }
 

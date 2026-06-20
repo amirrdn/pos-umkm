@@ -1,5 +1,38 @@
 import crypto from 'crypto';
 
+export interface MidtransQrisChargeResponse {
+  status_code: string;
+  status_message: string;
+  transaction_id: string;
+  order_id: string;
+  merchant_id: string;
+  gross_amount: string;
+  currency: string;
+  payment_type: string;
+  transaction_time: string;
+  transaction_status: string;
+  fraud_status: string;
+  actions?: {
+    name: string;
+    method: string;
+    url: string;
+  }[];
+  qr_string?: string;
+  acquirer?: string;
+  message?: string;
+}
+
+export interface MidtransSnapResponse {
+  token: string;
+  redirect_url: string;
+  message?: string;
+}
+
+export interface MidtransStatusResponse {
+  transaction_status: string;
+  [key: string]: any;
+}
+
 export class MidtransService {
   private static getServerKey() {
     return process.env.MIDTRANS_SERVER_KEY || 'Mid-server-NhCmZFQENLUx_vuLFj-AHwHq';
@@ -42,13 +75,13 @@ export class MidtransService {
         body: JSON.stringify(payload)
       });
 
-      const data = (await response.json()) as any;
+      const data = (await response.json()) as MidtransQrisChargeResponse;
 
       if (!response.ok) {
         throw new Error(data.message || 'Gagal menghubungi server Midtrans.');
       }
       const actions = data.actions || [];
-      const qrisAction = actions.find((act: any) => act.name === 'generate-qr-code');
+      const qrisAction = actions.find((act) => act.name === 'generate-qr-code');
       if (!qrisAction || !qrisAction.url) {
         throw new Error('Midtrans tidak mengembalikan url QRIS.');
       }
@@ -94,7 +127,7 @@ export class MidtransService {
         body: JSON.stringify(payload)
       });
 
-      const data = (await response.json()) as any;
+      const data = (await response.json()) as MidtransSnapResponse;
 
       if (!response.ok) {
         throw new Error(data.message || 'Gagal menghubungi server Snap Midtrans.');
@@ -142,7 +175,7 @@ export class MidtransService {
       throw new Error(`Gagal mengecek status ke Midtrans: ${response.statusText}`);
     }
 
-    const data = (await response.json()) as any;
+    const data = (await response.json()) as MidtransStatusResponse;
     return data.transaction_status;
   }
 }

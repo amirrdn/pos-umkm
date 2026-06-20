@@ -1,4 +1,5 @@
 import express, { Request, Response } from 'express';
+import 'express-async-errors';
 import dotenv from 'dotenv';
 import cors from 'cors';
 import path from 'path';
@@ -22,6 +23,7 @@ import notificationRoutes from './routes/notificationRoutes';
 import subscriptionRoutes from './routes/subscriptionRoutes';
 import platformRoutes from './routes/platformRoutes';
 import { checkSubscriptionStatus } from './middlewares/subscriptionGuard';
+import { errorHandler } from './middlewares/errorHandler';
 
 
 dotenv.config();
@@ -93,6 +95,8 @@ app.get(
     });
   }
 );
+
+app.use(errorHandler);
 
 app.listen(PORT, () => {
   startNotificationSchedulers();

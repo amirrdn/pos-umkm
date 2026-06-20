@@ -170,7 +170,7 @@ export class ProductController {
    */
   async uploadImage(req: Request, res: Response) {
     try {
-      const fileUrl = (req as any).fileUrl;
+      const fileUrl = req.fileUrl;
       if (!fileUrl) {
         return res.status(400).json({
           success: false,

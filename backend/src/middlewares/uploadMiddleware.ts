@@ -16,7 +16,7 @@ const fileFilter = (_req: any, file: Express.Multer.File, cb: multer.FileFilterC
   if (allowedTypes.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error('Format file tidak didukung. Hanya diperbolehkan JPG, PNG, GIF, atau WEBP.') as any, false);
+    cb(new Error('Format file tidak didukung. Hanya diperbolehkan JPG, PNG, GIF, atau WEBP.'));
   }
 };
 
@@ -61,7 +61,7 @@ export const uploadSingleImage = (req: Request, res: Response, next: NextFunctio
 
           if (result) {
             // Attach secure url to request so controller can access it
-            (req as any).fileUrl = result.secure_url;
+            req.fileUrl = result.secure_url;
             next();
           } else {
             res.status(500).json({

@@ -14,6 +14,8 @@ declare global {
       hasTenantWideOutletAccess?: boolean;
       /** Pemilik aplikasi SaaS (bukan pemilik toko) */
       isPlatformAdmin?: boolean;
+      /** URL gambar produk yang diunggah ke Cloudinary. */
+      fileUrl?: string;
 
       user?: {
         id: string;

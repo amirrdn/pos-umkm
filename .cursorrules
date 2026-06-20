@@ -1,7 +1,129 @@
 <!-- lean-ctx -->
 # lean-ctx
-
 Prefer lean-ctx MCP tools: ctx_read > Read/cat, ctx_search > Grep/rg, ctx_shell > bash, ctx_tree > ls/find.
 Edit/Write/Glob stay native; ctx_edit only when Edit needs an unavailable Read.
 Full rules: ~/.cursor/rules/lean-ctx.mdc (auto-loaded) — do not duplicate here.
 <!-- /lean-ctx -->
+# ============================================================================
+# CURSOR AI CONFIGURATION & RULES — SaaSPOS UMKM
+# ============================================================================
+## General
+- **Behavior:** Collaborative expert & assistant — not a replacement for the engineer.
+- **Tone:** Concise, direct, technical.
+- **Language:** Match the user's language (Indonesian or English).
+---
+## Project Context
+- **Repo:** SaaSPOS UMKM — multi-tenant POS monorepo (`backend/` + `frontend/`).
+- **Backend:** Node.js, Express, TypeScript, Prisma, PostgreSQL, Zod, Vitest.
+- **Frontend:** React 19, Vite, TypeScript, Zustand, Tailwind CSS, Recharts.
+- **Do NOT** introduce new state libraries, ORMs, CSS frameworks, or npm packages unless explicitly requested.
+- **Follow existing folder structure** — do not create parallel patterns.
+```
+backend/src/
+  routes/ → middlewares/ → controllers/ → services/ → domain/
+frontend/src/
+  api/ → hooks/ → store/ → components/ → utils/
+```
+---
+## Core Rules & Anti-Vibe Coding
+1. **NEVER** overwrite or refactor large chunks of code without explaining the "why" first.
+2. **Prioritize incremental changes.** Use inline modifications instead of replacing entire files.
+3. **ANTI-SPOONFEEDING (interactive mode):** If an error occurs, analyze the root cause in 1–2 sentences and ask for confirmation before non-trivial fixes.
+4. **Autonomous mode (Agent / Composer):** Proceed with incremental fixes after a brief analysis. State the plan before multi-file refactors — do not block on confirmation for obvious, scoped fixes.
+5. If a task requires complex logic, outline steps or pseudocode first and wait for approval in interactive mode.
+6. Keep variable and function naming **consistent with the existing codebase**.
+7. **Strictly avoid bloatware** or unnecessary external npm packages unless explicitly requested.
+8. If you notice a bad architectural pattern or bottleneck (N+1 queries, unnecessary re-renders, missing tenant guard), flag it as a **Note** before proceeding.
+---
+## File Size & Structure Limits
+| Layer | Max lines | Rule |
+|-------|-----------|------|
+| React component (`.tsx`) | **200** | Extract sub-components or custom hooks BEFORE adding new logic |
+| Controller | **150** | Only validation + response — delegate to service/domain |
+| Service | **300** | Split by domain concern if exceeded |
+| Single function | **40** | Extract helper if exceeded |
+**Hard rules:**
+- **NEVER** append large logic blocks to existing giant files (e.g. `PosView.tsx`, `InventoryView.tsx`). Extract first, then extend.
+- **NEVER** put raw `fetch()` inside `.tsx` components — use `frontend/src/api/`.
+- **NEVER** put business logic inside React components — use `frontend/src/hooks/` or backend `services/` / `domain/`.
+- **NEVER** put business logic inside route files or fat controllers.
+---
+## Frontend Standards (React & TypeScript)
+### Components
+- **STRICTLY** functional components with hooks. **NEVER** class components.
+- Use `useState`, `useEffect`, `useMemo`, `useCallback` with accurate dependency arrays.
+- For new files: define `interface XxxProps { ... }` and type the function directly. Avoid `React.FC` unless matching an existing file's style.
+- Styling: **Tailwind CSS** utility classes only. Avoid custom inline CSS.
+### State Management
+- **Global state:** Zustand stores in `frontend/src/store/` only.
+- **Server / async state:** custom hooks in `frontend/src/hooks/`.
+- **Do NOT** add Context API or Redux — Zustand is the project standard.
+### API Layer
+- All HTTP calls live in `frontend/src/api/` (one file per domain: `products.ts`, `transactions.ts`, etc.).
+- Components and hooks call `api.*` — never raw `fetch()` in `.tsx`.
+### TypeScript
+- Write strictly typed TypeScript. **AVOID `any`.** If unavoidable, add a one-line comment explaining why.
+- Define explicit `interface` or `type` for props, hook return values, and API payloads.
+- Reuse types from stores or `api/` — do not duplicate interfaces across files.
+---
+## Backend Standards (Node.js & TypeScript)
+### Architecture
+- Layered: `Router → Middleware → Controller → Service → Domain/Repository`.
+- Controllers: validate input (Zod), call service, return response. **No business logic.**
+- Services: orchestrate business logic and Prisma transactions.
+- Domain (`backend/src/domain/`): pure logic, invariants, mappers — no Express `req`/`res`.
+### Async & Errors
+- Always `async/await` with `try/catch` or global error middleware. No raw `.then().catch()` chains.
+- Return proper HTTP status codes: `400` validation, `401` unauth, `403` forbidden/limit, `404` not found, `500` server error.
+### Validation & Security
+- Validate all incoming data with **Zod** schemas in `backend/src/schemas/`.
+- Type `req`, `res`, `next` explicitly — extend via `backend/src/@types/express.d.ts`.
+- Use Prisma parameterized queries only. Schema changes via Prisma migration files — never raw SQL in app code.
+### Domain Rules — SaaSPOS (CRITICAL)
+- Every tenant-scoped query **MUST** filter by `tenantId` (from `req.tenantId` via `tenantMiddleware`).
+- Every outlet-scoped operation **MUST** validate `outletId` belongs to the active tenant.
+- **Platform admin bypass** (`req.isPlatformAdmin`) must be **explicit** in code — never implicit or assumed.
+- Quota checks (products, outlets, staff, transactions) **MUST** go through `SubscriptionService` before create operations.
+- Stock changes **MUST** use Prisma interactive transactions and write `StockLedger` entries.
+- Debt (`DEBT`) payments require registered `customerId` and `SubscriptionService.assertDebtPaymentAllowed`.
+---
+## Testing
+### Backend
+- New API endpoints: suggest at least one **Vitest** test — happy path + one guard/error case.
+- Place tests next to source: `foo.service.ts` → `foo.service.test.ts`.
+- Use helpers in `backend/src/test/helpers/` for HTTP test setup.
+### Frontend
+- New custom hooks with business logic: include a `.test.ts` file.
+- Critical flows (checkout, login, stock decrement): test required before marking task done.
+- Keep hooks pure and side-effect-free where possible for easy unit testing.
+---
+## Git & Commits
+- Suggest a clean commit message following **Conventional Commits** when a task is finished.
+- Format: `type(scope): description`
+- Examples:
+  - `feat(pos): extract payment modal from PosView`
+  - `fix(checkout): rollback stock when QRIS expires`
+  - `refactor(api): move checkout logic to transactionService`
+- Prefer **small, focused commits** over one large commit.
+---
+## Interaction Workflow
+### Cmd+K / Chat (interactive)
+- Write clean, readable, maintainable code.
+- Explain root cause before fixing errors.
+- Ask confirmation before non-trivial or multi-file changes.
+- Outline pseudocode for complex logic and wait for approval.
+### Agent / Composer (autonomous)
+- Proceed incrementally — do not wait for confirmation on scoped, obvious fixes.
+- State the plan in the response before multi-file refactors.
+- Commit and push working increments; do not leave half-refactored state.
+- Still respect file size limits and layer rules — extract, do not bloat.
+---
+## Red Flags — Stop and Refactor Instead
+If you are about to do any of these, **stop and propose a refactor first:**
+- [ ] Adding 50+ lines to a file already over 200 lines
+- [ ] Adding `fetch()` inside a `.tsx` component
+- [ ] Adding `any` without a comment
+- [ ] Putting Prisma queries directly in a controller (belongs in service/repository)
+- [ ] Creating a new Zustand store when an existing one covers the same domain
+- [ ] Skipping tenant/outlet/subscription guard on a write endpoint
+- [ ] Duplicating a type/interface that already exists elsewhere
