@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { OutletService } from '../services/outletService';
 import { createBranchSchema, updateOutletSchema } from '../schemas/outletSchema';
+import { SubscriptionService } from '../services/subscriptionService';
 
 const outletService = new OutletService();
 
@@ -93,6 +94,16 @@ export class OutletController {
           success: false,
           message: 'Validasi data cabang gagal.',
           errors: validation.error.format()
+        });
+      }
+
+      // Periksa batas kuota outlet
+      const canCreateOutlet = await SubscriptionService.checkOutletLimit(tenantId);
+      if (!canCreateOutlet) {
+        return res.status(403).json({
+          success: false,
+          error: 'LIMIT_EXCEEDED',
+          message: 'Batas maksimal kapasitas outlet/cabang untuk paket Anda telah tercapai. Silakan lakukan upgrade untuk menambah cabang baru.'
         });
       }
 

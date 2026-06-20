@@ -18,6 +18,12 @@ export default function LandingPage() {
         </div>
         <div className="flex items-center gap-4">
           <button
+            onClick={() => navigate('/docs')}
+            className="cursor-pointer text-sm font-semibold text-slate-400 hover:text-white transition-all mr-2"
+          >
+            Dokumentasi
+          </button>
+          <button
             onClick={() => navigate('/login')}
             className="cursor-pointer text-sm font-semibold text-slate-300 hover:text-white transition-all"
           >
@@ -107,8 +113,14 @@ export default function LandingPage() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-slate-900/80 py-8 text-center text-xs text-slate-600">
+      <footer className="border-t border-slate-900/80 py-8 text-center text-xs text-slate-600 flex flex-col items-center gap-2">
         <p>© 2026 UMKM POS Platform. Semua Hak Dilindungi Undang-Undang.</p>
+        <button
+          onClick={() => navigate('/docs')}
+          className="cursor-pointer text-[11px] text-indigo-400 hover:text-indigo-300 transition-all font-semibold hover:underline"
+        >
+          Lihat Dokumentasi Pengguna
+        </button>
       </footer>
     </div>
   );

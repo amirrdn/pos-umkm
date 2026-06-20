@@ -233,6 +233,22 @@ export const LoginView: React.FC = () => {
           </button>
         </form>
 
+        {/* Link ke Dokumentasi & Landing Page */}
+        <div className="mt-8 flex justify-between items-center text-xs text-slate-400 dark:text-slate-500 border-t border-slate-100 dark:border-slate-850 pt-5 transition-colors duration-150">
+          <button
+            onClick={() => navigate('/')}
+            className="cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 font-semibold transition-all"
+          >
+            ← Kembali ke Awal
+          </button>
+          <button
+            onClick={() => navigate('/docs')}
+            className="cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 font-semibold transition-all"
+          >
+            Buka Dokumentasi →
+          </button>
+        </div>
+
       </div>
     </div>
   );

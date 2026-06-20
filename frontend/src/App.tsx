@@ -10,6 +10,9 @@ import DashboardAdmin from './components/DashboardAdmin';
 import LandingPage from './components/LandingPage';
 import RegisterView from './components/RegisterView';
 import VerifyEmailView from './components/VerifyEmailView';
+import UserDocumentation from './components/UserDocumentation';
+import BillingDashboard from './components/BillingDashboard';
+import SubscriptionPricing from './components/SubscriptionPricing';
 import { TransactionHistory } from './components/TransactionHistory';
 import { StaffManagementView } from './components/StaffManagementView';
 import { InventoryView } from './components/InventoryView';
@@ -87,6 +90,9 @@ function App() {
             token ? <Navigate to="/pos" replace /> : <LoginView />
           }
         />
+
+        {/* Rute Dokumentasi (Publik) */}
+        <Route path="/docs" element={<UserDocumentation />} />
 
         {/* Rute POS Terproteksi (Kasir, Manager, Owner) */}
         <Route
@@ -181,6 +187,26 @@ function App() {
 
         {/* Rute Customer Display - Layar kedua/monitor customer untuk QRIS (Publik, tanpa auth) */}
         <Route path="/customer-display" element={<CustomerDisplay />} />
+
+        {/* Rute Billing Dashboard Terproteksi (Owner, Manager) */}
+        <Route
+          path="/admin/billing"
+          element={
+            <ProtectedRoute allowedRoles={['Owner', 'Manager', 'Admin']}>
+              <BillingDashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Rute Subscription Pricing Terproteksi (Owner, Manager) */}
+        <Route
+          path="/admin/pricing"
+          element={
+            <ProtectedRoute allowedRoles={['Owner', 'Manager', 'Admin']}>
+              <SubscriptionPricing />
+            </ProtectedRoute>
+          }
+        />
 
         {/* Rute tidak dikenal dialihkan ke root */}
         <Route path="*" element={<Navigate to="/" replace />} />

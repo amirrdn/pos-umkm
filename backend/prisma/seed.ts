@@ -12,14 +12,21 @@ async function main() {
   // Menggunakan ID statis agar sinkron dengan mock tenant di frontend/backend
   const tenant = await prisma.tenant.upsert({
     where: { id: 'tenant-uuid-xyz-123' },
-    update: {},
+    update: {
+      subscriptionTier: 'FREE',
+      subscriptionStatus: 'ACTIVE',
+      subscriptionExpiresAt: null
+    },
     create: {
       id: 'tenant-uuid-xyz-123',
       name: 'Toko Utama',
       slug: 'toko-utama',
       email: 'info@tokoutama.com',
       phone: '081234567890',
-      status: 'ACTIVE'
+      status: 'ACTIVE',
+      subscriptionTier: 'FREE',
+      subscriptionStatus: 'ACTIVE',
+      subscriptionExpiresAt: null
     }
   });
   console.log('🏢 Tenant [Toko Utama] berhasil di-seed.');

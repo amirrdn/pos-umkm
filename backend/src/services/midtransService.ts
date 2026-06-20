@@ -64,6 +64,53 @@ export class MidtransService {
   }
 
   /**
+   * Membuat transaksi Snap Midtrans untuk langganan.
+   * Mengembalikan token dan redirect_url.
+   */
+  static async createSnapTransaction(orderId: string, grossAmount: number): Promise<{ token: string; redirectUrl: string }> {
+    const serverKey = this.getServerKey();
+    const isProd = process.env.MIDTRANS_IS_PRODUCTION === 'true';
+    const baseUrl = isProd ? 'https://app.midtrans.com/snap/v1' : 'https://app.sandbox.midtrans.com/snap/v1';
+    const authHeader = Buffer.from(serverKey + ':').toString('base64');
+
+    const payload = {
+      transaction_details: {
+        order_id: orderId,
+        gross_amount: Math.round(grossAmount)
+      },
+      credit_card: {
+        secure: true
+      }
+    };
+
+    try {
+      const response = await fetch(`${baseUrl}/transactions`, {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'Authorization': `Basic ${authHeader}`
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const data = (await response.json()) as any;
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Gagal menghubungi server Snap Midtrans.');
+      }
+
+      return {
+        token: data.token,
+        redirectUrl: data.redirect_url
+      };
+    } catch (error: any) {
+      console.error('Midtrans Snap Error:', error);
+      throw new Error(`Integrasi Midtrans Snap Gagal: ${error.message}`);
+    }
+  }
+
+  /**
    * Memvalidasi kecocokan signature key notification Midtrans.
    */
   static verifySignature(orderId: string, statusCode: string, grossAmount: string, signatureKey: string): boolean {

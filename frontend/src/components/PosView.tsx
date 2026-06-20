@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useCartStore } from '../store/useCartStore';
-import { useAuthStore } from '../store/useAuthStore';
+import { useAuthStore, isTenantOwner } from '../store/useAuthStore';
 import { useShiftStore } from '../store/useShiftStore';
+import { useSubscriptionStore } from '../store/useSubscriptionStore';
 import { useReactToPrint } from 'react-to-print';
 import { ReceiptTemplate } from './ReceiptTemplate';
 import { ShiftModal } from './ShiftModal';
@@ -79,6 +80,7 @@ export const PosView: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { theme, toggleTheme } = useThemeStore();
+  const { subscription, fetchActiveSubscription } = useSubscriptionStore();
 
   const {
     activeShift,
@@ -122,6 +124,12 @@ export const PosView: React.FC = () => {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (token) {
+      fetchActiveSubscription();
+    }
+  }, [token, activeOutletId]);
 
   const restoreLocalStock = () => {
     setProducts(prevProducts =>
@@ -376,6 +384,17 @@ Terima kasih atas kunjungan Anda!`;
 
     if (!activeOutletId) {
       showToast('error', 'Pilih outlet aktif terlebih dahulu sebelum checkout.');
+      return;
+    }
+
+    // Periksa status langganan sebelum checkout
+    if (subscription?.status === 'EXPIRED') {
+      showToast('error', 'Aksi ditolak: Masa langganan Anda telah habis. Aksi kasir diblokir.');
+      return;
+    }
+
+    if (subscription?.usage.transactions.isFull) {
+      showToast('error', 'Aksi ditolak: Batas maksimal kuota transaksi bulanan paket Anda telah tercapai. Harap upgrade paket Anda.');
       return;
     }
 
@@ -746,12 +765,70 @@ Terima kasih atas kunjungan Anda!`;
                     <BarChart2 className="w-3.5 h-3.5 shrink-0" />
                     Dashboard
                   </button>
+                  {isTenantOwner(user?.roles ?? []) && (
+                    <button onClick={() => navigate('/admin/billing')} className={navItemClass('/admin/billing')}>
+                      <CreditCard className="w-3.5 h-3.5 shrink-0" />
+                      Billing
+                    </button>
+                  )}
                 </>
               )}
             </>
           )}
         </nav>
       </header>
+
+      {/* Banner Peringatan Langganan */}
+      {subscription && subscription.status === 'EXPIRED' && (
+        <div className="bg-rose-600 text-white px-5 py-3 text-xs font-bold flex justify-between items-center shrink-0 shadow-md">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 animate-bounce" />
+            <span>Masa aktif langganan Anda telah kedaluwarsa. Aplikasi saat ini terkunci (Mode Read-Only). Aksi kasir diblokir hingga pembayaran diperbarui.</span>
+          </div>
+          {isTenantOwner(user?.roles ?? []) && (
+            <button
+              onClick={() => navigate('/admin/billing')}
+              className="cursor-pointer bg-white text-rose-650 px-3.5 py-1.5 rounded-lg font-black hover:bg-slate-100 transition-all text-[10px] uppercase shadow-sm active:scale-97"
+            >
+              Bayar Sekarang
+            </button>
+          )}
+        </div>
+      )}
+
+      {subscription && !subscription.usage.transactions.isFull && subscription.usage.transactions.isNearLimit && subscription.status !== 'EXPIRED' && (
+        <div className="bg-amber-500 text-slate-900 px-5 py-2.5 text-xs font-bold flex justify-between items-center shrink-0 shadow-sm">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4" />
+            <span>Kuota transaksi bulanan Anda hampir habis ({subscription.usage.transactions.current} / {subscription.usage.transactions.limit} trxs). Harap lakukan upgrade paket untuk kelancaran kasir.</span>
+          </div>
+          {isTenantOwner(user?.roles ?? []) && (
+            <button
+              onClick={() => navigate('/admin/billing')}
+              className="cursor-pointer bg-slate-900 text-white px-3.5 py-1.5 rounded-lg font-black hover:bg-slate-800 transition-all text-[10px] uppercase shadow-sm active:scale-97"
+            >
+              Upgrade Paket
+            </button>
+          )}
+        </div>
+      )}
+
+      {subscription && subscription.usage.transactions.isFull && subscription.status !== 'EXPIRED' && (
+        <div className="bg-rose-600 text-white px-5 py-3 text-xs font-bold flex justify-between items-center shrink-0 shadow-md">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 animate-bounce" />
+            <span>Kuota transaksi bulanan Anda telah penuh ({subscription.usage.transactions.current} / {subscription.usage.transactions.limit} trxs). Checkout POS ditangguhkan.</span>
+          </div>
+          {isTenantOwner(user?.roles ?? []) && (
+            <button
+              onClick={() => navigate('/admin/billing')}
+              className="cursor-pointer bg-white text-rose-600 px-3.5 py-1.5 rounded-lg font-black hover:bg-slate-100 transition-all text-[10px] uppercase shadow-sm active:scale-97"
+            >
+              Upgrade Sekarang
+            </button>
+          )}
+        </div>
+      )}
 
       {/* KONTEN UTAMA */}
       <main className="flex-1 flex overflow-hidden">

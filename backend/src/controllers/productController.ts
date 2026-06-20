@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { ProductService } from '../services/productService';
 import { createProductSchema, updateProductSchema, setPriceOverrideSchema } from '../schemas/productSchema';
+import { SubscriptionService } from '../services/subscriptionService';
 import { z } from 'zod';
 
 const productService = new ProductService();
@@ -50,6 +51,16 @@ export class ProductController {
           success: false,
           message: 'Validasi pembuatan produk gagal.',
           errors: validation.error.format()
+        });
+      }
+
+      // Periksa batas kuota produk
+      const canCreateProduct = await SubscriptionService.checkProductLimit(tenantId);
+      if (!canCreateProduct) {
+        return res.status(403).json({
+          success: false,
+          error: 'LIMIT_EXCEEDED',
+          message: 'Batas maksimal kapasitas produk untuk paket Anda telah tercapai. Silakan lakukan upgrade untuk menambah lebih banyak produk.'
         });
       }
 

@@ -7,7 +7,7 @@ import {
   userId,
 } from '../test/helpers/http';
 
-const { mockTx, mockPrisma } = vi.hoisted(() => {
+const { mockTx, mockPrisma, mockSubscriptionService } = vi.hoisted(() => {
   const tx = {
     product: {
       findFirst: vi.fn(),
@@ -20,6 +20,12 @@ const { mockTx, mockPrisma } = vi.hoisted(() => {
       $transaction: vi.fn(async (callback: (innerTx: typeof tx) => Promise<unknown>) =>
         callback(tx)
       ),
+    },
+    mockSubscriptionService: {
+      checkTransactionLimit: vi.fn().mockResolvedValue(true),
+      checkProductLimit: vi.fn().mockResolvedValue(true),
+      checkOutletLimit: vi.fn().mockResolvedValue(true),
+      checkStaffLimit: vi.fn().mockResolvedValue(true),
     },
   };
 });
@@ -38,11 +44,16 @@ vi.mock('../services/midtransService', () => ({
   MidtransService: vi.fn(),
 }));
 
+vi.mock('../services/subscriptionService', () => ({
+  SubscriptionService: mockSubscriptionService,
+}));
+
 import { checkout } from './transactionController';
 
 describe('checkout (INV-7)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockSubscriptionService.checkTransactionLimit.mockResolvedValue(true);
 
     mockTx.product.findFirst.mockResolvedValue({
       id: productId,
@@ -68,7 +79,7 @@ describe('checkout (INV-7)', () => {
         paymentMethod: 'CASH',
         items: [{ productId, quantity: 1 }],
       },
-    });
+    } as any);
     const res = createMockResponse();
 
     await checkout(req, res);

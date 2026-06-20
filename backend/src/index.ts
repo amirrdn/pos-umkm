@@ -19,6 +19,8 @@ import categoryRoutes from './routes/categoryRoutes';
 import outletRoutes from './routes/outletRoutes';
 import transferRoutes from './routes/transferRoutes';
 import notificationRoutes from './routes/notificationRoutes';
+import subscriptionRoutes from './routes/subscriptionRoutes';
+import { checkSubscriptionStatus } from './middlewares/subscriptionGuard';
 
 
 dotenv.config();
@@ -35,6 +37,7 @@ app.use('/uploads', express.static(uploadsDir));
 
 app.use(cors());
 app.use(express.json());
+app.use(checkSubscriptionStatus);
 
 // ==========================================
 // DAFTAR ROUTE APLIKASI
@@ -70,6 +73,8 @@ app.use('/api/outlets', outletRoutes);
 app.use('/api/stock-transfers', transferRoutes);
 
 app.use('/api/notifications', notificationRoutes);
+
+app.use('/api/subscriptions', subscriptionRoutes);
 
 
 app.get(

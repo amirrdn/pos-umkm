@@ -8,6 +8,7 @@ import {
 } from '../domain/inventory';
 import { prisma } from '../lib/prisma';
 import { MidtransService } from '../services/midtransService';
+import { SubscriptionService } from '../services/subscriptionService';
 
 // ==========================================
 // SKEMA VALIDASI INPUT (ZOD) - DIPERBARUI DENGAN DISKON & PAJAK PPN
@@ -51,6 +52,16 @@ export async function checkout(req: Request, res: Response) {
 
     const tenantId = req.tenantId!;
     const userId = req.user!.id;
+
+    // Periksa batas kuota transaksi bulanan
+    const canCreateTransaction = await SubscriptionService.checkTransactionLimit(tenantId);
+    if (!canCreateTransaction) {
+      return res.status(403).json({
+        success: false,
+        error: 'LIMIT_EXCEEDED',
+        message: 'Batas maksimal kuota transaksi bulanan untuk paket Anda telah tercapai. Silakan lakukan upgrade untuk melanjutkan penjualan.'
+      });
+    }
 
     const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     const randomSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
@@ -421,10 +432,6 @@ export async function getHistory(req: Request, res: Response) {
  */
 export async function handleMidtransWebhook(req: Request, res: Response) {
   try {
-    console.log('--- MIDTRANS WEBHOOK RECEIVED ---');
-    console.log('Headers:', JSON.stringify(req.headers, null, 2));
-    console.log('Body:', JSON.stringify(req.body, null, 2));
-
     const { order_id, status_code, gross_amount, signature_key, transaction_status } = req.body;
 
     if (!order_id || !status_code || !gross_amount || !signature_key) {
@@ -436,6 +443,14 @@ export async function handleMidtransWebhook(req: Request, res: Response) {
     if (!isSignatureValid) {
       console.warn(`🚨 Signature Key Webhook TIDAK VALID untuk order: ${order_id}`);
       return res.status(403).json({ success: false, message: 'Verifikasi tanda tangan digital gagal.' });
+    }
+
+    if (order_id.startsWith('INV-SUB-')) {
+      await SubscriptionService.processWebhook(req.body);
+      return res.status(200).json({
+        success: true,
+        message: 'Notifikasi pembayaran langganan berhasil diproses via delegasi webhook.'
+      });
     }
 
     const transaction = await prisma.transaction.findFirst({

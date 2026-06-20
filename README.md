@@ -27,6 +27,7 @@ Sistem ini telah dilengkapi dengan fitur-fitur esensial tingkat produksi:
 12. **Diskon Global & Pajak PPN**: Dukungan fleksibilitas promosi nominal/persen serta kalkulasi wajib pajak (PPN 11%).
 13. **Cetak Struk Thermal & Integrasi WhatsApp**: Template struk belanja thermal format 58mm untuk printer thermal fisik dan fitur kirim struk belanja digital otomatis via WhatsApp.
 14. **Dashboard Analitik & Laba Rugi**: Visualisasi tren harian Omset vs Laba Bersih selama 30 hari menggunakan Recharts AreaChart serta pemeringkat 5 produk terlaris.
+15. **Sistem Langganan SaaS (Subscription Flow & Billing)**: Pembagian paket layanan (**FREE**, **GROWTH**, dan **ENTERPRISE**) dengan limitasi kuota data yang ketat di backend (jumlah produk, outlet, staf, dan transaksi bulanan). Terintegrasi dengan **Midtrans Snap & Webhook** untuk proses pembayaran tagihan langganan otomatis, serta mendukung alur *graceful downgrade* (menonaktifkan outlet cabang tambahan dan membekukan staf berlebih di atas kuota secara aman tanpa menghapus data).
 
 ---
 
