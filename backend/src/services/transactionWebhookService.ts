@@ -1,6 +1,6 @@
 import { prisma } from '../lib/prisma';
 import { MidtransService } from './midtransService';
-import { SubscriptionService } from './subscriptionService';
+import { processSubscriptionMidtransWebhook } from './subscriptionMidtransWebhookService';
 import {
   completeQrisSettlement,
   isQrisFailureStatus,
@@ -48,7 +48,7 @@ export async function processMidtransPosWebhook(
   }
 
   if (order_id.startsWith('INV-SUB-')) {
-    await SubscriptionService.processWebhook({
+    await processSubscriptionMidtransWebhook({
       order_id,
       status_code,
       gross_amount,

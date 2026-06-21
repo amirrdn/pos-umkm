@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { SubscriptionService } from '../services/subscriptionService';
+import { processSubscriptionMidtransWebhook } from '../services/subscriptionMidtransWebhookService';
 import { upgradeSubscriptionSchema, midtransWebhookSchema } from '../schemas/subscriptionSchema';
 
 export class SubscriptionController {
@@ -79,17 +80,19 @@ export class SubscriptionController {
         });
       }
 
-      await SubscriptionService.processWebhook(req.body);
+      await processSubscriptionMidtransWebhook(validation.data);
 
       return res.status(200).json({
         success: true,
         message: 'Notifikasi pembayaran langganan berhasil diproses.',
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Subscription Webhook Controller Error:', error);
+      const message =
+        error instanceof Error ? error.message : 'Gagal memproses notifikasi webhook pembayaran.';
       return res.status(400).json({
         success: false,
-        message: error.message || 'Gagal memproses notifikasi webhook pembayaran.',
+        message,
       });
     }
   }

@@ -1,13 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockMidtransService, mockSubscriptionService, mockCompleteQris, mockVoidQris, mockPrisma } =
+const { mockMidtransService, mockProcessSubscriptionWebhook, mockCompleteQris, mockVoidQris, mockPrisma } =
   vi.hoisted(() => ({
     mockMidtransService: {
       verifySignature: vi.fn(),
     },
-    mockSubscriptionService: {
-      processWebhook: vi.fn(),
-    },
+    mockProcessSubscriptionWebhook: vi.fn(),
     mockCompleteQris: vi.fn(),
     mockVoidQris: vi.fn(),
     mockPrisma: {
@@ -25,8 +23,8 @@ vi.mock('./midtransService', () => ({
   MidtransService: mockMidtransService,
 }));
 
-vi.mock('./subscriptionService', () => ({
-  SubscriptionService: mockSubscriptionService,
+vi.mock('./subscriptionMidtransWebhookService', () => ({
+  processSubscriptionMidtransWebhook: mockProcessSubscriptionWebhook,
 }));
 
 vi.mock('./transactionQrisSettlementService', () => ({
@@ -72,7 +70,7 @@ describe('processMidtransPosWebhook', () => {
       order_id: 'INV-SUB-20260621-001',
     });
 
-    expect(mockSubscriptionService.processWebhook).toHaveBeenCalledOnce();
+    expect(mockProcessSubscriptionWebhook).toHaveBeenCalledOnce();
     expect(result.httpStatus).toBe(200);
     expect(result.message).toContain('langganan');
   });
