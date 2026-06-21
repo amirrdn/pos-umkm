@@ -47,7 +47,7 @@ Sistem ini telah dilengkapi dengan fitur-fitur esensial tingkat produksi:
 - **Database Engine**: PostgreSQL
 - **Validasi Schema**: Zod (type-safe validation)
 - **Keamanan**: Bcrypt (hashing sandi), JSON Web Token / JWT (otentikasi sesi)
-- **Media Upload**: Multer (untuk upload foto produk ke penyimpanan lokal)
+- **Media Upload**: Cloudinary (upload foto produk via `uploadMiddleware`)
 
 ---
 
@@ -59,13 +59,16 @@ SaaSPOS/
 │   ├── prisma/               # Schema Database, Seeder, dan Migrasi
 │   └── src/
 │       ├── controllers/      # Layer Controller (Request/Response)
-│       ├── middlewares/      # Auth, Tenant, dan Role Middlewares
+│       ├── domain/           # Logic domain terisolasi (auth, inventory, outlet, dll.)
+│       ├── middlewares/      # Auth, Tenant, Role, dan Subscription Middlewares
 │       ├── routes/           # Endpoint Routing API
 │       ├── schemas/          # Validasi Skema Payload (Zod)
 │       └── services/         # Layer Logic Bisnis (Prisma transactions)
 ├── frontend/                 # Client SPA Application (React/Vite)
 │   ├── src/
+│   │   ├── api/              # Axios apiClient & modul pemanggilan API
 │   │   ├── components/       # Komponen UI Halaman (POS, Dashboard, dll)
+│   │   ├── hooks/            # Custom React hooks
 │   │   ├── store/            # Zustand Stores (Cart, Auth, Shift, Outlet)
 │   │   └── config.ts         # Konfigurasi Endpoint Client
 └── README.md
@@ -98,7 +101,11 @@ Buat berkas `.env` di dalam folder `backend/` dengan konfigurasi berikut:
 PORT=3000
 DATABASE_URL="postgresql://postgres:pos_secure_pwd_2026@localhost:5432/saas_pos?schema=public"
 JWT_SECRET="rahasia_jwt_sangat_aman_2026"
+CORS_ORIGINS="http://localhost:5173,http://127.0.0.1:5173"
+APP_PUBLIC_URL="http://localhost:5173"
 ```
+
+> **Penting:** `JWT_SECRET` wajib diset — server akan gagal start jika variabel ini kosong. Lihat `backend/.env.example` untuk daftar lengkap variabel (Midtrans, email, Cloudinary, dll.).
 
 Instal dependensi, lakukan migrasi database, jalankan seeder data, dan jalankan server pengembangan:
 ```bash
