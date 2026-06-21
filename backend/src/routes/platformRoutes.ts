@@ -16,6 +16,11 @@ import {
   getPlatformRevenue,
   getTopProducts,
 } from '../controllers/platformAnalyticsController';
+import {
+  getBillingMetrics,
+  listInvoices,
+  getMidtransDetail,
+} from '../controllers/platformBillingController';
 
 const router = Router();
 
@@ -33,5 +38,9 @@ router.delete('/tenants/:id', deleteTenant);
 router.get('/overview', getOverview);
 router.patch('/tenants/:id/status', updateTenantStatus);
 router.patch('/tenants/:id/subscription', overrideSubscription);
+
+router.get('/billing/metrics', getBillingMetrics);
+router.get('/billing/invoices', listInvoices);
+router.get('/billing/invoices/:invoiceNumber/midtrans', getMidtransDetail);
 
 export default router;
