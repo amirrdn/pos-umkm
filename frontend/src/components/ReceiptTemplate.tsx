@@ -1,6 +1,6 @@
 import { forwardRef } from 'react';
 
-interface TransactionItemData {
+export interface TransactionItemData {
   id?: string;
   quantity: number;
   priceAtTransaction: number;
@@ -13,7 +13,7 @@ interface TransactionItemData {
   price?: number;
 }
 
-interface TransactionData {
+export interface TransactionData {
   invoiceNumber: string;
   createdAt: string;
   grandTotal: number;

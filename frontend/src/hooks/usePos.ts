@@ -5,9 +5,12 @@ import { useCartStore } from '../store/useCartStore';
 import { useAuthStore, canManageSubscription, isPlatformAdmin } from '../store/useAuthStore';
 import { useShiftStore } from '../store/useShiftStore';
 import { useSubscriptionStore } from '../store/useSubscriptionStore';
-import { useCustomerStore } from '../store/useCustomerStore';
+import { useCustomerStore, type Customer } from '../store/useCustomerStore';
 import { useThemeStore } from '../store/useThemeStore';
 import { getRoleDisplayLabel } from '../utils/roles';
+import { isApiError } from '../api/types';
+import type { TransactionData } from '../components/ReceiptTemplate';
+import { API_BASE_URL } from '../config';
 import {
   getProductsApi,
   resolveSilentOutletApi,
@@ -26,8 +29,34 @@ export interface Product {
   imageUrl: string;
 }
 
+interface ProductApiImage {
+  url: string;
+  isMain?: boolean;
+}
+
+interface ProductApiItem {
+  id: string;
+  sku: string;
+  name: string;
+  sellingPrice: number | string;
+  stock: number;
+  minStock?: number;
+  category?: { name?: string };
+  images?: ProductApiImage[];
+}
+
+interface PosReceiptTransaction extends TransactionData {
+  cashierName?: string;
+  tenantName?: string;
+  customer?: TransactionData['customer'] & { debtBalance?: number; phone?: string | null };
+}
+
 interface UsePosOptions {
   printRef: RefObject<HTMLDivElement | null>;
+}
+
+function buildProductAssetUrl(path: string): string {
+  return `${API_BASE_URL}${path}`;
 }
 
 export function usePos({ printRef }: UsePosOptions) {
@@ -85,7 +114,7 @@ export function usePos({ printRef }: UsePosOptions) {
   const [showCartPanel, setShowCartPanel] = useState<boolean>(false);
 
   const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false);
-  const [currentTransaction, setCurrentTransaction] = useState<any>(null);
+  const [currentTransaction, setCurrentTransaction] = useState<PosReceiptTransaction | null>(null);
   const [cashReceived, setCashReceived] = useState<number | ''>('');
 
   const [showQrisModal, setShowQrisModal] = useState<boolean>(false);
@@ -95,9 +124,9 @@ export function usePos({ printRef }: UsePosOptions) {
   const [qrisFullscreen, setQrisFullscreen] = useState<boolean>(false);
 
   const { fetchCustomers, createCustomer } = useCustomerStore();
-  const [selectedCustomer, setSelectedCustomer] = useState<any | null>(null);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [customerQuery, setCustomerQuery] = useState<string>('');
-  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchResults, setSearchResults] = useState<Customer[]>([]);
   const [showAddCustomerModal, setShowAddCustomerModal] = useState<boolean>(false);
 
   const [newCustName, setNewCustName] = useState<string>('');
@@ -121,11 +150,13 @@ export function usePos({ printRef }: UsePosOptions) {
     logout();
   };
 
-  const checkTokenExpiration = (err: any) => {
-    const isExpired = err.message?.toLowerCase().includes('kedaluwarsa') || 
-                      err.message?.toLowerCase().includes('expired') || 
-                      err.message?.toLowerCase().includes('authorization') || 
-                      err.message?.toLowerCase().includes('akses ditolak');
+  const checkTokenExpiration = (err: unknown) => {
+    const message = err instanceof Error ? err.message : isApiError(err) ? err.message : '';
+    const isExpired =
+      message.toLowerCase().includes('kedaluwarsa') ||
+      message.toLowerCase().includes('expired') ||
+      message.toLowerCase().includes('authorization') ||
+      message.toLowerCase().includes('akses ditolak');
     if (isExpired) {
       showToast('error', 'Sesi Anda telah kedaluwarsa. Mengalihkan ke halaman login...');
       setTimeout(() => {
@@ -231,7 +262,7 @@ export function usePos({ printRef }: UsePosOptions) {
       setLoadingProducts(true);
       try {
         const data = await getProductsApi();
-        const mappedProducts = data.data.map((item: any, index: number) => {
+        const mappedProducts = (data.data as ProductApiItem[]).map((item, index: number) => {
           const fallbacks = [
             'https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&q=80&w=600',
             'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&q=80&w=600',
@@ -240,10 +271,10 @@ export function usePos({ printRef }: UsePosOptions) {
             'https://images.unsplash.com/photo-1536256263959-770b48d82b0a?auto=format&fit=crop&q=80&w=600'
           ];
           const mainImage = item.images && item.images.length > 0
-            ? (item.images.find((img: any) => img.isMain)?.url || item.images[0].url)
+            ? (item.images.find((img) => img.isMain)?.url || item.images[0].url)
             : null;
           const finalImageUrl = mainImage && mainImage.startsWith('/uploads')
-            ? `${API_BASE_URL_ASSET(mainImage)}`
+            ? buildProductAssetUrl(mainImage)
             : mainImage;
           return {
             id: item.id,
@@ -258,10 +289,11 @@ export function usePos({ printRef }: UsePosOptions) {
         });
 
         setProducts(mappedProducts);
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Fetch Products Error:', err);
         if (!checkTokenExpiration(err)) {
-          showToast('error', err.message || 'Koneksi ke API produk gagal.');
+          const msg = err instanceof Error ? err.message : 'Koneksi ke API produk gagal.';
+          showToast('error', msg);
         }
       } finally {
         setLoadingProducts(false);
@@ -275,14 +307,6 @@ export function usePos({ printRef }: UsePosOptions) {
       setLoadingProducts(false);
     }
   }, [token, activeOutletId, platformAdmin]);
-
-  // Helper function to build asset URL
-  function API_BASE_URL_ASSET(path: string) {
-    // Import API_BASE_URL dynamically or use imports
-    const base = useAuthStore.getState().token ? window.location.origin.includes('localhost') ? 'http://localhost:3000' : '' : '';
-    // Actually, we can get API_BASE_URL from ../config
-    return `${base}${path}`;
-  }
 
   const restoreLocalStock = () => {
     setProducts(prevProducts =>
@@ -400,14 +424,14 @@ export function usePos({ printRef }: UsePosOptions) {
     contentRef: printRef,
   });
 
-  const handleSendWhatsApp = (transaction: any) => {
+  const handleSendWhatsApp = (transaction: PosReceiptTransaction) => {
     if (!transaction) return;
 
     const activeCashReceived = transaction.paymentMethod === 'CASH' ? Number(cashReceived || 0) : 0;
     const activeChange = transaction.paymentMethod === 'CASH' ? Math.max(0, activeCashReceived - transaction.grandTotal) : 0;
 
     const itemsText = transaction.items
-      .map((item: any) => {
+      .map((item) => {
         const pName = item.product?.name || item.name || 'Produk';
         const qty = item.quantity;
         const sub = item.subtotal || (qty * (item.priceAtTransaction || item.price || 0));
@@ -531,10 +555,11 @@ Terima kasih atas kunjungan Anda!`;
         showToast('success', `Transaksi Berhasil! Invoice: ${data.data.invoiceNumber}`);
       }
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error Checkout:', err);
       if (!checkTokenExpiration(err)) {
-        showToast('error', err.message || 'Koneksi ke server gagal. Gagal melakukan checkout.');
+        const msg = err instanceof Error ? err.message : 'Koneksi ke server gagal. Gagal melakukan checkout.';
+        showToast('error', msg);
       }
     } finally {
       setIsSubmitting(false);
@@ -545,7 +570,7 @@ Terima kasih atas kunjungan Anda!`;
     if (!token || !user?.tenantId) return;
     try {
       await openShift(token, user.tenantId, cashStart);
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (!checkTokenExpiration(err)) {
         throw err;
       }
@@ -558,9 +583,10 @@ Terima kasih atas kunjungan Anda!`;
       await closeShiftAction(token, user.tenantId, activeShift.id, cashActual);
       setShowCloseShiftModal(false);
       showToast('success', 'Shift berhasil ditutup. Sampai jumpa!');
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (!checkTokenExpiration(err)) {
-        showToast('error', err.message || 'Gagal menutup shift.');
+        const msg = err instanceof Error ? err.message : 'Gagal menutup shift.';
+        showToast('error', msg);
       }
     }
   };
@@ -594,7 +620,7 @@ Terima kasih atas kunjungan Anda!`;
       hour: '2-digit',
       minute: '2-digit',
     });
-  }, [activeShift?.startTime]);
+  }, [activeShift]);
 
   const primaryRole = getRoleDisplayLabel(user?.roles[0] ?? 'Kasir');
   const showAdminNav = !!(
