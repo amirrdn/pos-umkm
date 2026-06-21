@@ -14,13 +14,14 @@ import {
   CheckCircle,
   HelpCircle,
   AlertCircle,
-  Sparkles
+  Sparkles,
+  type LucideIcon,
 } from 'lucide-react';
 
 interface DocSection {
   id: string;
   title: string;
-  icon: any;
+  icon: LucideIcon;
   category: string;
   content: React.ReactNode;
 }

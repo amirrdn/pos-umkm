@@ -1,9 +1,11 @@
 import React from 'react';
 import { ShoppingBag, X, Trash2, Minus, Plus, DollarSign, CreditCard, Users, Search, RefreshCw } from 'lucide-react';
 import { AppSelect } from '../AppSelect';
+import type { CartItem } from '../../store/useCartStore';
+import type { Customer } from '../../store/useCustomerStore';
 
 interface PosCartPanelProps {
-  cart: any[];
+  cart: CartItem[];
   cartItemCount: number;
   showCartPanel: boolean;
   setShowCartPanel: (val: boolean) => void;
@@ -11,12 +13,12 @@ interface PosCartPanelProps {
   removeFromCart: (id: string) => void;
   paymentMethod: string;
   setPaymentMethod: (method: string) => void;
-  selectedCustomer: any | null;
-  setSelectedCustomer: (cust: any | null) => void;
+  selectedCustomer: Customer | null;
+  setSelectedCustomer: (cust: Customer | null) => void;
   customerQuery: string;
   setCustomerQuery: (query: string) => void;
-  searchResults: any[];
-  setSearchResults: (results: any[]) => void;
+  searchResults: Customer[];
+  setSearchResults: (results: Customer[]) => void;
   handleCustomerSearch: (query: string) => void;
   setShowAddCustomerModal: (val: boolean) => void;
   discountType: 'PERCENT' | 'NOMINAL';

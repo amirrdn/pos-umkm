@@ -1,8 +1,9 @@
 import React from 'react';
 import { AlertTriangle } from 'lucide-react';
+import type { SubscriptionDetails } from '../../store/useSubscriptionStore';
 
 interface PosSubscriptionBannerProps {
-  subscription: any;
+  subscription: SubscriptionDetails | null;
   subscriptionBypass: boolean;
   managesSubscription: boolean;
   navigate: (path: string) => void;

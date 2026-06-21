@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
 import { apiClient } from '../api/apiClient';
+import { getErrorMessage } from '../api/types';
 import { AppShellHeader } from './AppShellHeader';
 import {
   Plus,
@@ -59,9 +60,9 @@ export const CategoryMaster: React.FC = () => {
     try {
       const response = await apiClient.get('/api/categories');
       setCategories(response.data.data || []);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      showToast('error', err.message || 'Koneksi ke API kategori gagal.');
+      showToast('error', getErrorMessage(err, 'Koneksi ke API kategori gagal.'));
     } finally {
       setLoading(false);
     }
@@ -122,8 +123,8 @@ export const CategoryMaster: React.FC = () => {
       showToast('success', modalMode === 'create' ? 'Kategori baru berhasil ditambahkan.' : 'Kategori berhasil diperbarui.');
       setIsModalOpen(false);
       fetchCategories();
-    } catch (err: any) {
-      showToast('error', err.message || 'Gagal memproses kategori.');
+    } catch (err: unknown) {
+      showToast('error', getErrorMessage(err, 'Gagal memproses kategori.'));
     }
   };
 
@@ -145,8 +146,8 @@ export const CategoryMaster: React.FC = () => {
       showToast('success', 'Kategori berhasil dihapus.');
       closeDeleteDialog();
       fetchCategories();
-    } catch (err: any) {
-      showToast('error', err.message || 'Terjadi kesalahan saat menghapus.');
+    } catch (err: unknown) {
+      showToast('error', getErrorMessage(err, 'Terjadi kesalahan saat menghapus.'));
       setIsDeleteOpen(false);
     } finally {
       setDeleteLoading(false);

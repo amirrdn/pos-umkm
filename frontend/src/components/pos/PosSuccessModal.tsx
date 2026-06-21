@@ -1,12 +1,13 @@
 import React from 'react';
 import { Check, AlertTriangle, Printer, MessageCircle } from 'lucide-react';
+import type { PosReceiptTransaction } from '../../hooks/usePos';
 
 interface PosSuccessModalProps {
-  currentTransaction: any;
+  currentTransaction: PosReceiptTransaction;
   cashReceived: number | '';
   setCashReceived: (val: number | '') => void;
   handlePrint: () => void;
-  handleSendWhatsApp: (tx: any) => void;
+  handleSendWhatsApp: (tx: PosReceiptTransaction) => void;
   handleFinishTransaction: () => void;
 }
 

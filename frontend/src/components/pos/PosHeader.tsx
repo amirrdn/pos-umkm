@@ -1,17 +1,19 @@
 import React from 'react';
 import { ShoppingBag, Moon, Sun, LogOut } from 'lucide-react';
 import { OutletSwitcher } from '../OutletSwitcher';
+import type { AuthUser } from '../../store/useAuthStore';
+import type { ActiveShift } from '../../store/useShiftStore';
 
 interface PosHeaderProps {
   platformAdmin: boolean;
-  activeShift: any;
+  activeShift: ActiveShift | null;
   shiftStartedLabel: string | null;
   setShowCloseShiftModal: (val: boolean) => void;
   setShowCartPanel: (val: boolean) => void;
   cartItemCount: number;
   theme: string;
   toggleTheme: () => void;
-  user: any;
+  user: AuthUser | null;
   primaryRole: string;
   handleLogout: () => void;
 }

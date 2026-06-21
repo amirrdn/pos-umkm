@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
 import { useOutletStore, type Outlet } from '../store/useOutletStore';
+import { getErrorMessage } from '../api/types';
 import { AppShellHeader } from './AppShellHeader';
 import {
   Plus,
@@ -102,7 +103,7 @@ export const OutletManagementView: React.FC = () => {
           showToast('error', res.message || 'Gagal memperbarui outlet.');
         }
       }
-    } catch (err: any) {
+    } catch {
       showToast('error', 'Terjadi kesalahan sistem.');
     } finally {
       setIsSubmitting(false);
@@ -118,8 +119,8 @@ export const OutletManagementView: React.FC = () => {
         } else {
           showToast('error', res.message || 'Gagal menghapus cabang.');
         }
-      } catch (err: any) {
-        showToast('error', err.message || 'Terjadi kesalahan sistem saat menghapus.');
+      } catch (err: unknown) {
+        showToast('error', getErrorMessage(err, 'Terjadi kesalahan sistem saat menghapus.'));
       }
     }
   };

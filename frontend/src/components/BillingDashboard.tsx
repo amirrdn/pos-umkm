@@ -1,7 +1,10 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import type { LucideIcon } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { useSubscriptionStore, type UsageDetail } from '../store/useSubscriptionStore';
+import { getErrorMessage } from '../api/types';
+import { getMidtransSnap, loadMidtransSnapScript } from '../types/midtransSnap';
 import { AppShellHeader } from './AppShellHeader';
 import {
   CreditCard,
@@ -54,30 +57,18 @@ export default function BillingDashboard() {
     });
   };
 
-  const loadMidtransSnapScript = (): Promise<boolean> => {
-    return new Promise((resolve) => {
-      if ((window as any).snap) {
-        resolve(true);
-        return;
-      }
-      const script = document.createElement('script');
-      script.src = 'https://app.sandbox.midtrans.com/snap/snap.js';
-      script.setAttribute('data-client-key', 'SB-Mid-client-NhCmZFQENLUx_vuLFj-AHwHq');
-      script.onload = () => resolve(true);
-      script.onerror = () => resolve(false);
-      document.body.appendChild(script);
-    });
-  };
+  const loadSnapScript = (): Promise<boolean> =>
+    loadMidtransSnapScript('SB-Mid-client-NhCmZFQENLUx_vuLFj-AHwHq');
 
   const handlePayPendingInvoice = async (snapToken: string) => {
     try {
-      const isSnapLoaded = await loadMidtransSnapScript();
+      const isSnapLoaded = await loadSnapScript();
       if (!isSnapLoaded) {
         alert('Gagal memuat pustaka pembayaran Midtrans.');
         return;
       }
 
-      (window as any).snap.pay(snapToken, {
+      getMidtransSnap()?.pay(snapToken, {
         onSuccess: () => {
           alert('Pembayaran berhasil! Mengubah status paket...');
           fetchActiveSubscription();
@@ -92,8 +83,8 @@ export default function BillingDashboard() {
           alert('Pembayaran gagal atau kedaluwarsa.');
         }
       });
-    } catch (err: any) {
-      alert(err.message || 'Gagal memuat pembayaran.');
+    } catch (err: unknown) {
+      alert(getErrorMessage(err, 'Gagal memuat pembayaran.'));
     }
   };
 
@@ -111,13 +102,13 @@ export default function BillingDashboard() {
         alert('Platform berhasil diturunkan ke paket GRATIS secara aman.');
         fetchActiveSubscription();
         fetchInvoices();
-      } catch (err: any) {
-        alert(err.message || 'Gagal menurunkan paket.');
+      } catch (err: unknown) {
+        alert(getErrorMessage(err, 'Gagal menurunkan paket.'));
       }
     }
   };
 
-  const renderLimitBar = (title: string, icon: any, details: UsageDetail, maxText: string) => {
+  const renderLimitBar = (title: string, icon: LucideIcon, details: UsageDetail, maxText: string) => {
     const IconComponent = icon;
     const isUnlimited = details.limit === Infinity;
     const percentage = isUnlimited ? 0 : Math.min((details.current / details.limit) * 100, 100);

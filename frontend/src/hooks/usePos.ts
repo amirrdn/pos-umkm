@@ -36,7 +36,7 @@ interface ProductApiImage {
   isMain?: boolean;
 }
 
-interface PosReceiptTransaction extends TransactionData {
+export interface PosReceiptTransaction extends TransactionData {
   cashierName?: string;
   tenantName?: string;
   customer?: (NonNullable<TransactionData['customer']> & { debtBalance?: number; phone?: string | null }) | null;

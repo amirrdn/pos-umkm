@@ -1,6 +1,7 @@
 import React from 'react';
 import { Search, RefreshCw, AlertTriangle, Package, Coffee } from 'lucide-react';
 import type { Product } from '../../hooks/usePos';
+import type { CartItem } from '../../store/useCartStore';
 
 interface PosProductGridProps {
   loadingProducts: boolean;
@@ -10,7 +11,7 @@ interface PosProductGridProps {
   setSelectedCategory: (cat: string) => void;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
-  addToCart: (product: any) => void;
+  addToCart: (product: Omit<CartItem, 'quantity'>) => void;
   getRemainingStock: (productId: string, originalStock: number) => number;
 }
 

@@ -16,6 +16,7 @@ import {
   mutateStockApi,
   getProductLedgerApi
 } from '../api/inventoryApi';
+import { getErrorMessage } from '../api/types';
 import {
   isOutletAssignedToUser,
   resolveAccessibleOutlets,
@@ -136,8 +137,8 @@ export function useInventory() {
       setError(null);
       const res = await getInventoryApi();
       setProducts(res.data);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -175,8 +176,8 @@ export function useInventory() {
       await updateSettingsApi(!requireStockApproval);
       setRequireStockApproval(!requireStockApproval);
       showSuccess(`Pengaturan persetujuan stok berhasil diperbarui.`);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err));
     } finally {
       setSettingsLoading(false);
     }
@@ -190,8 +191,8 @@ export function useInventory() {
       fetchStockRequests();
       fetchInventory();
       fetchLowStock();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err));
     }
   };
 
@@ -432,8 +433,8 @@ export function useInventory() {
       setIsMutationModalOpen(false);
       fetchInventory();
       fetchLowStock();
-    } catch (err: any) {
-      setMutationError(err.message);
+    } catch (err: unknown) {
+      setMutationError(getErrorMessage(err));
     } finally {
       setMutationSubmitting(false);
     }
@@ -446,8 +447,8 @@ export function useInventory() {
     try {
       const res = await getProductLedgerApi(product.id);
       setLedgerEntries(res.data.ledger);
-    } catch (err: any) {
-      alert(err.message);
+    } catch (err: unknown) {
+      alert(getErrorMessage(err));
       setIsLedgerModalOpen(false);
     } finally {
       setLedgerLoading(false);
@@ -502,8 +503,8 @@ export function useInventory() {
       } else {
         setTransferFormError(res.message || 'Terjadi kesalahan saat memproses transfer.');
       }
-    } catch (err: any) {
-      setTransferFormError(err.message || 'Terjadi kesalahan.');
+    } catch (err: unknown) {
+      setTransferFormError(getErrorMessage(err, 'Terjadi kesalahan.'));
     } finally {
       setTransferSubmitting(false);
     }

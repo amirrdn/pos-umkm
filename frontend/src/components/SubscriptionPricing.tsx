@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
 import { useSubscriptionStore } from '../store/useSubscriptionStore';
+import { getErrorMessage } from '../api/types';
+import { getMidtransSnap, loadMidtransSnapScript } from '../types/midtransSnap';
 import { AppShellHeader } from './AppShellHeader';
 import { 
   CreditCard, 
@@ -23,25 +25,13 @@ export default function SubscriptionPricing() {
     fetchActiveSubscription();
   }, []);
 
-  const loadMidtransSnapScript = (): Promise<boolean> => {
-    return new Promise((resolve) => {
-      if ((window as any).snap) {
-        resolve(true);
-        return;
-      }
-      const script = document.createElement('script');
-      script.src = 'https://app.sandbox.midtrans.com/snap/snap.js';
-      script.setAttribute('data-client-key', 'SB-Mid-client-NhCmZFQENLUx_vuLFj-AHwHq');
-      script.onload = () => resolve(true);
-      script.onerror = () => resolve(false);
-      document.body.appendChild(script);
-    });
-  };
+  const loadSnapScript = (): Promise<boolean> =>
+    loadMidtransSnapScript('SB-Mid-client-NhCmZFQENLUx_vuLFj-AHwHq');
 
   const handleUpgrade = async (tier: 'GROWTH' | 'ENTERPRISE') => {
     try {
       setLoadingTier(tier);
-      const isSnapLoaded = await loadMidtransSnapScript();
+      const isSnapLoaded = await loadSnapScript();
       if (!isSnapLoaded) {
         alert('Gagal memuat pustaka pembayaran Midtrans. Silakan coba lagi.');
         setLoadingTier(null);
@@ -54,7 +44,7 @@ export default function SubscriptionPricing() {
         throw new Error('Token pembayaran tidak valid.');
       }
 
-      (window as any).snap.pay(invoice.snapToken, {
+      getMidtransSnap()?.pay(invoice.snapToken, {
         onSuccess: () => {
           alert('Pembayaran berhasil! Mengalihkan ke Halaman Tagihan...');
           fetchActiveSubscription();
@@ -72,9 +62,9 @@ export default function SubscriptionPricing() {
           alert('Popup pembayaran ditutup sebelum transaksi selesai.');
         }
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Upgrade error:', err);
-      alert(err.message || 'Terjadi kesalahan saat memproses inisiasi pembayaran.');
+      alert(getErrorMessage(err, 'Terjadi kesalahan saat memproses inisiasi pembayaran.'));
     } finally {
       setLoadingTier(null);
     }
