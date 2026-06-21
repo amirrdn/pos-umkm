@@ -69,7 +69,7 @@ export const useCartStore = create<CartState>((set) => ({
   // Menambahkan barang ke dalam keranjang
   addToCart: (product) => set((state) => {
     const existingItemIndex = state.cart.findIndex(item => item.productId === product.productId);
-    let newCart = [...state.cart];
+    const newCart = [...state.cart];
 
     if (existingItemIndex > -1) {
       const existingItem = newCart[existingItemIndex];

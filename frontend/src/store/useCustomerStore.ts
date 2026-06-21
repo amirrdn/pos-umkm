@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import { apiClient } from '../api/apiClient';
+import { getErrorMessage } from '../api/types';
+import type { ApiSuccessResponse } from '../api/types';
 
 export interface Customer {
   id: string;
@@ -31,45 +33,47 @@ export const useCustomerStore = create<CustomerState>((set) => ({
   fetchCustomers: async (search) => {
     set({ loading: true, error: null });
     try {
-      const response = await apiClient.get('/api/customers', {
-        params: search ? { search } : undefined
+      const response = await apiClient.get<ApiSuccessResponse<Customer[]>>('/api/customers', {
+        params: search ? { search } : undefined,
       });
       set({ customers: response.data.data || [], loading: false });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      set({ error: err.message || 'Terjadi kesalahan.', loading: false });
+      set({ error: getErrorMessage(err), loading: false });
     }
   },
 
   createCustomer: async (data) => {
     set({ loading: true, error: null });
     try {
-      const response = await apiClient.post('/api/customers', data);
+      const response = await apiClient.post<ApiSuccessResponse<Customer>>('/api/customers', data);
       set((state) => ({
         customers: [response.data.data, ...state.customers],
-        loading: false
+        loading: false,
       }));
       return { success: true, data: response.data.data };
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      set({ error: err.message || 'Terjadi kesalahan.', loading: false });
-      return { success: false, message: err.message || 'Terjadi kesalahan.' };
+      const message = getErrorMessage(err);
+      set({ error: message, loading: false });
+      return { success: false, message };
     }
   },
 
   updateCustomer: async (id, data) => {
     set({ loading: true, error: null });
     try {
-      const response = await apiClient.put(`/api/customers/${id}`, data);
+      const response = await apiClient.put<ApiSuccessResponse<Customer>>(`/api/customers/${id}`, data);
       set((state) => ({
         customers: state.customers.map((c) => (c.id === id ? response.data.data : c)),
-        loading: false
+        loading: false,
       }));
       return { success: true, data: response.data.data };
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      set({ error: err.message || 'Terjadi kesalahan.', loading: false });
-      return { success: false, message: err.message || 'Terjadi kesalahan.' };
+      const message = getErrorMessage(err);
+      set({ error: message, loading: false });
+      return { success: false, message };
     }
   },
 
@@ -79,30 +83,37 @@ export const useCustomerStore = create<CustomerState>((set) => ({
       await apiClient.delete(`/api/customers/${id}`);
       set((state) => ({
         customers: state.customers.filter((c) => c.id !== id),
-        loading: false
+        loading: false,
       }));
       return { success: true };
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      set({ error: err.message || 'Terjadi kesalahan.', loading: false });
-      return { success: false, message: err.message || 'Terjadi kesalahan.' };
+      const message = getErrorMessage(err);
+      set({ error: message, loading: false });
+      return { success: false, message };
     }
   },
 
   payDebt: async (id, amount, paymentMethod, note) => {
     set({ loading: true, error: null });
     try {
-      const response = await apiClient.post(`/api/customers/${id}/pay-debt`, { amount, paymentMethod, note });
+      const response = await apiClient.post<ApiSuccessResponse<{ customer: Customer }>>(
+        `/api/customers/${id}/pay-debt`,
+        { amount, paymentMethod, note }
+      );
       const updatedCustomer = response.data.data.customer;
       set((state) => ({
-        customers: state.customers.map((c) => (c.id === id ? { ...c, debtBalance: Number(updatedCustomer.debtBalance) } : c)),
-        loading: false
+        customers: state.customers.map((c) =>
+          c.id === id ? { ...c, debtBalance: Number(updatedCustomer.debtBalance) } : c
+        ),
+        loading: false,
       }));
       return { success: true };
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      set({ error: err.message || 'Terjadi kesalahan.', loading: false });
-      return { success: false, message: err.message || 'Terjadi kesalahan.' };
+      const message = getErrorMessage(err);
+      set({ error: message, loading: false });
+      return { success: false, message };
     }
   },
 }));

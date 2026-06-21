@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import { apiClient } from '../api/apiClient';
+import { getErrorMessage } from '../api/types';
+import type { ApiSuccessResponse } from '../api/types';
 
 export interface Outlet {
   id: string;
@@ -17,9 +19,14 @@ export interface Outlet {
   totalStockSKUs?: number;
 }
 
+interface OutletHierarchy {
+  main: Outlet | null;
+  branches: Outlet[];
+}
+
 interface OutletState {
   outlets: Outlet[];
-  hierarchy: { main: Outlet | null; branches: Outlet[] } | null;
+  hierarchy: OutletHierarchy | null;
   loading: boolean;
   error: string | null;
   fetchOutlets: () => Promise<void>;
@@ -38,53 +45,56 @@ export const useOutletStore = create<OutletState>((set, get) => ({
   fetchOutlets: async () => {
     set({ loading: true, error: null });
     try {
-      const response = await apiClient.get('/api/outlets');
+      const response = await apiClient.get<ApiSuccessResponse<Outlet[]>>('/api/outlets');
       set({ outlets: response.data.data || [], loading: false });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      set({ error: err.message || 'Terjadi kesalahan.', loading: false });
+      set({ error: getErrorMessage(err), loading: false });
     }
   },
 
   fetchHierarchy: async () => {
     set({ loading: true, error: null });
     try {
-      const response = await apiClient.get('/api/outlets/hierarchy');
+      const response = await apiClient.get<ApiSuccessResponse<OutletHierarchy>>('/api/outlets/hierarchy');
       set({ hierarchy: response.data.data || null, loading: false });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      set({ error: err.message || 'Terjadi kesalahan.', loading: false });
+      set({ error: getErrorMessage(err), loading: false });
     }
   },
 
   createBranch: async (data) => {
     set({ loading: true, error: null });
     try {
-      const response = await apiClient.post('/api/outlets/branches', data);
+      const response = await apiClient.post<ApiSuccessResponse<Outlet>>('/api/outlets/branches', data);
       await get().fetchOutlets();
       await get().fetchHierarchy();
+      set({ loading: false });
       return { success: true, data: response.data.data };
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      set({ error: err.message || 'Terjadi kesalahan.', loading: false });
-      return { success: false, message: err.message || 'Terjadi kesalahan.' };
+      const message = getErrorMessage(err);
+      set({ error: message, loading: false });
+      return { success: false, message };
     }
   },
 
   updateOutlet: async (id, data) => {
     set({ loading: true, error: null });
     try {
-      const response = await apiClient.put(`/api/outlets/${id}`, data);
+      const response = await apiClient.put<ApiSuccessResponse<Outlet>>(`/api/outlets/${id}`, data);
       set((state) => ({
         outlets: state.outlets.map((o) => (o.id === id ? response.data.data : o)),
-        loading: false
+        loading: false,
       }));
       await get().fetchHierarchy();
       return { success: true, data: response.data.data };
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      set({ error: err.message || 'Terjadi kesalahan.', loading: false });
-      return { success: false, message: err.message || 'Terjadi kesalahan.' };
+      const message = getErrorMessage(err);
+      set({ error: message, loading: false });
+      return { success: false, message };
     }
   },
 
@@ -94,14 +104,15 @@ export const useOutletStore = create<OutletState>((set, get) => ({
       await apiClient.delete(`/api/outlets/${id}`);
       set((state) => ({
         outlets: state.outlets.filter((o) => o.id !== id),
-        loading: false
+        loading: false,
       }));
       await get().fetchHierarchy();
       return { success: true };
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      set({ error: err.message || 'Terjadi kesalahan.', loading: false });
-      return { success: false, message: err.message || 'Terjadi kesalahan.' };
+      const message = getErrorMessage(err);
+      set({ error: message, loading: false });
+      return { success: false, message };
     }
   },
 }));

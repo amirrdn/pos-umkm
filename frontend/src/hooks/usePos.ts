@@ -15,7 +15,9 @@ import {
   getProductsApi,
   resolveSilentOutletApi,
   getTransactionStatusApi,
-  checkoutApi
+  checkoutApi,
+  type PosCatalogProduct,
+  type PosTransactionStatus,
 } from '../api/posApi';
 
 export interface Product {
@@ -34,21 +36,46 @@ interface ProductApiImage {
   isMain?: boolean;
 }
 
-interface ProductApiItem {
-  id: string;
-  sku: string;
-  name: string;
-  sellingPrice: number | string;
-  stock: number;
-  minStock?: number;
-  category?: { name?: string };
-  images?: ProductApiImage[];
-}
-
 interface PosReceiptTransaction extends TransactionData {
   cashierName?: string;
   tenantName?: string;
-  customer?: TransactionData['customer'] & { debtBalance?: number; phone?: string | null };
+  customer?: (NonNullable<TransactionData['customer']> & { debtBalance?: number; phone?: string | null }) | null;
+}
+
+function toReceiptTransaction(
+  tx: PosTransactionStatus,
+  extras: { paymentMethod: string; cashierName?: string; tenantName?: string }
+): PosReceiptTransaction {
+  const customer = tx.customer as
+    | (NonNullable<PosTransactionStatus['customer']> & { debtBalance?: number; phone?: string | null })
+    | null
+    | undefined;
+
+  return {
+    invoiceNumber: tx.invoiceNumber,
+    createdAt: tx.createdAt ?? new Date().toISOString(),
+    grandTotal: Number(tx.grandTotal),
+    paymentMethod: extras.paymentMethod,
+    items: (tx.items ?? []).map((item) => ({
+      quantity: item.quantity,
+      priceAtTransaction: Number(item.priceAtTransaction ?? 0),
+      subtotal: Number(item.subtotal ?? 0),
+      product: item.product
+        ? { name: item.product.name, sku: item.product.sku ?? '' }
+        : undefined,
+    })),
+    customer: customer
+      ? {
+          id: customer.id,
+          name: customer.name,
+          points: customer.points ?? 0,
+          debtBalance: customer.debtBalance,
+          phone: customer.phone ?? null,
+        }
+      : null,
+    cashierName: extras.cashierName,
+    tenantName: extras.tenantName,
+  };
 }
 
 interface UsePosOptions {
@@ -262,7 +289,7 @@ export function usePos({ printRef }: UsePosOptions) {
       setLoadingProducts(true);
       try {
         const data = await getProductsApi();
-        const mappedProducts = (data.data as ProductApiItem[]).map((item, index: number) => {
+        const mappedProducts = (data.data as PosCatalogProduct[]).map((item, index: number) => {
           const fallbacks = [
             'https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&q=80&w=600',
             'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&q=80&w=600',
@@ -271,7 +298,7 @@ export function usePos({ printRef }: UsePosOptions) {
             'https://images.unsplash.com/photo-1536256263959-770b48d82b0a?auto=format&fit=crop&q=80&w=600'
           ];
           const mainImage = item.images && item.images.length > 0
-            ? (item.images.find((img) => img.isMain)?.url || item.images[0].url)
+            ? (item.images.find((img: ProductApiImage) => img.isMain)?.url || item.images[0].url)
             : null;
           const finalImageUrl = mainImage && mainImage.startsWith('/uploads')
             ? buildProductAssetUrl(mainImage)
@@ -336,12 +363,11 @@ export function usePos({ printRef }: UsePosOptions) {
           }
           setShowQrisModal(false);
 
-          const transactionDataForReceipt = {
-            ...resData.data,
+          const transactionDataForReceipt = toReceiptTransaction(resData.data, {
             paymentMethod: 'QRIS',
             cashierName: user?.name,
-            tenantName: user?.tenantId === 'tenant-uuid-xyz-123' ? 'Toko Utama' : 'UMKM POS'
-          };
+            tenantName: user?.tenantId === 'tenant-uuid-xyz-123' ? 'Toko Utama' : 'UMKM POS',
+          });
           setCurrentTransaction(transactionDataForReceipt);
           setSelectedCustomer(null);
           setCashReceived(0);
@@ -536,17 +562,16 @@ Terima kasih atas kunjungan Anda!`;
       if (paymentMethod === 'QRIS') {
         setQrisUrl(data.data.qrisUrl || '');
         setQrisInvoiceNumber(data.data.invoiceNumber);
-        setQrisGrandTotal(data.data.grandTotal);
+        setQrisGrandTotal(Number(data.data.grandTotal));
         setShowQrisModal(true);
         startQrisPolling(data.data.invoiceNumber);
         showToast('success', 'QRIS Dinamis berhasil dibuat. Silakan scan pembayaran.');
       } else {
-        const transactionDataForReceipt = {
-          ...data.data,
-          paymentMethod: paymentMethod,
+        const transactionDataForReceipt = toReceiptTransaction(data.data, {
+          paymentMethod,
           cashierName: user?.name,
-          tenantName: user?.tenantId === 'tenant-uuid-xyz-123' ? 'Toko Utama' : 'UMKM POS'
-        };
+          tenantName: user?.tenantId === 'tenant-uuid-xyz-123' ? 'Toko Utama' : 'UMKM POS',
+        });
 
         setCurrentTransaction(transactionDataForReceipt);
         setSelectedCustomer(null);

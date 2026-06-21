@@ -20,6 +20,12 @@ export function isApiError(err: unknown): err is ApiError {
   return err instanceof ApiError;
 }
 
+export function getErrorMessage(err: unknown, fallback = 'Terjadi kesalahan.'): string {
+  if (err instanceof Error) return err.message;
+  if (typeof err === 'string') return err;
+  return fallback;
+}
+
 export interface ApiSuccessResponse<T> {
   success: boolean;
   message?: string;

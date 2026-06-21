@@ -69,8 +69,16 @@ export async function getSettingsApi(): Promise<SettingsResponse> {
   return response.data;
 }
 
-export async function updateSettingsApi(requireStockApproval: boolean): Promise<any> {
-  const response = await apiClient.put('/api/inventory/settings', { requireStockApproval });
+export interface ProcessStockRequestResponse {
+  success: boolean;
+  message?: string;
+  data?: StockRequest;
+}
+
+export async function updateSettingsApi(requireStockApproval: boolean): Promise<SettingsResponse> {
+  const response = await apiClient.put<SettingsResponse>('/api/inventory/settings', {
+    requireStockApproval,
+  });
   return response.data;
 }
 
@@ -79,8 +87,13 @@ export async function getStockRequestsApi(): Promise<StockRequestResponse> {
   return response.data;
 }
 
-export async function processStockRequestApi(id: string, action: 'approve' | 'reject'): Promise<any> {
-  const response = await apiClient.post(`/api/inventory/requests/${id}/${action}`);
+export async function processStockRequestApi(
+  id: string,
+  action: 'approve' | 'reject'
+): Promise<ProcessStockRequestResponse> {
+  const response = await apiClient.post<ProcessStockRequestResponse>(
+    `/api/inventory/requests/${id}/${action}`
+  );
   return response.data;
 }
 
