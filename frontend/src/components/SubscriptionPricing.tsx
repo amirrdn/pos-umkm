@@ -23,7 +23,7 @@ export default function SubscriptionPricing() {
 
   useEffect(() => {
     fetchActiveSubscription();
-  }, []);
+  }, [fetchActiveSubscription]);
 
   const loadSnapScript = (): Promise<boolean> =>
     loadMidtransSnapScript('SB-Mid-client-NhCmZFQENLUx_vuLFj-AHwHq');

@@ -41,7 +41,7 @@ export const OutletManagementView: React.FC = () => {
 
   useEffect(() => {
     fetchHierarchy();
-  }, []);
+  }, [fetchHierarchy]);
 
   const showToast = (type: 'success' | 'error', message: string) => {
     setNotification({ type, message });

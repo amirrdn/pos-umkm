@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
 import { apiClient } from '../api/apiClient';
@@ -55,7 +55,7 @@ export const CategoryMaster: React.FC = () => {
     navigate('/login');
   };
 
-  const fetchCategories = async () => {
+  const fetchCategories = useCallback(async () => {
     setLoading(true);
     try {
       const response = await apiClient.get('/api/categories');
@@ -66,7 +66,7 @@ export const CategoryMaster: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (!token) return;
@@ -82,7 +82,7 @@ export const CategoryMaster: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, [token, fetchCategories]);
 
   const handleOpenCreate = () => {
     setModalMode('create');

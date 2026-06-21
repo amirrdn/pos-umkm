@@ -47,7 +47,7 @@ export function PlatformConsoleLayout() {
     };
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [mobileMenuOpen]);
+  }, [mobileMenuOpen, setMobileMenuOpen]);
 
   const isActive = (path: string, exact?: boolean) => {
     if (exact) return location.pathname === path;

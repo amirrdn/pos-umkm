@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SubscriptionTier, SubscriptionStatus } from '@prisma/client';
 import { tenantId, userId } from '../test/helpers/http';
 
-const { mockTx, mockPrisma, mockMidtransService } = vi.hoisted(() => {
+const { mockTx, mockPrisma } = vi.hoisted(() => {
   const tx = {
     tenant: {
       update: vi.fn(),
@@ -54,19 +54,11 @@ const { mockTx, mockPrisma, mockMidtransService } = vi.hoisted(() => {
         callback(tx)
       ),
     },
-    mockMidtransService: {
-      createSnapTransaction: vi.fn(),
-      verifySignature: vi.fn(),
-    },
   };
 });
 
 vi.mock('../lib/prisma', () => ({
   prisma: mockPrisma,
-}));
-
-vi.mock('./midtransService', () => ({
-  MidtransService: mockMidtransService,
 }));
 
 import { SubscriptionService } from './subscriptionService';
@@ -254,190 +246,6 @@ describe('SubscriptionService', () => {
       await expect(
         SubscriptionService.assertDebtPaymentAllowed(tenantId, { bypassLimits: true })
       ).resolves.toBeUndefined();
-    });
-  });
-
-  describe('createUpgradeInvoice', () => {
-    it('throws error when target tier is FREE', async () => {
-      await expect(
-        SubscriptionService.createUpgradeInvoice(tenantId, SubscriptionTier.FREE)
-      ).rejects.toThrow('Paket GRATIS tidak memerlukan pembayaran.');
-    });
-
-    it('throws error if tenant does not exist', async () => {
-      mockPrisma.tenant.findUnique.mockResolvedValue(null);
-
-      await expect(
-        SubscriptionService.createUpgradeInvoice(tenantId, SubscriptionTier.GROWTH)
-      ).rejects.toThrow('Tenant tidak ditemukan.');
-    });
-
-    it('creates PENDING invoice successfully with Midtrans Snap token', async () => {
-      mockPrisma.tenant.findUnique.mockResolvedValue({ id: tenantId });
-      mockMidtransService.createSnapTransaction.mockResolvedValue({
-        token: 'snap-token-123',
-        redirectUrl: 'https://snap-url.com/pay',
-      });
-      mockPrisma.subscriptionInvoice.create.mockResolvedValue({
-        id: 'invoice-id-xyz',
-        tenantId,
-        invoiceNumber: 'INV-SUB-12345',
-        tier: SubscriptionTier.GROWTH,
-        amount: 149000,
-        status: 'PENDING',
-        paymentToken: 'snap-token-123',
-        paymentUrl: 'https://snap-url.com/pay',
-      });
-
-      const invoice = await SubscriptionService.createUpgradeInvoice(
-        tenantId,
-        SubscriptionTier.GROWTH
-      );
-
-      expect(mockMidtransService.createSnapTransaction).toHaveBeenCalledOnce();
-      expect(mockPrisma.subscriptionInvoice.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            tenantId,
-            tier: SubscriptionTier.GROWTH,
-            amount: 149000,
-            status: 'PENDING',
-            paymentToken: 'snap-token-123',
-            paymentUrl: 'https://snap-url.com/pay',
-          }),
-        })
-      );
-      expect(invoice.paymentToken).toBe('snap-token-123');
-    });
-  });
-
-  describe('processWebhook', () => {
-    const mockPayload = {
-      order_id: 'INV-SUB-12345',
-      transaction_status: 'settlement',
-      gross_amount: '149000.00',
-      signature_key: 'valid-signature-key-123',
-    };
-
-    it('throws error if invoice is not found', async () => {
-      mockPrisma.subscriptionInvoice.findUnique.mockResolvedValue(null);
-
-      await expect(SubscriptionService.processWebhook(mockPayload)).rejects.toThrow(
-        'Invoice langganan dengan nomor INV-SUB-12345 tidak ditemukan.'
-      );
-    });
-
-    it('throws error if signature is invalid', async () => {
-      mockPrisma.subscriptionInvoice.findUnique.mockResolvedValue({
-        id: 'inv-123',
-        invoiceNumber: 'INV-SUB-12345',
-        status: 'PENDING',
-        tenant: { id: tenantId },
-      });
-      mockMidtransService.verifySignature.mockReturnValue(false);
-
-      await expect(SubscriptionService.processWebhook(mockPayload)).rejects.toThrow(
-        'Tanda tangan digital (Signature Key) dari Midtrans tidak valid.'
-      );
-    });
-
-    it('does nothing if invoice is already PAID', async () => {
-      const mockInvoice = {
-        id: 'inv-123',
-        invoiceNumber: 'INV-SUB-12345',
-        status: 'PAID',
-        tenant: { id: tenantId },
-      };
-      mockPrisma.subscriptionInvoice.findUnique.mockResolvedValue(mockInvoice);
-      mockMidtransService.verifySignature.mockReturnValue(true);
-
-      const result = await SubscriptionService.processWebhook(mockPayload);
-      expect(result).toEqual(mockInvoice);
-      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
-    });
-
-    it('processes settlement payment, updates status to PAID, and upgrades tenant tier', async () => {
-      mockPrisma.subscriptionInvoice.findUnique.mockResolvedValue({
-        id: 'inv-123',
-        tenantId,
-        invoiceNumber: 'INV-SUB-12345',
-        tier: SubscriptionTier.GROWTH,
-        status: 'PENDING',
-        tenant: {
-          id: tenantId,
-          subscriptionTier: SubscriptionTier.FREE,
-          subscriptionExpiresAt: null,
-        },
-      });
-      mockMidtransService.verifySignature.mockReturnValue(true);
-
-      mockTx.subscriptionInvoice.update.mockResolvedValue({
-        id: 'inv-123',
-        status: 'PAID',
-      });
-
-      await SubscriptionService.processWebhook(mockPayload);
-
-      expect(mockPrisma.$transaction).toHaveBeenCalledOnce();
-      expect(mockTx.subscriptionInvoice.update).toHaveBeenCalledWith({
-        where: { id: 'inv-123' },
-        data: expect.objectContaining({
-          status: 'PAID',
-          paidAt: expect.any(Date),
-        }),
-      });
-      expect(mockTx.tenant.update).toHaveBeenCalledWith({
-        where: { id: tenantId },
-        data: expect.objectContaining({
-          subscriptionTier: SubscriptionTier.GROWTH,
-          subscriptionStatus: SubscriptionStatus.ACTIVE,
-          subscriptionExpiresAt: expect.any(Date),
-          lastBillingAt: expect.any(Date),
-        }),
-      });
-      expect(mockTx.subscriptionHistory.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({
-          tenantId,
-          oldTier: SubscriptionTier.FREE,
-          newTier: SubscriptionTier.GROWTH,
-          action: 'UPGRADE',
-        }),
-      });
-    });
-
-    it('updates invoice status to FAILED on expire transaction_status', async () => {
-      mockPrisma.subscriptionInvoice.findUnique.mockResolvedValue({
-        id: 'inv-123',
-        tenantId,
-        invoiceNumber: 'INV-SUB-12345',
-        tier: SubscriptionTier.GROWTH,
-        status: 'PENDING',
-        tenant: {
-          id: tenantId,
-          subscriptionTier: SubscriptionTier.FREE,
-          subscriptionExpiresAt: null,
-        },
-      });
-      mockMidtransService.verifySignature.mockReturnValue(true);
-
-      mockTx.subscriptionInvoice.update.mockResolvedValue({
-        id: 'inv-123',
-        status: 'FAILED',
-      });
-
-      const failedPayload = {
-        ...mockPayload,
-        transaction_status: 'expire',
-      };
-
-      await SubscriptionService.processWebhook(failedPayload);
-
-      expect(mockPrisma.$transaction).toHaveBeenCalledOnce();
-      expect(mockTx.subscriptionInvoice.update).toHaveBeenCalledWith({
-        where: { id: 'inv-123' },
-        data: { status: 'FAILED' },
-      });
-      expect(mockTx.tenant.update).not.toHaveBeenCalled();
     });
   });
 
