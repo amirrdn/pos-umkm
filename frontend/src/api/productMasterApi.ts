@@ -1,4 +1,6 @@
 import { apiClient } from './apiClient';
+import { getCategoriesApi as fetchCategoriesApi } from './categoryApi';
+import { listOutletsApi } from './outletApi';
 import type {
   MasterProduct,
   ProductCategory,
@@ -23,13 +25,17 @@ export async function getProductsApi(outletId?: string): Promise<MasterProduct[]
 }
 
 export async function getCategoriesApi(): Promise<ProductCategory[]> {
-  const response = await apiClient.get<ApiSuccessResponse<ProductCategory[]>>('/api/categories');
-  return response.data.success ? response.data.data || [] : [];
+  const categories = await fetchCategoriesApi();
+  return categories.map(({ id, name, prefix }) => ({ id, name, prefix }));
 }
 
 export async function getOutletsApi(): Promise<OutletSummary[]> {
-  const response = await apiClient.get<ApiSuccessResponse<OutletSummary[]>>('/api/outlets');
-  return response.data.success ? response.data.data || [] : [];
+  const outlets = await listOutletsApi();
+  return outlets.map(({ id, name, type }) => ({
+    id,
+    name,
+    type: type ?? 'MAIN',
+  }));
 }
 
 export async function getNextSkuApi(categoryId: string): Promise<string | null> {

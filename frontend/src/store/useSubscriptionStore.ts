@@ -3,9 +3,14 @@ import { apiClient } from '../api/apiClient';
 
 export interface UsageDetail {
   current: number;
-  limit: number;
+  /** `null` = tanpa batas (Enterprise / unlimited tier). */
+  limit: number | null;
   isNearLimit: boolean;
   isFull: boolean;
+}
+
+export function isUnlimitedUsageLimit(limit: number | null): boolean {
+  return limit == null || limit === Infinity || !Number.isFinite(limit);
 }
 
 export interface SubscriptionDetails {
