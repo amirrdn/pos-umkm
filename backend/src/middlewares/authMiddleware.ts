@@ -2,17 +2,8 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { hasTenantWideOutletAccess, isPlatformAdmin } from '../lib/roles';
 import { getJwtSecret } from '../lib/jwtConfig';
-
-// Definisikan struktur payload JWT yang sama dengan yang ditandatangani di AuthService
-interface UserPayload {
-  id: string;
-  tenantId: string;
-  name: string;
-  email: string;
-  roles: string[];
-  permissions: string[];
-  outletIds?: string[];
-}
+import { validateJwtPayload } from '../lib/jwtPayload';
+import { logError } from '../lib/logger';
 
 /**
  * Middleware Autentikasi JWT Riil.
@@ -40,34 +31,35 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
     const token = parts[1];
     const secretKey = getJwtSecret();
 
-    const decoded = jwt.verify(token, secretKey) as UserPayload;
+    const decoded = jwt.verify(token, secretKey);
+    const validated = validateJwtPayload(decoded);
 
-    const tenantWideAccess = hasTenantWideOutletAccess(decoded.roles);
+    const tenantWideAccess = hasTenantWideOutletAccess(validated.roles);
 
     req.user = {
-      id: decoded.id,
-      tenantId: decoded.tenantId,
-      name: decoded.name,
-      email: decoded.email,
-      roles: decoded.roles,
-      permissions: decoded.permissions,
-      outletIds: decoded.outletIds
+      id: validated.id,
+      tenantId: validated.tenantId ?? null,
+      name: validated.name,
+      email: validated.email,
+      roles: validated.roles,
+      permissions: validated.permissions,
+      outletIds: validated.outletIds
     };
     req.hasTenantWideOutletAccess = tenantWideAccess;
-    req.isPlatformAdmin = isPlatformAdmin(decoded.roles);
+    req.isPlatformAdmin = isPlatformAdmin(validated.roles);
 
     // Ambil outlet aktif dari header jika ada
     const headerOutletId = req.headers['x-outlet-id'] as string;
-    if (headerOutletId && (tenantWideAccess || (decoded.outletIds && decoded.outletIds.includes(headerOutletId)))) {
+    if (headerOutletId && (tenantWideAccess || (validated.outletIds && validated.outletIds.includes(headerOutletId)))) {
       req.outletId = headerOutletId;
-    } else if (!tenantWideAccess && decoded.outletIds && decoded.outletIds.length > 0) {
-      req.outletId = decoded.outletIds[0]; // fallback ke outlet pertama
+    } else if (!tenantWideAccess && validated.outletIds && validated.outletIds.length > 0) {
+      req.outletId = validated.outletIds[0]; // fallback ke outlet pertama
     }
 
     return next();
 
   } catch (error: unknown) {
-    console.error('JWT Verification Error:', error);
+    logError('authMiddleware', error);
 
     if (error instanceof Error && error.name === 'TokenExpiredError') {
       return res.status(401).json({

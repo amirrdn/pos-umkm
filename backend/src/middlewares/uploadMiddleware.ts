@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import multer from 'multer';
 import { v2 as cloudinary, type UploadApiErrorResponse, type UploadApiResponse } from 'cloudinary';
 import { getErrorMessage } from '../lib/errors';
+import { logError } from '../lib/logger';
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -50,7 +51,7 @@ export const uploadSingleImage = (req: Request, res: Response, next: NextFunctio
         },
         (error: UploadApiErrorResponse | undefined, result: UploadApiResponse | undefined) => {
           if (error) {
-            console.error('Cloudinary Upload Stream Error:', error);
+            logError('uploadMiddleware.stream', error);
             res.status(500).json({
               success: false,
               message: 'Gagal mengunggah gambar ke cloud storage: ' + error.message,
@@ -72,7 +73,7 @@ export const uploadSingleImage = (req: Request, res: Response, next: NextFunctio
 
       uploadStream.end(req.file.buffer);
     } catch (uploadError: unknown) {
-      console.error('Cloudinary Middleware Catch Error:', uploadError);
+      logError('uploadMiddleware.catch', uploadError);
       res.status(500).json({
         success: false,
         message: 'Terjadi kesalahan sistem saat mengunggah ke Cloudinary.',

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { openShift, getActiveShift, closeShift, getShiftHistory } from '../controllers/shiftController';
 import { authMiddleware } from '../middlewares/authMiddleware';
 import { tenantMiddleware } from '../middlewares/tenantMiddleware';
+import { requireRole } from '../middlewares/roleMiddleware';
 
 const router = Router();
 
@@ -30,6 +31,6 @@ router.post('/close', closeShift);
  * GET /api/shifts/history
  * Melihat seluruh riwayat shift untuk keperluan audit oleh Owner/Admin.
  */
-router.get('/history', getShiftHistory);
+router.get('/history', requireRole(['Owner', 'Manager', 'Admin']), getShiftHistory);
 
 export default router;

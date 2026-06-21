@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../lib/prisma';
+import { logError } from '../lib/logger';
 
 /**
  * Middleware untuk mengidentifikasi dan memvalidasi Tenant dari request.
@@ -11,7 +12,7 @@ export async function tenantMiddleware(req: Request, res: Response, next: NextFu
     let tenantId = req.header('x-tenant-id') || req.header('X-Tenant-Id');
 
     if (!tenantId && req.user) {
-      tenantId = req.user.tenantId;
+      tenantId = req.user.tenantId ?? undefined;
     }
 
     if (!tenantId) {
@@ -57,7 +58,7 @@ export async function tenantMiddleware(req: Request, res: Response, next: NextFu
 
     return next();
   } catch (error) {
-    console.error('Error pada Tenant Middleware:', error);
+    logError('tenantMiddleware', error);
     return res.status(500).json({
       success: false,
       message: 'Terjadi kesalahan internal server saat memproses identifikasi tenant.',

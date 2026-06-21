@@ -17,6 +17,7 @@ const { mockTx, mockPrisma } = vi.hoisted(() => {
     outletStock: {
       findUnique: vi.fn(),
       upsert: vi.fn(),
+      updateMany: vi.fn(),
     },
     stockLedger: {
       create: vi.fn(),
@@ -68,6 +69,7 @@ describe('approveTransfer', () => {
     mockTx.stockTransfer.findFirst.mockResolvedValue(draftTransfer);
     mockTx.outletStock.findUnique.mockResolvedValue({ stock: 10 });
     mockTx.outletStock.upsert.mockResolvedValue({});
+    mockTx.outletStock.updateMany.mockResolvedValue({ count: 1 });
     mockTx.stockLedger.create.mockResolvedValue({});
     mockTx.stockTransfer.update.mockResolvedValue({ ...draftTransfer, status: 'IN_TRANSIT' });
   });
@@ -75,9 +77,9 @@ describe('approveTransfer', () => {
   it('deducts source stock and moves DRAFT to IN_TRANSIT', async () => {
     const result = await approveTransfer(tenantId, userId, transferId);
 
-    expect(mockTx.outletStock.upsert).toHaveBeenCalledWith(
+    expect(mockTx.outletStock.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        update: { stock: 7 },
+        where: expect.objectContaining({ stock: expect.objectContaining({ gte: 3 }) }),
       })
     );
     expect(mockTx.stockTransfer.update).toHaveBeenCalledWith(

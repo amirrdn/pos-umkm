@@ -10,3 +10,10 @@ export function getJwtSecret(): string {
   }
   return secret;
 }
+
+/**
+ * Mendapatkan konfigurasi waktu kedaluwarsa JWT. Default: 15m.
+ */
+export function getJwtExpiresIn(): string {
+  return process.env.JWT_EXPIRES_IN || '15m';
+}

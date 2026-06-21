@@ -1,6 +1,8 @@
 import express, { Request, Response } from 'express';
 import 'express-async-errors';
 import dotenv from 'dotenv';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
@@ -46,14 +48,32 @@ const corsOrigins = process.env.CORS_ORIGINS
 
 app.use('/uploads', express.static(uploadsDir));
 
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20, // limit each IP to 20 requests per windowMs
+  message: {
+    success: false,
+    message: 'Terlalu banyak percobaan autentikasi dari IP ini. Silakan coba lagi setelah 15 menit.',
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: () => process.env.NODE_ENV === 'test',
+});
+
+app.use(helmet());
 app.use(
   cors({
     origin: corsOrigins,
     credentials: true,
   })
 );
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
 app.use(checkSubscriptionStatus);
+
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/register', authLimiter);
+app.use('/api/auth/register-staff', authLimiter);
+app.use('/api/auth/resend-verification', authLimiter);
 
 // ==========================================
 // DAFTAR ROUTE APLIKASI
@@ -111,9 +131,13 @@ app.get(
 
 app.use(errorHandler);
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   startNotificationSchedulers();
   console.log(`====================================================`);
   console.log(`🚀 Server POS Multi-Tenant berjalan di port: ${PORT}`);
   console.log(`====================================================`);
 });
+
+server.timeout = 300000;
+server.keepAliveTimeout = 120000;
+server.headersTimeout = 120000;

@@ -1,5 +1,6 @@
 import { Prisma, TransferStatus, MutationType } from '@prisma/client';
 import { prisma } from '../lib/prisma';
+import { decrementOutletStock, incrementOutletStock } from '../domain/inventory/stock.repository';
 
 interface TransferItemInput {
   productId: string;
@@ -65,28 +66,17 @@ export async function createTransfer(tenantId: string, userId: string, input: Cr
       throw new Error('Satu atau lebih produk tidak ditemukan atau tidak aktif.');
     }
 
-    const productMap = new Map(products.map(p => [p.id, p]));
-
     const status: TransferStatus = tenant.requireStockApproval ? 'DRAFT' : 'IN_TRANSIT';
 
     if (status === 'IN_TRANSIT') {
       for (const item of items) {
-        const product = productMap.get(item.productId)!;
-        const outletStock = await tx.outletStock.findUnique({
-          where: { outletId_productId: { outletId: fromOutletId, productId: item.productId } }
-        });
-
-        const stockBefore = outletStock ? outletStock.stock : 0;
-        if (stockBefore < item.quantity) {
-          throw new Error(`Stok produk '${product.name}' di outlet '${fromOutlet.name}' tidak mencukupi. Tersedia: ${stockBefore}, diminta: ${item.quantity}.`);
-        }
-
-        const stockAfter = stockBefore - item.quantity;
-        await tx.outletStock.upsert({
-          where: { outletId_productId: { outletId: fromOutletId, productId: item.productId } },
-          create: { tenantId, outletId: fromOutletId, productId: item.productId, stock: stockAfter },
-          update: { stock: stockAfter }
-        });
+        const { stockBefore, stockAfter } = await decrementOutletStock(
+          tx,
+          tenantId,
+          fromOutletId,
+          item.productId,
+          item.quantity
+        );
 
         await tx.stockLedger.create({
           data: {
@@ -167,21 +157,13 @@ export async function approveTransfer(tenantId: string, userId: string, transfer
     }
 
     for (const item of transfer.items) {
-      const outletStock = await tx.outletStock.findUnique({
-        where: { outletId_productId: { outletId: transfer.fromOutletId, productId: item.productId } }
-      });
-
-      const stockBefore = outletStock ? outletStock.stock : 0;
-      if (stockBefore < item.quantity) {
-        throw new Error(`Stok produk '${item.product.name}' di outlet '${transfer.fromOutlet.name}' tidak mencukupi. Tersedia: ${stockBefore}, diminta: ${item.quantity}.`);
-      }
-
-      const stockAfter = stockBefore - item.quantity;
-      await tx.outletStock.upsert({
-        where: { outletId_productId: { outletId: transfer.fromOutletId, productId: item.productId } },
-        create: { tenantId, outletId: transfer.fromOutletId, productId: item.productId, stock: stockAfter },
-        update: { stock: stockAfter }
-      });
+      const { stockBefore, stockAfter } = await decrementOutletStock(
+        tx,
+        tenantId,
+        transfer.fromOutletId,
+        item.productId,
+        item.quantity
+      );
 
       await tx.stockLedger.create({
         data: {
@@ -278,17 +260,13 @@ export async function completeTransfer(tenantId: string, userId: string, transfe
     }
 
     for (const item of transfer.items) {
-      const outletStock = await tx.outletStock.findUnique({
-        where: { outletId_productId: { outletId: transfer.toOutletId, productId: item.productId } }
-      });
-
-      const stockBefore = outletStock ? outletStock.stock : 0;
-      const stockAfter = stockBefore + item.quantity;
-      await tx.outletStock.upsert({
-        where: { outletId_productId: { outletId: transfer.toOutletId, productId: item.productId } },
-        create: { tenantId, outletId: transfer.toOutletId, productId: item.productId, stock: stockAfter },
-        update: { stock: stockAfter }
-      });
+      const { stockBefore, stockAfter } = await incrementOutletStock(
+        tx,
+        tenantId,
+        transfer.toOutletId,
+        item.productId,
+        item.quantity
+      );
 
       await tx.stockLedger.create({
         data: {
@@ -386,17 +364,13 @@ export async function cancelTransfer(tenantId: string, userId: string, transferI
 
     if (transfer.status === 'IN_TRANSIT') {
       for (const item of transfer.items) {
-        const outletStock = await tx.outletStock.findUnique({
-          where: { outletId_productId: { outletId: transfer.fromOutletId, productId: item.productId } }
-        });
-
-        const stockBefore = outletStock ? outletStock.stock : 0;
-        const stockAfter = stockBefore + item.quantity;
-        await tx.outletStock.upsert({
-          where: { outletId_productId: { outletId: transfer.fromOutletId, productId: item.productId } },
-          create: { tenantId, outletId: transfer.fromOutletId, productId: item.productId, stock: stockAfter },
-          update: { stock: stockAfter }
-        });
+        const { stockBefore, stockAfter } = await incrementOutletStock(
+          tx,
+          tenantId,
+          transfer.fromOutletId,
+          item.productId,
+          item.quantity
+        );
 
         await tx.stockLedger.create({
           data: {

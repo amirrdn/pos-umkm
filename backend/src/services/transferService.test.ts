@@ -73,7 +73,7 @@ describe('completeTransfer — transfer integrity', () => {
     });
 
     mockTx.outletStock.findUnique.mockResolvedValue({ stock: 10 });
-    mockTx.outletStock.upsert.mockResolvedValue({});
+    mockTx.outletStock.upsert.mockResolvedValue({ stock: 15 });
     mockTx.stockLedger.create.mockResolvedValue({});
     mockTx.stockTransfer.update.mockResolvedValue({
       id: transferId,
@@ -90,8 +90,8 @@ describe('completeTransfer — transfer integrity', () => {
         where: {
           outletId_productId: { outletId: branchOutletId, productId },
         },
-        update: { stock: 15 },
-        create: expect.objectContaining({ stock: 15 }),
+        update: { stock: { increment: 5 } },
+        create: expect.objectContaining({ stock: 5 }),
       })
     );
     expect(mockTx.stockLedger.create).toHaveBeenCalledOnce();
