@@ -1,12 +1,9 @@
 import { Request, Response } from 'express';
-import {
-  buildQrisSaleLedgerEntries,
-} from '../domain/inventory';
 import { isCheckoutError } from '../domain/transaction';
-import { prisma } from '../lib/prisma';
-import { MidtransService } from '../services/midtransService';
-import { SubscriptionService } from '../services/subscriptionService';
 import { processCheckout } from '../services/transactionCheckoutService';
+import { getTransactionHistory } from '../services/transactionHistoryService';
+import { getTransactionForStatusPolling } from '../services/transactionStatusService';
+import { processMidtransPosWebhook } from '../services/transactionWebhookService';
 import { checkoutSchema } from '../schemas/transactionSchema';
 
 // ==========================================
@@ -78,55 +75,24 @@ export async function getHistory(req: Request, res: Response) {
     if (!tenantId) {
       return res.status(400).json({
         success: false,
-        message: 'Akses Ditolak: Konteks tenant tidak ditemukan.'
+        message: 'Akses Ditolak: Konteks tenant tidak ditemukan.',
       });
     }
 
-    const whereClause: any = {
-      tenantId: tenantId
-    };
-
-    if (req.outletId) {
-      whereClause.outletId = req.outletId;
-    }
-
-    const transactions = await prisma.transaction.findMany({
-      where: whereClause,
-      orderBy: {
-        createdAt: 'desc'
-      },
-      include: {
-        items: {
-          include: {
-            product: {
-              select: {
-                id: true,
-                name: true,
-                sku: true
-              }
-            }
-          }
-        },
-        customer: {
-          select: {
-            id: true,
-            name: true,
-            phone: true
-          }
-        },
-        outlet: true
-      }
+    const transactions = await getTransactionHistory({
+      tenantId,
+      outletId: req.outletId,
     });
 
     return res.status(200).json({
       success: true,
-      data: transactions
+      data: transactions,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error Get History:', error);
     return res.status(500).json({
       success: false,
-      message: 'Terjadi kesalahan internal server saat mengambil riwayat transaksi.'
+      message: 'Terjadi kesalahan internal server saat mengambil riwayat transaksi.',
     });
   }
 }
@@ -136,77 +102,17 @@ export async function getHistory(req: Request, res: Response) {
  */
 export async function handleMidtransWebhook(req: Request, res: Response) {
   try {
-    const { order_id, status_code, gross_amount, signature_key, transaction_status } = req.body;
-
-    if (!order_id || !status_code || !gross_amount || !signature_key) {
-      console.warn('⚠️ Webhook Payload Tidak Lengkap:', req.body);
-      return res.status(400).json({ success: false, message: 'Payload webhook tidak lengkap.' });
-    }
-
-    const isSignatureValid = MidtransService.verifySignature(order_id, status_code, gross_amount, signature_key);
-    if (!isSignatureValid) {
-      console.warn(`🚨 Signature Key Webhook TIDAK VALID untuk order: ${order_id}`);
-      return res.status(403).json({ success: false, message: 'Verifikasi tanda tangan digital gagal.' });
-    }
-
-    if (order_id.startsWith('INV-SUB-')) {
-      await SubscriptionService.processWebhook(req.body);
-      return res.status(200).json({
-        success: true,
-        message: 'Notifikasi pembayaran langganan berhasil diproses via delegasi webhook.'
-      });
-    }
-
-    const transaction = await prisma.transaction.findFirst({
-      where: { invoiceNumber: order_id },
-      include: { items: true }
+    const result = await processMidtransPosWebhook(req.body);
+    return res.status(result.httpStatus).json({
+      success: result.httpStatus < 400,
+      message: result.message,
     });
-
-    if (!transaction) {
-      return res.status(404).json({ success: false, message: 'Transaksi tidak ditemukan di sistem POS.' });
-    }
-
-    if (transaction.status !== 'PENDING') {
-      return res.status(200).json({ success: true, message: 'Status transaksi sudah diproses sebelumnya.' });
-    }
-
-    if (transaction_status === 'settlement') {
-      await prisma.$transaction(async (tx) => {
-        await tx.transaction.update({
-          where: { id: transaction.id },
-          data: { status: 'COMPLETED' },
-        });
-
-        const stockLedgerEntries = await buildQrisSaleLedgerEntries(
-          tx,
-          { ...transaction, items: transaction.items },
-          `Penjualan (QRIS Lunas) - Invoice ${order_id}`
-        );
-
-        if (stockLedgerEntries.length > 0) {
-          await tx.stockLedger.createMany({ data: stockLedgerEntries });
-        }
-      }, { maxWait: 15000, timeout: 30000 });
-
-      return res.status(200).json({ success: true, message: 'Pembayaran settlement berhasil diproses.' });
-    }
-
-    if (['expire', 'cancel', 'deny'].includes(transaction_status)) {
-      await prisma.$transaction(async (tx) => {
-        await tx.transaction.update({
-          where: { id: transaction.id },
-          data: { status: 'VOID' },
-        });
-      }, { maxWait: 15000, timeout: 30000 });
-
-      return res.status(200).json({ success: true, message: 'Pembayaran dibatalkan.' });
-    }
-
-    return res.status(200).json({ success: true, message: `Status pending/lainnya: ${transaction_status}` });
-
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Webhook Error:', error);
-    return res.status(500).json({ success: false, message: 'Terjadi kesalahan sistem saat memproses webhook.' });
+    return res.status(500).json({
+      success: false,
+      message: 'Terjadi kesalahan sistem saat memproses webhook.',
+    });
   }
 }
 
@@ -222,100 +128,24 @@ export async function getTransactionStatus(req: Request, res: Response) {
       return res.status(400).json({ success: false, message: 'Konteks tenant tidak ditemukan.' });
     }
 
-    const transaction = await prisma.transaction.findFirst({
-      where: { invoiceNumber, tenantId },
-      include: {
-        customer: {
-          select: {
-            id: true,
-            name: true,
-            points: true
-          }
-        },
-        outlet: true
-      }
+    const transaction = await getTransactionForStatusPolling({
+      tenantId,
+      invoiceNumber,
     });
 
     if (!transaction) {
       return res.status(404).json({ success: false, message: 'Transaksi tidak ditemukan.' });
     }
 
-    let currentStatus = transaction.status;
-    if (currentStatus === 'PENDING') {
-      try {
-        const midtransStatus = await MidtransService.getTransactionStatus(invoiceNumber);
-
-        if (midtransStatus === 'settlement') {
-          await prisma.$transaction(async (tx) => {
-            await tx.transaction.update({
-              where: { id: transaction.id },
-              data: { status: 'COMPLETED' },
-            });
-
-            const transactionWithItems = await tx.transaction.findUnique({
-              where: { id: transaction.id },
-              include: { items: true },
-            });
-
-            if (transactionWithItems) {
-              const stockLedgerEntries = await buildQrisSaleLedgerEntries(
-                tx,
-                transactionWithItems,
-                `Penjualan (QRIS Lunas - Polling) - Invoice ${invoiceNumber}`
-              );
-
-              if (stockLedgerEntries.length > 0) {
-                await tx.stockLedger.createMany({ data: stockLedgerEntries });
-              }
-            }
-          }, { maxWait: 15000, timeout: 30000 });
-          currentStatus = 'COMPLETED';
-        } else if (['expire', 'cancel', 'deny'].includes(midtransStatus)) {
-          await prisma.transaction.update({
-            where: { id: transaction.id },
-            data: { status: 'VOID' },
-          });
-          currentStatus = 'VOID';
-        }
-      } catch (midtransError: any) {
-        console.warn(`[Status Polling] ⚠️ Gagal sinkronisasi status dari Midtrans untuk ${invoiceNumber}:`, midtransError.message);
-      }
-    }
-
-    const updatedTransaction = await prisma.transaction.findFirst({
-      where: { id: transaction.id },
-      include: {
-        items: {
-          include: {
-            product: {
-              select: {
-                name: true,
-                sku: true
-              }
-            }
-          }
-        },
-        customer: {
-          select: {
-            id: true,
-            name: true,
-            phone: true,
-            points: true,
-            debtBalance: true
-          }
-        }
-      }
-    });
-
     return res.status(200).json({
       success: true,
-      data: updatedTransaction || {
-        ...transaction,
-        status: currentStatus
-      }
+      data: transaction,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('GetTransactionStatus Error:', error);
-    return res.status(500).json({ success: false, message: 'Terjadi kesalahan sistem saat mengecek status transaksi.' });
+    return res.status(500).json({
+      success: false,
+      message: 'Terjadi kesalahan sistem saat mengecek status transaksi.',
+    });
   }
 }
