@@ -4,6 +4,7 @@ import type { LucideIcon } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { useSubscriptionStore, type UsageDetail } from '../store/useSubscriptionStore';
 import { getErrorMessage } from '../api/types';
+import { getMidtransClientKey } from '../config';
 import { getMidtransSnap, loadMidtransSnapScript } from '../types/midtransSnap';
 import { AppShellHeader } from './AppShellHeader';
 import {
@@ -57,8 +58,14 @@ export default function BillingDashboard() {
     });
   };
 
-  const loadSnapScript = (): Promise<boolean> =>
-    loadMidtransSnapScript('SB-Mid-client-NhCmZFQENLUx_vuLFj-AHwHq');
+  const loadSnapScript = (): Promise<boolean> => {
+    try {
+      return loadMidtransSnapScript(getMidtransClientKey());
+    } catch (err) {
+      console.error(err);
+      return Promise.resolve(false);
+    }
+  };
 
   const handlePayPendingInvoice = async (snapToken: string) => {
     try {

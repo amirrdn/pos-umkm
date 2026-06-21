@@ -1,3 +1,5 @@
+import { MIDTRANS_SNAP_SCRIPT_URL } from '../config';
+
 export interface MidtransSnapCallbacks {
   onSuccess?: () => void;
   onPending?: () => void;
@@ -27,7 +29,7 @@ export function loadMidtransSnapScript(clientKey: string): Promise<boolean> {
     }
 
     const script = document.createElement('script');
-    script.src = 'https://app.sandbox.midtrans.com/snap/snap.js';
+    script.src = MIDTRANS_SNAP_SCRIPT_URL;
     script.setAttribute('data-client-key', clientKey);
     script.onload = () => resolve(true);
     script.onerror = () => resolve(false);

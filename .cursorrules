@@ -26,3 +26,10 @@ Full rules: ~/.cursor/rules/lean-ctx.mdc (auto-loaded) — do not duplicate here
 - **HTTP client:** **Axios only** — do NOT use raw `fetch()` for API calls.
 - **Do NOT** introduce new state libraries, ORMs, CSS frameworks, or npm packages unless explicitly requested.
 - **Follow existing folder structure** — do not create parallel patterns.
+
+---
+
+## Git commits
+
+- **Never** add `Co-authored-by: Cursor`, `Made-with: Cursor`, or any Cursor attribution to commit messages or PR descriptions.
+- When committing, use plain subject/body only (`git commit -m` or `-F` file). Do not use `--trailer`.
