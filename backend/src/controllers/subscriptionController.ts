@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { SubscriptionService } from '../services/subscriptionService';
+import { createSubscriptionUpgradeInvoice } from '../services/subscriptionUpgradeService';
 import { processSubscriptionMidtransWebhook } from '../services/subscriptionMidtransWebhookService';
 import { upgradeSubscriptionSchema, midtransWebhookSchema } from '../schemas/subscriptionSchema';
 
@@ -43,7 +44,7 @@ export class SubscriptionController {
         });
       }
 
-      const invoice = await SubscriptionService.createUpgradeInvoice(
+      const invoice = await createSubscriptionUpgradeInvoice(
         tenantId,
         validation.data.tier
       );
