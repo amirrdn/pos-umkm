@@ -9,7 +9,9 @@ import {
 import type { CheckoutCommand } from '../domain/transaction';
 import { prisma } from '../lib/prisma';
 import { MidtransService } from './midtransService';
-import { SubscriptionService } from './subscriptionService';
+import { SubscriptionService, TIER_LIMITS } from './subscriptionService';
+import { isSubscriptionExpired } from '../lib/subscription';
+import { decrementOutletStock } from '../domain/inventory/stock.repository';
 
 const checkoutTransactionInclude = {
   items: {
@@ -131,6 +133,34 @@ async function executeCheckoutTransaction(
     );
   }
 
+  const tenant = await tx.tenant.findUnique({
+    where: { id: tenantId },
+    select: { subscriptionTier: true, subscriptionStatus: true, subscriptionExpiresAt: true }
+  });
+
+  if (!tenant) {
+    throw new CheckoutError('Tenant tidak ditemukan.', 'INTERNAL_ERROR', 404);
+  }
+
+  if (isSubscriptionExpired(tenant) && !command.bypassSubscriptionLimits) {
+    throw new CheckoutError(
+      'Masa langganan Anda telah habis. Akses menulis data diblokir. Harap lakukan pembayaran untuk melanjutkan.',
+      'LIMIT_EXCEEDED',
+      403
+    );
+  }
+
+  if (paymentMethod === 'QRIS' && !command.bypassSubscriptionLimits) {
+    const limits = TIER_LIMITS[tenant.subscriptionTier];
+    if (!limits || !limits.hasQris) {
+      throw new CheckoutError(
+        'Metode pembayaran QRIS tidak tersedia untuk tingkat paket Anda. Silakan lakukan upgrade.',
+        'TIER_INSUFFICIENT',
+        400
+      );
+    }
+  }
+
   const productIds = items.map((item) => item.productId);
   const products = await tx.product.findMany({
     where: {
@@ -159,7 +189,6 @@ async function executeCheckoutTransaction(
 
   const itemsToCreate: PreparedCheckoutItem[] = [];
   const stockLedgerEntries: Prisma.StockLedgerCreateManyInput[] = [];
-  const stockUpdates: { productId: string; newStock: number; stockBefore: number }[] = [];
   const pricingLineItems: { unitPrice: Prisma.Decimal; quantity: number }[] = [];
 
   for (const item of items) {
@@ -187,31 +216,44 @@ async function executeCheckoutTransaction(
     });
     pricingLineItems.push({ unitPrice: sellingPrice, quantity: item.quantity });
 
-    const stockBefore = stockMap.get(product.id) ?? 0;
-    const stockAfter = stockBefore - item.quantity;
-
-    if (stockAfter < 0) {
-      throw new CheckoutError(
-        `Stok tidak mencukupi untuk ${product.name}. Tersedia: ${stockBefore}, diminta: ${item.quantity}.`,
-        'STOCK_INSUFFICIENT',
-        400
-      );
-    }
-
-    stockUpdates.push({ productId: product.id, newStock: stockAfter, stockBefore });
-
     if (paymentMethod !== 'QRIS') {
-      stockLedgerEntries.push({
-        tenantId,
-        productId: product.id,
-        userId,
-        type: 'SALE',
-        quantity: -item.quantity,
-        stockBefore,
-        stockAfter,
-        outletId,
-        note: 'Penjualan - Invoice',
-      });
+      try {
+        const { stockBefore, stockAfter } = await decrementOutletStock(
+          tx,
+          tenantId,
+          outletId,
+          product.id,
+          item.quantity
+        );
+
+        stockLedgerEntries.push({
+          tenantId,
+          productId: product.id,
+          userId,
+          type: 'SALE',
+          quantity: -item.quantity,
+          stockBefore,
+          stockAfter,
+          outletId,
+          note: 'Penjualan - Invoice',
+        });
+      } catch (err: any) {
+        throw new CheckoutError(
+          err.message || `Stok tidak mencukupi untuk ${product.name}.`,
+          'STOCK_INSUFFICIENT',
+          400
+        );
+      }
+    } else {
+      const stockBefore = stockMap.get(product.id) ?? 0;
+      const stockAfter = stockBefore - item.quantity;
+      if (stockAfter < 0) {
+        throw new CheckoutError(
+          `Stok tidak mencukupi untuk ${product.name}. Tersedia: ${stockBefore}, diminta: ${item.quantity}.`,
+          'STOCK_INSUFFICIENT',
+          400
+        );
+      }
     }
   }
 
@@ -277,27 +319,7 @@ async function executeCheckoutTransaction(
     }
   }
 
-  if (paymentMethod !== 'QRIS') {
-    for (const update of stockUpdates) {
-      await tx.outletStock.upsert({
-        where: {
-          outletId_productId: {
-            outletId,
-            productId: update.productId,
-          },
-        },
-        create: {
-          tenantId,
-          outletId,
-          productId: update.productId,
-          stock: update.newStock,
-        },
-        update: {
-          stock: update.newStock,
-        },
-      });
-    }
-  }
+
 
   const transaction = await tx.transaction.create({
     data: {

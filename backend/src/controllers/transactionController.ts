@@ -5,6 +5,7 @@ import { getTransactionHistory } from '../services/transactionHistoryService';
 import { getTransactionForStatusPolling } from '../services/transactionStatusService';
 import { processMidtransPosWebhook } from '../services/transactionWebhookService';
 import { checkoutSchema } from '../schemas/transactionSchema';
+import { logError } from '../lib/logger';
 
 // ==========================================
 // CONTROLLER TRANSAKSI
@@ -89,7 +90,7 @@ export async function getHistory(req: Request, res: Response) {
       data: transactions,
     });
   } catch (error: unknown) {
-    console.error('Error Get History:', error);
+    logError('getHistory', error);
     return res.status(500).json({
       success: false,
       message: 'Terjadi kesalahan internal server saat mengambil riwayat transaksi.',
@@ -108,7 +109,7 @@ export async function handleMidtransWebhook(req: Request, res: Response) {
       message: result.message,
     });
   } catch (error: unknown) {
-    console.error('Webhook Error:', error);
+    logError('handleMidtransWebhook', error);
     return res.status(500).json({
       success: false,
       message: 'Terjadi kesalahan sistem saat memproses webhook.',
@@ -137,12 +138,23 @@ export async function getTransactionStatus(req: Request, res: Response) {
       return res.status(404).json({ success: false, message: 'Transaksi tidak ditemukan.' });
     }
 
+    const isPlatformAdminUser = req.isPlatformAdmin;
+    const tenantWideAccess = req.hasTenantWideOutletAccess;
+    const userOutletIds = req.user?.outletIds || [];
+
+    if (transaction.outletId && !isPlatformAdminUser && !tenantWideAccess && !userOutletIds.includes(transaction.outletId)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Akses Ditolak: Anda tidak memiliki akses ke transaksi di outlet ini.'
+      });
+    }
+
     return res.status(200).json({
       success: true,
       data: transaction,
     });
   } catch (error: unknown) {
-    console.error('GetTransactionStatus Error:', error);
+    logError('getTransactionStatus', error);
     return res.status(500).json({
       success: false,
       message: 'Terjadi kesalahan sistem saat mengecek status transaksi.',

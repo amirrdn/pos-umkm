@@ -24,19 +24,19 @@ router.use(tenantMiddleware);
  * GET /api/inventory
  * Mengambil ringkasan semua stok produk milik tenant aktif.
  */
-router.get('/', getInventorySummary);
+router.get('/', requireRole(['Owner', 'Manager', 'Admin', 'Staf Gudang', 'Kasir']), getInventorySummary);
 
 /**
  * GET /api/inventory/low-stock
  * Produk dengan stok < minStock (minStock > 0). Scope via query outletId atau header x-outlet-id.
  */
-router.get('/low-stock', getLowStockAlert);
+router.get('/low-stock', requireRole(['Owner', 'Manager', 'Admin', 'Staf Gudang']), getLowStockAlert);
 
 /**
  * GET /api/inventory/:productId/ledger
  * Mengambil kartu stok (riwayat mutasi) produk tertentu.
  */
-router.get('/:productId/ledger', getStockLedger);
+router.get('/:productId/ledger', requireRole(['Owner', 'Manager', 'Admin', 'Staf Gudang']), getStockLedger);
 
 /**
  * POST /api/inventory/mutate
@@ -76,7 +76,7 @@ router.post('/requests/:id/reject', requireRole(['Owner', 'Manager', 'Admin']), 
  * GET /api/inventory/settings
  * Mengambil pengaturan requireStockApproval.
  */
-router.get('/settings', getSettings);
+router.get('/settings', requireRole(['Owner', 'Manager', 'Admin']), getSettings);
 
 /**
  * PUT /api/inventory/settings

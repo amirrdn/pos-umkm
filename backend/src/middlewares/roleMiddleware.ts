@@ -71,7 +71,7 @@ export function requireRole(requiredRoles: string[]) {
 
     const hasRole = req.user.roles.some(role => requiredRoles.includes(role));
 
-    if (!hasRole) {
+    if (!hasRole && !isPlatformAdminUser) {
       return res.status(403).json({
         success: false,
         message: `Akses Ditolak: Endpoint ini memerlukan salah satu peran berikut: [${requiredRoles.join(', ')}].`

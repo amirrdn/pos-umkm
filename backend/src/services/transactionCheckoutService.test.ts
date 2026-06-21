@@ -15,6 +15,8 @@ const { mockTx, mockPrisma, mockSubscriptionService, mockMidtransService } = vi.
     outletStock: {
       findMany: vi.fn(),
       upsert: vi.fn(),
+      updateMany: vi.fn(),
+      findUnique: vi.fn(),
     },
     customer: {
       findFirst: vi.fn(),
@@ -28,6 +30,9 @@ const { mockTx, mockPrisma, mockSubscriptionService, mockMidtransService } = vi.
     },
     stockLedger: {
       createMany: vi.fn(),
+    },
+    tenant: {
+      findUnique: vi.fn(),
     },
   };
 
@@ -58,6 +63,35 @@ vi.mock('../lib/prisma', () => ({
 
 vi.mock('./subscriptionService', () => ({
   SubscriptionService: mockSubscriptionService,
+  TIER_LIMITS: {
+    FREE: {
+      maxTransactionsPerMonth: 150,
+      maxProducts: 30,
+      maxOutlets: 1,
+      maxStaff: 2,
+      hasQris: false,
+      hasCogs: false,
+      maxDebtLimit: 0,
+    },
+    GROWTH: {
+      maxTransactionsPerMonth: 3000,
+      maxProducts: 500,
+      maxOutlets: 3,
+      maxStaff: 5,
+      hasQris: true,
+      hasCogs: true,
+      maxDebtLimit: 5000000,
+    },
+    ENTERPRISE: {
+      maxTransactionsPerMonth: Infinity,
+      maxProducts: Infinity,
+      maxOutlets: Infinity,
+      maxStaff: Infinity,
+      hasQris: true,
+      hasCogs: true,
+      maxDebtLimit: Infinity,
+    },
+  },
 }));
 
 vi.mock('./midtransService', () => ({
@@ -83,6 +117,13 @@ describe('processCheckout', () => {
     mockTx.outletProductPrice.findMany.mockResolvedValue([]);
     mockTx.outletStock.findMany.mockResolvedValue([{ productId, stock: 10 }]);
     mockTx.outletStock.upsert.mockResolvedValue({});
+    mockTx.outletStock.updateMany.mockResolvedValue({ count: 1 });
+    mockTx.outletStock.findUnique.mockResolvedValue({ stock: 9 });
+    mockTx.tenant.findUnique.mockResolvedValue({
+      subscriptionTier: 'GROWTH',
+      subscriptionStatus: 'ACTIVE',
+      subscriptionExpiresAt: null,
+    });
     mockTx.stockLedger.createMany.mockResolvedValue({ count: 1 });
     mockTx.transaction.create.mockResolvedValue({
       id: 'txn-1',
@@ -136,6 +177,8 @@ describe('processCheckout', () => {
 
   it('throws STOCK_INSUFFICIENT when stock is not enough', async () => {
     mockTx.outletStock.findMany.mockResolvedValue([{ productId, stock: 0 }]);
+    mockTx.outletStock.updateMany.mockResolvedValue({ count: 0 });
+    mockTx.outletStock.findUnique.mockResolvedValue({ stock: 0 });
 
     await expect(
       processCheckout({
@@ -163,7 +206,7 @@ describe('processCheckout', () => {
     });
 
     expect(result.transaction.id).toBe('txn-1');
-    expect(mockTx.outletStock.upsert).toHaveBeenCalledOnce();
+    expect(mockTx.outletStock.updateMany).toHaveBeenCalledOnce();
     expect(mockTx.stockLedger.createMany).toHaveBeenCalledOnce();
     expect(mockMidtransService.createQrisCharge).not.toHaveBeenCalled();
   });

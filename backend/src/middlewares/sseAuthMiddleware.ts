@@ -2,16 +2,8 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { hasTenantWideOutletAccess, isPlatformAdmin } from '../lib/roles';
 import { getJwtSecret } from '../lib/jwtConfig';
-
-interface UserPayload {
-  id: string;
-  tenantId: string;
-  name: string;
-  email: string;
-  roles: string[];
-  permissions: string[];
-  outletIds?: string[];
-}
+import { validateJwtPayload } from '../lib/jwtPayload';
+import { logError } from '../lib/logger';
 
 /**
  * Auth untuk SSE — EventSource tidak bisa set Authorization header.
@@ -37,32 +29,33 @@ export function sseAuthMiddleware(req: Request, res: Response, next: NextFunctio
     }
 
     const secretKey = getJwtSecret();
-    const decoded = jwt.verify(token, secretKey) as UserPayload;
+    const decoded = jwt.verify(token, secretKey);
+    const validated = validateJwtPayload(decoded);
 
-    const tenantWideAccess = hasTenantWideOutletAccess(decoded.roles);
+    const tenantWideAccess = hasTenantWideOutletAccess(validated.roles);
 
     req.user = {
-      id: decoded.id,
-      tenantId: decoded.tenantId,
-      name: decoded.name,
-      email: decoded.email,
-      roles: decoded.roles,
-      permissions: decoded.permissions,
-      outletIds: decoded.outletIds,
+      id: validated.id,
+      tenantId: validated.tenantId ?? null,
+      name: validated.name,
+      email: validated.email,
+      roles: validated.roles,
+      permissions: validated.permissions,
+      outletIds: validated.outletIds,
     };
     req.hasTenantWideOutletAccess = tenantWideAccess;
-    req.isPlatformAdmin = isPlatformAdmin(decoded.roles);
+    req.isPlatformAdmin = isPlatformAdmin(validated.roles);
 
     const headerOutletId = req.headers['x-outlet-id'] as string;
-    if (headerOutletId && (tenantWideAccess || decoded.outletIds?.includes(headerOutletId))) {
+    if (headerOutletId && (tenantWideAccess || validated.outletIds?.includes(headerOutletId))) {
       req.outletId = headerOutletId;
-    } else if (!tenantWideAccess && decoded.outletIds?.length) {
-      req.outletId = decoded.outletIds[0];
+    } else if (!tenantWideAccess && validated.outletIds?.length) {
+      req.outletId = validated.outletIds[0];
     }
 
     return next();
   } catch (error: unknown) {
-    console.error('[sseAuthMiddleware]', error);
+    logError('sseAuthMiddleware', error);
     return res.status(401).json({
       success: false,
       message: 'Token stream notifikasi tidak valid.',

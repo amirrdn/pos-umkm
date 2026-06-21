@@ -94,25 +94,42 @@ export async function seedOutletStocksForNewProduct(
 /** Kurangi stok outlet; return level sebelum & sesudah. */
 export async function decrementOutletStock(
   tx: PrismaTx,
-  tenantId: string,
+  _tenantId: string,
   outletId: string,
   productId: string,
   quantity: number
 ): Promise<StockLevelChange> {
-  const stockBefore = await getOutletStockLevel(outletId, productId, tx);
-  const stockAfter = stockBefore - quantity;
+  const updateResult = await tx.outletStock.updateMany({
+    where: {
+      outletId,
+      productId,
+      stock: {
+        gte: quantity
+      }
+    },
+    data: {
+      stock: {
+        decrement: quantity
+      }
+    }
+  });
 
-  if (stockAfter < 0) {
+  if (updateResult.count === 0) {
+    const existing = await tx.outletStock.findUnique({
+      where: { outletId_productId: { outletId, productId } }
+    });
+    const available = existing?.stock ?? 0;
     throw new Error(
-      `Stok tidak mencukupi. Tersedia: ${stockBefore}, diminta: ${quantity}.`
+      `Stok tidak mencukupi. Tersedia: ${available}, diminta: ${quantity}.`
     );
   }
 
-  await tx.outletStock.upsert({
-    where: { outletId_productId: { outletId, productId } },
-    create: { tenantId, outletId, productId, stock: stockAfter },
-    update: { stock: stockAfter },
+  const updatedRow = await tx.outletStock.findUnique({
+    where: { outletId_productId: { outletId, productId } }
   });
+
+  const stockAfter = updatedRow?.stock ?? 0;
+  const stockBefore = stockAfter + quantity;
 
   return { stockBefore, stockAfter };
 }
@@ -125,14 +142,14 @@ export async function incrementOutletStock(
   productId: string,
   quantity: number
 ): Promise<StockLevelChange> {
-  const stockBefore = await getOutletStockLevel(outletId, productId, tx);
-  const stockAfter = stockBefore + quantity;
-
-  await tx.outletStock.upsert({
+  const updated = await tx.outletStock.upsert({
     where: { outletId_productId: { outletId, productId } },
-    create: { tenantId, outletId, productId, stock: stockAfter },
-    update: { stock: stockAfter },
+    create: { tenantId, outletId, productId, stock: quantity },
+    update: { stock: { increment: quantity } }
   });
+
+  const stockAfter = updated.stock;
+  const stockBefore = stockAfter - quantity;
 
   return { stockBefore, stockAfter };
 }

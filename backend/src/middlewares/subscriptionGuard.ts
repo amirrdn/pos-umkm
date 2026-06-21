@@ -1,9 +1,12 @@
 import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../lib/prisma';
-import { SubscriptionTier, SubscriptionStatus } from '@prisma/client';
+import { SubscriptionTier } from '@prisma/client';
 import jwt from 'jsonwebtoken';
 import { isPlatformAdmin } from '../lib/roles';
 import { getJwtSecret } from '../lib/jwtConfig';
+import { validateJwtPayload } from '../lib/jwtPayload';
+import { isSubscriptionExpired } from '../lib/subscription';
+import { logError } from '../lib/logger';
 
 /**
  * Middleware untuk mengecek apakah langganan tenant saat ini kedaluwarsa.
@@ -22,12 +25,13 @@ export async function checkSubscriptionStatus(req: Request, res: Response, next:
         const token = parts[1];
         const secretKey = getJwtSecret();
         try {
-          const decoded = jwt.verify(token, secretKey) as { tenantId?: string; roles?: string[] };
-          if (!tenantId && decoded.tenantId) {
-            tenantId = decoded.tenantId;
+          const decoded = jwt.verify(token, secretKey);
+          const validated = validateJwtPayload(decoded);
+          if (!tenantId && validated.tenantId) {
+            tenantId = validated.tenantId;
           }
-          if (!platformAdminBypass && Array.isArray(decoded.roles)) {
-            platformAdminBypass = isPlatformAdmin(decoded.roles);
+          if (!platformAdminBypass && Array.isArray(validated.roles)) {
+            platformAdminBypass = isPlatformAdmin(validated.roles);
           }
         } catch (jwtErr) {
           // Abaikan error di sini, validasi token utama dilakukan oleh authMiddleware
@@ -46,10 +50,10 @@ export async function checkSubscriptionStatus(req: Request, res: Response, next:
 
     const tenant = await prisma.tenant.findUnique({
       where: { id: tenantId },
-      select: { subscriptionStatus: true }
+      select: { subscriptionStatus: true, subscriptionExpiresAt: true }
     });
 
-    if (tenant && tenant.subscriptionStatus === SubscriptionStatus.EXPIRED) {
+    if (tenant && isSubscriptionExpired(tenant)) {
       const isWriteOperation = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method);
       const isWebhookRoute = req.originalUrl.includes('/api/subscriptions/webhook');
 
@@ -64,7 +68,7 @@ export async function checkSubscriptionStatus(req: Request, res: Response, next:
 
     return next();
   } catch (error) {
-    console.error('Error pada checkSubscriptionStatus middleware:', error);
+    logError('checkSubscriptionStatus', error);
     return res.status(500).json({
       success: false,
       message: 'Terjadi kesalahan internal server saat memvalidasi status langganan.'
@@ -93,7 +97,7 @@ export function requireTier(allowedTiers: SubscriptionTier[]) {
 
       const tenant = await prisma.tenant.findUnique({
         where: { id: tenantId },
-        select: { subscriptionTier: true, subscriptionStatus: true }
+        select: { subscriptionTier: true, subscriptionStatus: true, subscriptionExpiresAt: true }
       });
 
       if (!tenant) {
@@ -103,7 +107,7 @@ export function requireTier(allowedTiers: SubscriptionTier[]) {
         });
       }
 
-      if (tenant.subscriptionStatus === SubscriptionStatus.EXPIRED) {
+      if (isSubscriptionExpired(tenant)) {
         return res.status(403).json({
           success: false,
           error: 'SUBSCRIPTION_EXPIRED',
@@ -121,7 +125,7 @@ export function requireTier(allowedTiers: SubscriptionTier[]) {
 
       return next();
     } catch (error) {
-      console.error('Error pada requireTier middleware:', error);
+      logError('requireTier', error);
       return res.status(500).json({
         success: false,
         message: 'Terjadi kesalahan internal server saat memverifikasi tingkat akses fitur.'

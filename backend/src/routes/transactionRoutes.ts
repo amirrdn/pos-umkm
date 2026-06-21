@@ -26,6 +26,7 @@ router.get(
   '/history',
   authMiddleware,
   tenantMiddleware,
+  requirePermission('view:transactions'),
   getHistory
 );
 

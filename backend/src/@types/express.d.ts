@@ -19,7 +19,7 @@ declare global {
 
       user?: {
         id: string;
-        tenantId: string;
+        tenantId: string | null;
         name: string;
         email: string;
         roles: string[];

@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
 import { Prisma } from '@prisma/client';
 import { isAppError } from '../lib/errors';
+import { logError } from '../lib/logger';
 
 export interface AppError extends Error {
   statusCode?: number;
@@ -18,15 +19,7 @@ export function errorHandler(
   res: Response,
   _next: NextFunction
 ) {
-  const message = err instanceof Error ? err.message : 'Unknown error';
-  const stack = err instanceof Error ? err.stack : undefined;
-
-  console.error('🚨 Global Error Caught:', {
-    message,
-    stack,
-    path: req.path,
-    method: req.method,
-  });
+  logError(`Global Error Caught — ${req.method} ${req.path}`, err);
 
   if (err instanceof ZodError) {
     return res.status(400).json({

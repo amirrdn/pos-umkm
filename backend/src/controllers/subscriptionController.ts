@@ -4,6 +4,7 @@ import { createSubscriptionUpgradeInvoice } from '../services/subscriptionUpgrad
 import { processSubscriptionMidtransWebhook } from '../services/subscriptionMidtransWebhookService';
 import { upgradeSubscriptionSchema, midtransWebhookSchema } from '../schemas/subscriptionSchema';
 import { getErrorMessage } from '../lib/errors';
+import { logError } from '../lib/logger';
 
 export async function getActiveSubscription(req: Request, res: Response) {
   try {
@@ -17,7 +18,7 @@ export async function getActiveSubscription(req: Request, res: Response) {
       data: details,
     });
   } catch (error: unknown) {
-    console.error('GetActiveSubscription Controller Error:', error);
+    logError('getActiveSubscription', error);
     return res.status(500).json({
       success: false,
       message: getErrorMessage(error, 'Gagal mengambil informasi langganan.'),
@@ -51,7 +52,7 @@ export async function upgradeSubscription(req: Request, res: Response) {
       },
     });
   } catch (error: unknown) {
-    console.error('UpgradeSubscription Controller Error:', error);
+    logError('upgradeSubscription', error);
     return res.status(500).json({
       success: false,
       message: getErrorMessage(error, 'Gagal memproses inisiasi upgrade langganan.'),
@@ -76,7 +77,7 @@ export async function processMidtransWebhook(req: Request, res: Response) {
       message: 'Notifikasi pembayaran langganan berhasil diproses.',
     });
   } catch (error: unknown) {
-    console.error('Subscription Webhook Controller Error:', error);
+    logError('processMidtransWebhook', error);
     return res.status(400).json({
       success: false,
       message: getErrorMessage(error, 'Gagal memproses notifikasi webhook pembayaran.'),
@@ -96,7 +97,7 @@ export async function downgradeSubscription(req: Request, res: Response) {
       message: 'Paket langganan berhasil diturunkan ke paket GRATIS secara aman.',
     });
   } catch (error: unknown) {
-    console.error('DowngradeSubscription Controller Error:', error);
+    logError('downgradeSubscription', error);
     return res.status(500).json({
       success: false,
       message: getErrorMessage(error, 'Gagal memproses perubahan paket ke gratis.'),
@@ -114,7 +115,7 @@ export async function getInvoices(req: Request, res: Response) {
       data: invoices,
     });
   } catch (error: unknown) {
-    console.error('GetInvoices Controller Error:', error);
+    logError('getInvoices', error);
     return res.status(500).json({
       success: false,
       message: getErrorMessage(error, 'Gagal mengambil riwayat tagihan.'),
