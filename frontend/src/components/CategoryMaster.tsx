@@ -68,9 +68,19 @@ export const CategoryMaster: React.FC = () => {
   };
 
   useEffect(() => {
-    if (token) {
-      fetchCategories();
-    }
+    if (!token) return;
+
+    let cancelled = false;
+
+    void (async () => {
+      await Promise.resolve();
+      if (cancelled) return;
+      await fetchCategories();
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [token]);
 
   const handleOpenCreate = () => {

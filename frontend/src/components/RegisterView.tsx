@@ -43,20 +43,33 @@ export default function RegisterView() {
     })();
   }, [registerType]);
 
-  useEffect(() => {
-    if (!tenantId) {
+  const handleTenantChange = (nextTenantId: string) => {
+    setTenantId(nextTenantId);
+    if (!nextTenantId) {
       setOutletsList([]);
       setSelectedOutlets([]);
-      return;
     }
+  };
+
+  useEffect(() => {
+    if (!tenantId) return;
+
+    let cancelled = false;
 
     void (async () => {
       try {
-        setOutletsList(await fetchRegisterOutletsApi(tenantId));
+        const outlets = await fetchRegisterOutletsApi(tenantId);
+        if (!cancelled) {
+          setOutletsList(outlets);
+        }
       } catch (err) {
         console.error('Failed to fetch outlets', err);
       }
     })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [tenantId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -203,7 +216,7 @@ export default function RegisterView() {
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Pilih Toko / Tenant</label>
               <AppSelect
                 value={tenantId}
-                onChange={setTenantId}
+                onChange={handleTenantChange}
                 placeholder="-- Pilih Toko --"
                 disabled={loading || !!success}
                 variant="dark"

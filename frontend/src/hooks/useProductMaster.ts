@@ -130,18 +130,12 @@ export function useProductMaster() {
 
   useEffect(() => {
     if (token) {
-      fetchProducts();
-      fetchCategories();
-      fetchOutlets();
+      void (async () => {
+        await Promise.resolve();
+        await Promise.all([fetchProducts(), fetchCategories(), fetchOutlets()]);
+      })();
     }
   }, [token]);
-
-  useEffect(() => {
-    if (modalMode === 'create' && isAutoSku) {
-      const defaultCatId = categories[0]?.id || categoryId;
-      fetchNextSku(defaultCatId);
-    }
-  }, [categories, modalMode, isAutoSku]);
 
   const handleOpenCreate = () => {
     setModalMode('create');

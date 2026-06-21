@@ -5,18 +5,20 @@ import React, { useEffect, useState } from 'react';
  * Dibuka di window baru oleh kasir (Opsi A) dan dapat ditampilkan di monitor kedua.
  * Data dikirim via URL query params: qrisUrl, amount, invoice.
  */
+function readCustomerDisplayParams() {
+  const params = new URLSearchParams(window.location.search);
+  return {
+    qrisUrl: params.get('qrisUrl') || '',
+    amount: Number(params.get('amount') || 0),
+    invoice: params.get('invoice') || '',
+  };
+}
+
 const CustomerDisplay: React.FC = () => {
-  const [qrisUrl, setQrisUrl] = useState<string>('');
-  const [amount, setAmount] = useState<number>(0);
-  const [invoice, setInvoice] = useState<string>('');
+  const [{ qrisUrl, amount, invoice }] = useState(readCustomerDisplayParams);
   const [paid, setPaid] = useState<boolean>(false);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    setQrisUrl(params.get('qrisUrl') || '');
-    setAmount(Number(params.get('amount') || 0));
-    setInvoice(params.get('invoice') || '');
-
     const handleMessage = (event: MessageEvent) => {
       if (event.data?.type === 'QRIS_PAID') {
         setPaid(true);

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, type RefObject } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback, type RefObject } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useReactToPrint } from 'react-to-print';
 import { useCartStore } from '../store/useCartStore';
@@ -151,7 +151,18 @@ export function usePos({ printRef }: UsePosOptions) {
   const [qrisFullscreen, setQrisFullscreen] = useState<boolean>(false);
 
   const { fetchCustomers, createCustomer } = useCustomerStore();
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [customerByOutlet, setCustomerByOutlet] = useState<{
+    outletId: string | null;
+    customer: Customer | null;
+  }>({ outletId: activeOutletId, customer: null });
+  const selectedCustomer =
+    customerByOutlet.outletId === activeOutletId ? customerByOutlet.customer : null;
+  const setSelectedCustomer = useCallback(
+    (customer: Customer | null) => {
+      setCustomerByOutlet({ outletId: activeOutletId, customer });
+    },
+    [activeOutletId]
+  );
   const [customerQuery, setCustomerQuery] = useState<string>('');
   const [searchResults, setSearchResults] = useState<Customer[]>([]);
   const [showAddCustomerModal, setShowAddCustomerModal] = useState<boolean>(false);
@@ -232,34 +243,28 @@ export function usePos({ printRef }: UsePosOptions) {
   // Sync Shift active status
   useEffect(() => {
     if (token && user?.tenantId) {
-      fetchActiveShift(token, user.tenantId);
+      void fetchActiveShift(token, user.tenantId).then(() => {
+        const err = useShiftStore.getState().error;
+        if (!err) return;
+
+        const isExpired =
+          err.toLowerCase().includes('kedaluwarsa') ||
+          err.toLowerCase().includes('expired') ||
+          err.toLowerCase().includes('authorization') ||
+          err.toLowerCase().includes('akses ditolak');
+
+        if (isExpired) {
+          showToast('error', 'Sesi Anda telah kedaluwarsa. Mengalihkan ke halaman login...');
+          setTimeout(() => {
+            handleLogout();
+            navigate('/login');
+          }, 2000);
+        }
+      });
     } else {
       clearShift();
     }
-  }, [token, user?.tenantId]);
-
-  // Sync Cart reset when outlet changes
-  useEffect(() => {
-    clearCart();
-    setSelectedCustomer(null);
-  }, [activeOutletId]);
-
-  // Handle Token expiration on shift error
-  useEffect(() => {
-    if (shiftError) {
-      const isExpired = shiftError.toLowerCase().includes('kedaluwarsa') || 
-                        shiftError.toLowerCase().includes('expired') || 
-                        shiftError.toLowerCase().includes('authorization') || 
-                        shiftError.toLowerCase().includes('akses ditolak');
-      if (isExpired) {
-        showToast('error', 'Sesi Anda telah kedaluwarsa. Mengalihkan ke halaman login...');
-        setTimeout(() => {
-          handleLogout();
-          navigate('/login');
-        }, 2000);
-      }
-    }
-  }, [shiftError]);
+  }, [token, user?.tenantId, fetchActiveShift, clearShift, navigate]);
 
   // Handle mobile cart drawer overflow hidden
   useEffect(() => {
@@ -283,12 +288,23 @@ export function usePos({ printRef }: UsePosOptions) {
     return () => mq.removeEventListener('change', onChange);
   }, []);
 
+  const canFetchProducts = Boolean(token && (activeOutletId || platformAdmin));
+
   // Fetch katalog products
   useEffect(() => {
-    const fetchProducts = async () => {
+    if (!canFetchProducts) return;
+
+    let cancelled = false;
+
+    void (async () => {
+      await Promise.resolve();
+      if (cancelled) return;
+
       setLoadingProducts(true);
       try {
         const data = await getProductsApi();
+        if (cancelled) return;
+
         const mappedProducts = (data.data as PosCatalogProduct[]).map((item, index: number) => {
           const fallbacks = [
             'https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&q=80&w=600',
@@ -317,23 +333,29 @@ export function usePos({ printRef }: UsePosOptions) {
 
         setProducts(mappedProducts);
       } catch (err: unknown) {
+        if (cancelled) return;
         console.error('Fetch Products Error:', err);
         if (!checkTokenExpiration(err)) {
           const msg = err instanceof Error ? err.message : 'Koneksi ke API produk gagal.';
           showToast('error', msg);
         }
       } finally {
-        setLoadingProducts(false);
+        if (!cancelled) {
+          setLoadingProducts(false);
+        }
       }
-    };
+    })();
 
-    if (token && (activeOutletId || platformAdmin)) {
-      fetchProducts();
-    } else if (token && !activeOutletId && !platformAdmin) {
-      setProducts([]);
-      setLoadingProducts(false);
-    }
-  }, [token, activeOutletId, platformAdmin]);
+    return () => {
+      cancelled = true;
+    };
+  }, [canFetchProducts, token, activeOutletId, platformAdmin]);
+
+  const catalogProducts = useMemo(
+    () => (canFetchProducts ? products : []),
+    [canFetchProducts, products]
+  );
+  const catalogLoading = canFetchProducts ? loadingProducts : false;
 
   const restoreLocalStock = () => {
     setProducts(prevProducts =>
@@ -622,17 +644,17 @@ Terima kasih atas kunjungan Anda!`;
   };
 
   const filteredProducts = useMemo(() => {
-    return products.filter(product => {
+    return catalogProducts.filter(product => {
       const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         product.sku.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesCategory = selectedCategory === 'SEMUA' || product.category === selectedCategory;
       return matchesSearch && matchesCategory;
     });
-  }, [products, searchQuery, selectedCategory]);
+  }, [catalogProducts, searchQuery, selectedCategory]);
 
   const categoriesList = useMemo(() => {
-    return ['SEMUA', ...Array.from(new Set(products.map(p => p.category)))];
-  }, [products]);
+    return ['SEMUA', ...Array.from(new Set(catalogProducts.map(p => p.category)))];
+  }, [catalogProducts]);
 
   const cartItemCount = useMemo(
     () => cart.reduce((sum, item) => sum + item.quantity, 0),
@@ -676,8 +698,8 @@ Terima kasih atas kunjungan Anda!`;
     shiftError,
     showCloseShiftModal,
     setShowCloseShiftModal,
-    products,
-    loadingProducts,
+    products: catalogProducts,
+    loadingProducts: catalogLoading,
     paymentMethod,
     setPaymentMethod,
     isSubmitting,

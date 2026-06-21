@@ -8,30 +8,44 @@ export default function VerifyEmailView() {
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token') ?? '';
 
-  const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
-  const [message, setMessage] = useState('');
-  const [verifiedEmail, setVerifiedEmail] = useState('');
+  const [verifyResult, setVerifyResult] = useState<{
+    status: 'success' | 'error';
+    message: string;
+    email?: string;
+  } | null>(null);
+
+  const status = !token ? 'error' : verifyResult?.status ?? 'loading';
+  const message = !token
+    ? 'Tautan verifikasi tidak valid. Periksa kembali email Anda.'
+    : verifyResult?.message ?? '';
+  const verifiedEmail = verifyResult?.email ?? '';
 
   useEffect(() => {
-    if (!token) {
-      setStatus('error');
-      setMessage('Tautan verifikasi tidak valid. Periksa kembali email Anda.');
-      return;
-    }
+    if (!token) return;
 
-    const verify = async () => {
+    let cancelled = false;
+
+    void (async () => {
       try {
         const data = await verifyEmailApi(token);
-        setVerifiedEmail(data.data?.email ?? '');
-        setStatus('success');
-        setMessage(data.message || 'Email berhasil diverifikasi.');
+        if (cancelled) return;
+        setVerifyResult({
+          status: 'success',
+          message: data.message || 'Email berhasil diverifikasi.',
+          email: data.data?.email ?? '',
+        });
       } catch (err: unknown) {
-        setStatus('error');
-        setMessage(err instanceof Error ? err.message : 'Verifikasi email gagal.');
+        if (cancelled) return;
+        setVerifyResult({
+          status: 'error',
+          message: err instanceof Error ? err.message : 'Verifikasi email gagal.',
+        });
       }
-    };
+    })();
 
-    verify();
+    return () => {
+      cancelled = true;
+    };
   }, [token]);
 
   return (

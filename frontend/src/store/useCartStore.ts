@@ -1,16 +1,15 @@
 import { create } from 'zustand';
+import { useAuthStore } from './useAuthStore';
 
-// Antarmuka untuk Item di dalam Keranjang Belanja
 export interface CartItem {
   productId: string;
   name: string;
-  price: number;     // Harga Jual (sellingPrice)
+  price: number;
   sku: string;
-  stock: number;     // Sisa stok yang tersedia di database
-  quantity: number;  // Jumlah yang dibeli
+  stock: number;
+  quantity: number;
 }
 
-// Antarmuka untuk State dan Action Zustand
 interface CartState {
   cart: CartItem[];
   subTotal: number;
@@ -19,7 +18,6 @@ interface CartState {
   applyTax: boolean;
   grandTotal: number;
   
-  // Actions
   addToCart: (product: Omit<CartItem, 'quantity'>) => void;
   removeFromCart: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
@@ -28,7 +26,6 @@ interface CartState {
   clearCart: () => void;
 }
 
-// Fungsi pembantu untuk mengkalkulasi ulang subTotal dan grandTotal
 const calculateTotals = (
   cart: CartItem[], 
   discountType: 'PERCENT' | 'NOMINAL' = 'NOMINAL', 
@@ -37,7 +34,6 @@ const calculateTotals = (
 ) => {
   const subTotal = cart.reduce((total, item) => total + item.price * item.quantity, 0);
   
-  // Hitung nominal diskon
   let discountAmount = 0;
   if (discountType === 'PERCENT' && discountValue > 0) {
     discountAmount = subTotal * (discountValue / 100);
@@ -45,12 +41,10 @@ const calculateTotals = (
     discountAmount = discountValue;
   }
 
-  // Batasi diskon maksimal sebesar subTotal
   if (discountAmount > subTotal) {
     discountAmount = subTotal;
   }
 
-  // Hitung nominal PPN (11% dari total setelah dikurangi diskon)
   const taxableAmount = subTotal - discountAmount;
   const taxAmount = applyTax ? taxableAmount * 0.11 : 0;
 
@@ -66,14 +60,12 @@ export const useCartStore = create<CartState>((set) => ({
   applyTax: false,
   grandTotal: 0,
 
-  // Menambahkan barang ke dalam keranjang
   addToCart: (product) => set((state) => {
     const existingItemIndex = state.cart.findIndex(item => item.productId === product.productId);
     const newCart = [...state.cart];
 
     if (existingItemIndex > -1) {
       const existingItem = newCart[existingItemIndex];
-      // Pastikan kuantitas tidak melebihi stok yang tersedia
       if (existingItem.quantity < product.stock) {
         newCart[existingItemIndex] = {
           ...existingItem,
@@ -81,7 +73,6 @@ export const useCartStore = create<CartState>((set) => ({
         };
       }
     } else {
-      // Pastikan stok minimal ada 1 untuk bisa dimasukkan keranjang
       if (product.stock > 0) {
         newCart.push({
           ...product,
@@ -96,7 +87,6 @@ export const useCartStore = create<CartState>((set) => ({
     };
   }),
 
-  // Menghapus barang dari keranjang secara penuh
   removeFromCart: (productId) => set((state) => {
     const newCart = state.cart.filter(item => item.productId !== productId);
     return {
@@ -105,7 +95,6 @@ export const useCartStore = create<CartState>((set) => ({
     };
   }),
 
-  // Memperbarui jumlah barang secara manual (+/- atau input angka)
   updateQuantity: (productId, quantity) => set((state) => {
     const itemIndex = state.cart.findIndex(item => item.productId === productId);
     if (itemIndex === -1) return {};
@@ -113,7 +102,6 @@ export const useCartStore = create<CartState>((set) => ({
     const targetItem = state.cart[itemIndex];
     let newQty = quantity;
 
-    // Batasi kuantitas agar minimal 1 dan maksimal sesuai sisa stok produk
     if (newQty < 1) newQty = 1;
     if (newQty > targetItem.stock) newQty = targetItem.stock;
 
@@ -129,7 +117,6 @@ export const useCartStore = create<CartState>((set) => ({
     };
   }),
 
-  // Set Diskon
   setDiscount: (type, value) => set((state) => {
     const nextValue = value < 0 ? 0 : value;
     return {
@@ -139,13 +126,11 @@ export const useCartStore = create<CartState>((set) => ({
     };
   }),
 
-  // Set Pajak PPN
   setApplyTax: (apply) => set((state) => ({
     applyTax: apply,
     ...calculateTotals(state.cart, state.discountType, state.discountValue, apply)
   })),
 
-  // Mengosongkan keranjang belanja
   clearCart: () => set({
     cart: [],
     subTotal: 0,
@@ -155,3 +140,9 @@ export const useCartStore = create<CartState>((set) => ({
     grandTotal: 0
   })
 }));
+
+useAuthStore.subscribe((state, prevState) => {
+  if (state.activeOutletId !== prevState.activeOutletId) {
+    useCartStore.getState().clearCart();
+  }
+});

@@ -65,7 +65,10 @@ export function useDashboardAdmin() {
   }, [token, tenantId, tenantWideAccess]);
 
   useEffect(() => {
-    fetchData();
+    void (async () => {
+      await Promise.resolve();
+      await fetchData();
+    })();
   }, [fetchData, activeOutletId]);
 
   const handleLogout = () => {

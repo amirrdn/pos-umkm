@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Check, ChevronDown, Search, Shield, X } from 'lucide-react';
 import { filterRolesBySearch } from '../../utils/staffManagementHelpers';
 import type { StaffRole } from '../../types/staffManagement';
@@ -18,10 +18,13 @@ export function StaffRoleDropdown({ rolesList, selectedRoleId, onSelectRole }: S
 
   const filteredRoles = filterRolesBySearch(rolesList, searchTerm);
   const selectedRole = rolesList.find((role) => role.id === selectedRoleId);
-
-  useEffect(() => {
-    setHighlightedIndex(0);
-  }, [searchTerm, isDropdownOpen]);
+  const highlightedRoleIndex = useMemo(
+    () =>
+      filteredRoles.length === 0
+        ? 0
+        : Math.min(highlightedIndex, filteredRoles.length - 1),
+    [filteredRoles.length, highlightedIndex]
+  );
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -46,6 +49,7 @@ export function StaffRoleDropdown({ rolesList, selectedRoleId, onSelectRole }: S
     if (!isDropdownOpen) {
       if (e.key === 'Enter' || e.key === 'ArrowDown' || e.key === 'Space' || e.key === ' ') {
         e.preventDefault();
+        setHighlightedIndex(0);
         setIsDropdownOpen(true);
       }
       return;
@@ -66,8 +70,8 @@ export function StaffRoleDropdown({ rolesList, selectedRoleId, onSelectRole }: S
         break;
       case 'Enter':
         e.preventDefault();
-        if (filteredRoles.length > 0 && filteredRoles[highlightedIndex]) {
-          onSelectRole(filteredRoles[highlightedIndex].id);
+        if (filteredRoles.length > 0 && filteredRoles[highlightedRoleIndex]) {
+          onSelectRole(filteredRoles[highlightedRoleIndex].id);
           setIsDropdownOpen(false);
           setSearchTerm('');
         }
@@ -92,7 +96,12 @@ export function StaffRoleDropdown({ rolesList, selectedRoleId, onSelectRole }: S
 
       <button
         type="button"
-        onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+        onClick={() => {
+          if (!isDropdownOpen) {
+            setHighlightedIndex(0);
+          }
+          setIsDropdownOpen(!isDropdownOpen);
+        }}
         onKeyDown={handleDropdownKeyDown}
         className="cursor-pointer w-full flex items-center justify-between px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 hover:border-slate-350 dark:hover:border-slate-700 rounded-xl text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 transition-all duration-200 text-left relative"
       >
@@ -125,7 +134,10 @@ export function StaffRoleDropdown({ rolesList, selectedRoleId, onSelectRole }: S
               type="text"
               placeholder="Cari peran..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setHighlightedIndex(0);
+              }}
               onKeyDown={handleDropdownKeyDown}
               className="w-full pl-8 pr-7 py-1.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-850 focus:border-indigo-500 rounded-lg text-xs text-slate-800 dark:text-slate-200 focus:outline-none transition-all duration-155"
             />
@@ -148,7 +160,7 @@ export function StaffRoleDropdown({ rolesList, selectedRoleId, onSelectRole }: S
             ) : (
               filteredRoles.map((role, idx) => {
                 const isCurrentlySelected = role.id === selectedRoleId;
-                const isHighlighted = idx === highlightedIndex;
+                const isHighlighted = idx === highlightedRoleIndex;
                 return (
                   <button
                     key={role.id}

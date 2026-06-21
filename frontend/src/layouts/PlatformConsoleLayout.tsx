@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -30,15 +30,15 @@ export function PlatformConsoleLayout() {
   const { theme, toggleTheme } = useThemeStore();
   const activeTenantMeta = usePlatformStore((state) => state.activeTenantMeta);
   const ensureActiveTenant = usePlatformStore((state) => state.ensureActiveTenant);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [menuOpenForPath, setMenuOpenForPath] = useState<string | null>(null);
+  const mobileMenuOpen = menuOpenForPath === location.pathname;
+  const setMobileMenuOpen = useCallback((open: boolean) => {
+    setMenuOpenForPath(open ? location.pathname : null);
+  }, [location.pathname]);
 
   useEffect(() => {
     ensureActiveTenant();
   }, [ensureActiveTenant]);
-
-  useEffect(() => {
-    setMobileMenuOpen(false);
-  }, [location.pathname]);
 
   useEffect(() => {
     if (!mobileMenuOpen) return;
@@ -268,7 +268,7 @@ export function PlatformConsoleLayout() {
           className="lg:hidden fixed bottom-0 inset-x-0 z-40 flex items-stretch border-t border-violet-900/40 bg-gradient-to-t from-slate-950 to-violet-950 pb-[env(safe-area-inset-bottom)]"
           aria-label="Navigasi platform"
         >
-          {renderNavItems(true)}
+          {renderNavItems(true, () => setMobileMenuOpen(false))}
         </nav>
       </main>
     </div>

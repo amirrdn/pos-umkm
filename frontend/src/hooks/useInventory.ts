@@ -112,6 +112,13 @@ export function useInventory() {
   const [sourceOutletLoading, setSourceOutletLoading] = useState(false);
   const [lowStockItems, setLowStockItems] = useState<LowStockItem[]>([]);
 
+  const refreshDraftCount = useNotificationStore((state) => state.fetchDraftTransferCount);
+  const draftTransferCount = useNotificationStore((state) => state.draftTransferCount);
+
+  const shouldLoadSourceInventory = isTransferModalOpen && Boolean(transferForm.fromOutletId);
+  const shouldLoadMutationStock =
+    isMutationModalOpen && Boolean(selectedProduct && mutationForm.outletId);
+
   const fetchLowStock = async () => {
     try {
       const res = await getLowStockApi();
@@ -193,27 +200,37 @@ export function useInventory() {
       navigate('/login');
       return;
     }
-    fetchInventory();
-    fetchLowStock();
-    fetchSettings();
-    fetchOutlets();
-    fetchHierarchy();
-    fetchTransfers().then(() => refreshDraftCount());
-    if (currentUser?.roles.some(r => ['Owner', 'Manager', 'Admin'].includes(r))) {
-      fetchStockRequests();
-    }
-  }, [token, currentUser, activeOutletId]);
+
+    void (async () => {
+      await Promise.resolve();
+      await Promise.all([
+        fetchInventory(),
+        fetchLowStock(),
+        fetchSettings(),
+        fetchOutlets(),
+        fetchHierarchy(),
+        fetchTransfers().then(() => refreshDraftCount()),
+        ...(currentUser?.roles.some((r) => ['Owner', 'Manager', 'Admin'].includes(r))
+          ? [fetchStockRequests()]
+          : []),
+      ]);
+    })();
+  }, [token, currentUser, activeOutletId, navigate, fetchOutlets, fetchHierarchy, fetchTransfers, refreshDraftCount]);
 
   useEffect(() => {
-    if (!isTransferModalOpen || !transferForm.fromOutletId) {
-      setSourceOutletProducts([]);
-      return;
-    }
+    if (!shouldLoadSourceInventory) return;
 
-    const fetchSourceOutletInventory = async () => {
+    let cancelled = false;
+    const fromOutletId = transferForm.fromOutletId;
+
+    void (async () => {
+      await Promise.resolve();
+      if (cancelled) return;
+
       try {
         setSourceOutletLoading(true);
-        const res = await getSourceOutletInventoryApi(transferForm.fromOutletId);
+        const res = await getSourceOutletInventoryApi(fromOutletId);
+        if (cancelled) return;
         if (res.success) {
           setSourceOutletProducts(res.data);
         } else {
@@ -222,35 +239,51 @@ export function useInventory() {
       } catch (err) {
         console.error('Gagal mengambil stok outlet asal:', err);
       } finally {
-        setSourceOutletLoading(false);
+        if (!cancelled) {
+          setSourceOutletLoading(false);
+        }
       }
-    };
+    })();
 
-    fetchSourceOutletInventory();
-  }, [transferForm.fromOutletId, isTransferModalOpen, token]);
+    return () => {
+      cancelled = true;
+    };
+  }, [shouldLoadSourceInventory, transferForm.fromOutletId, token]);
 
   useEffect(() => {
-    if (!isMutationModalOpen || !selectedProduct || !mutationForm.outletId) {
-      setMutationOutletStock(null);
-      return;
-    }
+    if (!shouldLoadMutationStock || !selectedProduct) return;
 
-    const fetchOutletStock = async () => {
+    let cancelled = false;
+    const productId = selectedProduct.id;
+    const outletId = mutationForm.outletId;
+
+    void (async () => {
+      await Promise.resolve();
+      if (cancelled) return;
+
       setMutationStockLoading(true);
       try {
-        const res = await getOutletStockApi(selectedProduct.id, mutationForm.outletId);
+        const res = await getOutletStockApi(productId, outletId);
+        if (cancelled) return;
         if (res.success) {
           setMutationOutletStock(res.data.product?.stock ?? 0);
         }
       } catch (err) {
         console.error('Gagal mengambil stok outlet:', err);
       } finally {
-        setMutationStockLoading(false);
+        if (!cancelled) {
+          setMutationStockLoading(false);
+        }
       }
-    };
+    })();
 
-    fetchOutletStock();
-  }, [isMutationModalOpen, selectedProduct?.id, mutationForm.outletId]);
+    return () => {
+      cancelled = true;
+    };
+  }, [shouldLoadMutationStock, selectedProduct, mutationForm.outletId]);
+
+  const effectiveSourceOutletProducts = shouldLoadSourceInventory ? sourceOutletProducts : [];
+  const effectiveMutationOutletStock = shouldLoadMutationStock ? mutationOutletStock : null;
 
   const allTenantOutlets = useMemo(() => {
     if (outlets.length > 0) return outlets;
@@ -479,8 +512,6 @@ export function useInventory() {
   const isOwner = currentUser?.roles.includes('Owner');
   const isOwnerOrManager = currentUser?.roles.some(r => ['Owner', 'Manager', 'Admin'].includes(r));
   const canMutate = currentUser?.roles.some(r => ['Owner', 'Manager', 'Admin', 'Staf Gudang'].includes(r));
-  const draftTransferCount = useNotificationStore((state) => state.draftTransferCount);
-  const refreshDraftCount = useNotificationStore((state) => state.fetchDraftTransferCount);
   const lowStockCount = lowStockItems.length;
 
   const isBelowMinStock = (prod: Product) =>
@@ -505,7 +536,7 @@ export function useInventory() {
     mutationSubmitting,
     mutationError,
     setMutationError,
-    mutationOutletStock,
+    mutationOutletStock: effectiveMutationOutletStock,
     mutationStockLoading,
     isLedgerModalOpen,
     setIsLedgerModalOpen,
@@ -531,7 +562,7 @@ export function useInventory() {
     transferSubmitting,
     transferFormError,
     setTransferFormError,
-    sourceOutletProducts,
+    sourceOutletProducts: effectiveSourceOutletProducts,
     sourceOutletLoading,
     lowStockItems,
     lowStockCount,

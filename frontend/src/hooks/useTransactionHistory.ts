@@ -55,7 +55,10 @@ export function useTransactionHistory() {
   }, [token, user]);
 
   useEffect(() => {
-    fetchHistory();
+    void (async () => {
+      await Promise.resolve();
+      await fetchHistory();
+    })();
   }, [fetchHistory]);
 
   useEffect(() => {

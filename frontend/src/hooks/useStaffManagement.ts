@@ -102,9 +102,11 @@ export function useStaffManagement() {
       navigate('/pos');
       return;
     }
-    fetchStaff();
-    fetchRoles();
-    fetchOutletHierarchy();
+
+    void (async () => {
+      await Promise.resolve();
+      await Promise.all([fetchStaff(), fetchRoles(), fetchOutletHierarchy()]);
+    })();
   }, [token, currentUser, navigate, fetchStaff, fetchRoles, fetchOutletHierarchy]);
 
   const handleToggleStatus = async (id: string, currentStatus: boolean) => {
