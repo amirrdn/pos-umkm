@@ -38,6 +38,16 @@ export interface MidtransStatusResponse {
   transaction_status: string;
   status_code?: string;
   status_message?: string;
+  payment_type?: string;
+  transaction_time?: string;
+  gross_amount?: string;
+  bank?: string;
+  va_numbers?: { bank: string; va_number: string }[];
+  biller_code?: string;
+  bill_key?: string;
+  fraud_status?: string;
+  currency?: string;
+  order_id?: string;
 }
 
 export class MidtransService {
@@ -130,12 +140,20 @@ export class MidtransService {
    * Mengecek status transaksi secara langsung ke Midtrans API.
    */
   static async getTransactionStatus(orderId: string): Promise<string> {
+    const data = await this.getFullTransactionStatus(orderId);
+    return data.transaction_status;
+  }
+
+  /**
+   * Mengambil seluruh data status transaksi dari Midtrans API.
+   */
+  static async getFullTransactionStatus(orderId: string): Promise<MidtransStatusResponse> {
     const data = await midtransRequest<MidtransStatusResponse>(
       getMidtransCoreApiBaseUrl(),
       `/${orderId}/status`,
       { method: 'GET' }
     );
 
-    return data.transaction_status;
+    return data;
   }
 }
