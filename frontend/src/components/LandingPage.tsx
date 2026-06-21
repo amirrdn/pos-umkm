@@ -1,41 +1,127 @@
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Store, TrendingUp, ShieldCheck, Layers, ArrowRight } from 'lucide-react';
+import { Store, TrendingUp, ShieldCheck, Layers, ArrowRight, Menu, X } from 'lucide-react';
 
 export default function LandingPage() {
   const navigate = useNavigate();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMobileMenuOpen(false);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [mobileMenuOpen]);
+
+  const goTo = (path: string) => {
+    setMobileMenuOpen(false);
+    navigate(path);
+  };
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans flex flex-col justify-between">
       {/* Header */}
-      <header className="max-w-7xl mx-auto w-full px-6 py-6 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-indigo-600 rounded-xl shadow-md shadow-indigo-500/20">
-            <Store className="w-5 h-5 text-white" />
+      <header className="relative z-40 max-w-7xl mx-auto w-full px-3 sm:px-4 md:px-6 py-3 sm:py-4 md:py-6">
+        <div className="flex items-center justify-between gap-3 min-w-0">
+          <button
+            type="button"
+            onClick={() => navigate('/')}
+            className="cursor-pointer flex items-center gap-2 sm:gap-3 min-w-0 shrink"
+            aria-label="UMKM POS beranda"
+          >
+            <div className="p-1.5 sm:p-2 bg-indigo-600 rounded-xl shadow-md shadow-indigo-500/20 shrink-0">
+              <Store className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+            </div>
+            <span className="text-base sm:text-lg font-black tracking-tight bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent truncate">
+              UMKM POS
+            </span>
+          </button>
+
+          {/* Desktop nav */}
+          <nav className="hidden md:flex items-center gap-3 lg:gap-4 shrink-0" aria-label="Navigasi utama">
+            <button
+              type="button"
+              onClick={() => navigate('/docs')}
+              className="cursor-pointer text-sm font-semibold text-slate-400 hover:text-white transition-all px-2 py-1"
+            >
+              Dokumentasi
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/login')}
+              className="cursor-pointer text-sm font-semibold text-slate-300 hover:text-white transition-all px-2 py-1"
+            >
+              Masuk
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/register')}
+              className="cursor-pointer px-4 py-2 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-md shadow-indigo-500/25 transition-all"
+            >
+              Mulai Gratis
+            </button>
+          </nav>
+
+          {/* Mobile / tablet actions */}
+          <div className="flex md:hidden items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => navigate('/register')}
+              className="cursor-pointer px-3 py-2 text-[11px] sm:text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-md shadow-indigo-500/25 transition-all whitespace-nowrap"
+            >
+              Mulai Gratis
+            </button>
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen((open) => !open)}
+              className="cursor-pointer p-2 min-h-10 min-w-10 flex items-center justify-center rounded-xl border border-slate-800 text-slate-300 hover:bg-slate-900 transition-all"
+              aria-label={mobileMenuOpen ? 'Tutup menu' : 'Buka menu'}
+              aria-expanded={mobileMenuOpen}
+            >
+              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
           </div>
-          <span className="text-lg font-black tracking-tight bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent">
-            UMKM POS
-          </span>
         </div>
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => navigate('/docs')}
-            className="cursor-pointer text-sm font-semibold text-slate-400 hover:text-white transition-all mr-2"
-          >
-            Dokumentasi
-          </button>
-          <button
-            onClick={() => navigate('/login')}
-            className="cursor-pointer text-sm font-semibold text-slate-300 hover:text-white transition-all"
-          >
-            Masuk
-          </button>
-          <button
-            onClick={() => navigate('/register')}
-            className="cursor-pointer px-4 py-2 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-md shadow-indigo-500/25 transition-all"
-          >
-            Mulai Gratis
-          </button>
-        </div>
+
+        {/* Mobile menu panel */}
+        {mobileMenuOpen && (
+          <>
+            <button
+              type="button"
+              className="fixed inset-0 top-[57px] sm:top-[65px] bg-slate-950/70 backdrop-blur-sm md:hidden"
+              aria-label="Tutup menu"
+              onClick={() => setMobileMenuOpen(false)}
+            />
+            <nav
+              className="md:hidden absolute left-3 right-3 sm:left-4 sm:right-4 top-full mt-2 rounded-2xl border border-slate-800 bg-slate-900/95 backdrop-blur-md shadow-2xl overflow-hidden z-50"
+              aria-label="Menu navigasi"
+            >
+              <button
+                type="button"
+                onClick={() => goTo('/docs')}
+                className="cursor-pointer w-full text-left px-4 py-3.5 text-sm font-semibold text-slate-300 hover:bg-slate-800/80 hover:text-white transition-all border-b border-slate-800/80"
+              >
+                Dokumentasi
+              </button>
+              <button
+                type="button"
+                onClick={() => goTo('/login')}
+                className="cursor-pointer w-full text-left px-4 py-3.5 text-sm font-semibold text-slate-300 hover:bg-slate-800/80 hover:text-white transition-all border-b border-slate-800/80"
+              >
+                Masuk
+              </button>
+              <button
+                type="button"
+                onClick={() => goTo('/register')}
+                className="cursor-pointer w-full text-left px-4 py-3.5 text-sm font-bold text-indigo-300 hover:bg-indigo-950/40 transition-all"
+              >
+                Daftar Toko Gratis
+              </button>
+            </nav>
+          </>
+        )}
       </header>
 
       {/* Hero Section */}
