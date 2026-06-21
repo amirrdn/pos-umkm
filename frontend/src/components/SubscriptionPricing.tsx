@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
 import { useSubscriptionStore } from '../store/useSubscriptionStore';
 import { getErrorMessage } from '../api/types';
+import { getMidtransClientKey } from '../config';
 import { getMidtransSnap, loadMidtransSnapScript } from '../types/midtransSnap';
 import { AppShellHeader } from './AppShellHeader';
 import { 
@@ -25,8 +26,14 @@ export default function SubscriptionPricing() {
     fetchActiveSubscription();
   }, [fetchActiveSubscription]);
 
-  const loadSnapScript = (): Promise<boolean> =>
-    loadMidtransSnapScript('SB-Mid-client-NhCmZFQENLUx_vuLFj-AHwHq');
+  const loadSnapScript = (): Promise<boolean> => {
+    try {
+      return loadMidtransSnapScript(getMidtransClientKey());
+    } catch (err) {
+      console.error(err);
+      return Promise.resolve(false);
+    }
+  };
 
   const handleUpgrade = async (tier: 'GROWTH' | 'ENTERPRISE') => {
     try {
