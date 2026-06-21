@@ -8,6 +8,7 @@ import {
 } from '../domain/auth/emailVerification.service';
 import { LoginError, LOGIN_ERROR_MESSAGES } from '../domain/auth/login.errors';
 import { resolveAuthRoles } from '../lib/roles';
+import { getJwtSecret } from '../lib/jwtConfig';
 
 /**
  * Service Layer untuk Autentikasi Pengguna.
@@ -81,7 +82,7 @@ export class AuthService {
     const outletIds = user.userOutlets.map((uo) => uo.outletId);
     const outlets = user.userOutlets.map((uo) => uo.outlet);
 
-    const secretKey = process.env.JWT_SECRET || 'fallback_secret_key_2026';
+    const secretKey = getJwtSecret();
     const token = jwt.sign(
       {
         id: user.id,

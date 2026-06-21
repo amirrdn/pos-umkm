@@ -3,6 +3,7 @@ import { prisma } from '../lib/prisma';
 import { SubscriptionTier, SubscriptionStatus } from '@prisma/client';
 import jwt from 'jsonwebtoken';
 import { isPlatformAdmin } from '../lib/roles';
+import { getJwtSecret } from '../lib/jwtConfig';
 
 /**
  * Middleware untuk mengecek apakah langganan tenant saat ini kedaluwarsa.
@@ -19,7 +20,7 @@ export async function checkSubscriptionStatus(req: Request, res: Response, next:
       const parts = authHeader.split(' ');
       if (parts.length === 2 && parts[0] === 'Bearer') {
         const token = parts[1];
-        const secretKey = process.env.JWT_SECRET || 'fallback_secret_key_2026';
+        const secretKey = getJwtSecret();
         try {
           const decoded = jwt.verify(token, secretKey) as { tenantId?: string; roles?: string[] };
           if (!tenantId && decoded.tenantId) {

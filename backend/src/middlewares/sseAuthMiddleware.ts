@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { hasTenantWideOutletAccess, isPlatformAdmin } from '../lib/roles';
+import { getJwtSecret } from '../lib/jwtConfig';
 
 interface UserPayload {
   id: string;
@@ -35,7 +36,7 @@ export function sseAuthMiddleware(req: Request, res: Response, next: NextFunctio
       });
     }
 
-    const secretKey = process.env.JWT_SECRET || 'fallback_secret_key_2026';
+    const secretKey = getJwtSecret();
     const decoded = jwt.verify(token, secretKey) as UserPayload;
 
     const tenantWideAccess = hasTenantWideOutletAccess(decoded.roles);

@@ -24,9 +24,13 @@ import subscriptionRoutes from './routes/subscriptionRoutes';
 import platformRoutes from './routes/platformRoutes';
 import { checkSubscriptionStatus } from './middlewares/subscriptionGuard';
 import { errorHandler } from './middlewares/errorHandler';
+import { getJwtSecret } from './lib/jwtConfig';
 
 
 dotenv.config();
+
+// Fail fast jika JWT_SECRET tidak dikonfigurasi
+getJwtSecret();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -36,9 +40,18 @@ if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
+const corsOrigins = process.env.CORS_ORIGINS
+  ? process.env.CORS_ORIGINS.split(',').map((origin) => origin.trim()).filter(Boolean)
+  : ['http://localhost:5173', 'http://127.0.0.1:5173'];
+
 app.use('/uploads', express.static(uploadsDir));
 
-app.use(cors());
+app.use(
+  cors({
+    origin: corsOrigins,
+    credentials: true,
+  })
+);
 app.use(express.json());
 app.use(checkSubscriptionStatus);
 
