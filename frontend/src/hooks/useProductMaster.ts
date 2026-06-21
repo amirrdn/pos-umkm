@@ -51,6 +51,7 @@ export function useProductMaster() {
   const [stock, setStock] = useState(0);
   const [images, setImages] = useState<ProductFormImage[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [isAutoSku, setIsAutoSku] = useState(true);
   const [activeTab, setActiveTab] = useState<ProductModalTab>('general');
@@ -239,6 +240,7 @@ export function useProductMaster() {
       images: images.filter((img) => img.url.trim() !== ''),
     };
 
+    setIsSubmitting(true);
     try {
       if (modalMode === 'create') {
         await createProductApi(payload);
@@ -253,6 +255,8 @@ export function useProductMaster() {
       console.error(err);
       const message = err instanceof Error ? err.message : 'Terjadi kesalahan saat memproses data.';
       showToast('error', message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -358,6 +362,7 @@ export function useProductMaster() {
     handleSaveMinStock,
     handleFilterOutletChange,
     goToInventoryMutation,
+    isSubmitting,
   };
 }
 
