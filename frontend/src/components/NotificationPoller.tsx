@@ -20,7 +20,7 @@ export function NotificationPoller() {
       return () => stopRealtime();
     }
     stopRealtime();
-  }, [token, user?.id, roleKey, startRealtime, stopRealtime]);
+  }, [token, user, roleKey, startRealtime, stopRealtime]);
 
   return null;
 }

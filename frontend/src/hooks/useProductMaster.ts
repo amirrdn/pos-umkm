@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
 import {
@@ -64,13 +64,13 @@ export function useProductMaster() {
     setTimeout(() => setNotification(null), 5000);
   };
 
-  const fetchOutlets = async () => {
+  const fetchOutlets = useCallback(async () => {
     try {
       setOutlets(await getOutletsApi());
     } catch (err) {
       console.error('Gagal mengambil daftar outlet:', err);
     }
-  };
+  }, []);
 
   const fetchOutletSettings = async (prodId: string) => {
     try {
@@ -95,7 +95,7 @@ export function useProductMaster() {
     }
   };
 
-  const fetchProducts = async (selectedOutletId: string = filterOutletId) => {
+  const fetchProducts = useCallback(async (selectedOutletId: string) => {
     setLoading(true);
     try {
       setProducts(await getProductsApi(selectedOutletId || undefined));
@@ -106,15 +106,15 @@ export function useProductMaster() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const fetchCategories = async () => {
+  const fetchCategories = useCallback(async () => {
     try {
       setCategories(await getCategoriesApi());
     } catch (err) {
       console.error('Gagal mengambil kategori:', err);
     }
-  };
+  }, []);
 
   const fetchNextSku = async (catId: string) => {
     if (!catId) return;
@@ -132,10 +132,10 @@ export function useProductMaster() {
     if (token) {
       void (async () => {
         await Promise.resolve();
-        await Promise.all([fetchProducts(), fetchCategories(), fetchOutlets()]);
+        await Promise.all([fetchProducts(''), fetchCategories(), fetchOutlets()]);
       })();
     }
-  }, [token]);
+  }, [token, fetchProducts, fetchCategories, fetchOutlets]);
 
   const handleOpenCreate = () => {
     setModalMode('create');
@@ -225,7 +225,7 @@ export function useProductMaster() {
 
       showToast('success', modalMode === 'create' ? 'Produk berhasil ditambahkan!' : 'Produk berhasil diperbarui!');
       setIsModalOpen(false);
-      fetchProducts();
+      fetchProducts(filterOutletId);
     } catch (err: unknown) {
       console.error(err);
       const message = err instanceof Error ? err.message : 'Terjadi kesalahan saat memproses data.';
@@ -240,7 +240,7 @@ export function useProductMaster() {
     try {
       await deleteProductApi(productId);
       showToast('success', 'Produk berhasil dihapus.');
-      fetchProducts();
+      fetchProducts(filterOutletId);
     } catch (err: unknown) {
       console.error(err);
       const message = err instanceof Error ? err.message : 'Terjadi kesalahan saat menghapus.';

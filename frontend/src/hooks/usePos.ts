@@ -175,20 +175,20 @@ export function usePos({ printRef }: UsePosOptions) {
   const customerWindowRef = useRef<Window | null>(null);
   const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const showToast = (type: 'success' | 'error', message: string) => {
+  const showToast = useCallback((type: 'success' | 'error', message: string) => {
     setNotification({ type, message });
     setTimeout(() => {
       setNotification(null);
     }, 6000);
-  };
+  }, []);
 
-  const handleLogout = () => {
+  const handleLogout = useCallback(() => {
     clearCart();
     clearShift();
     logout();
-  };
+  }, [clearCart, clearShift, logout]);
 
-  const checkTokenExpiration = (err: unknown) => {
+  const checkTokenExpiration = useCallback((err: unknown) => {
     const message = err instanceof Error ? err.message : isApiError(err) ? err.message : '';
     const isExpired =
       message.toLowerCase().includes('kedaluwarsa') ||
@@ -204,7 +204,7 @@ export function usePos({ printRef }: UsePosOptions) {
       return true;
     }
     return false;
-  };
+  }, [showToast, handleLogout, navigate]);
 
   useEffect(() => {
     return () => {
@@ -218,7 +218,7 @@ export function usePos({ printRef }: UsePosOptions) {
     if (token) {
       fetchActiveSubscription();
     }
-  }, [token, activeOutletId]);
+  }, [token, activeOutletId, fetchActiveSubscription]);
 
   // Resolve silent outlet for platform admin
   useEffect(() => {
@@ -264,7 +264,7 @@ export function usePos({ printRef }: UsePosOptions) {
     } else {
       clearShift();
     }
-  }, [token, user?.tenantId, fetchActiveShift, clearShift, navigate]);
+  }, [token, user?.tenantId, fetchActiveShift, clearShift, navigate, handleLogout, showToast]);
 
   // Handle mobile cart drawer overflow hidden
   useEffect(() => {
@@ -349,7 +349,7 @@ export function usePos({ printRef }: UsePosOptions) {
     return () => {
       cancelled = true;
     };
-  }, [canFetchProducts, token, activeOutletId, platformAdmin]);
+  }, [canFetchProducts, token, activeOutletId, platformAdmin, checkTokenExpiration, showToast]);
 
   const catalogProducts = useMemo(
     () => (canFetchProducts ? products : []),
