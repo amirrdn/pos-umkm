@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
 import { useSubscriptionStore } from '../store/useSubscriptionStore';
 import { getErrorMessage } from '../api/types';
-import { getMidtransClientKey } from '../config';
+import { getMidtransClientKey, MIDTRANS_IS_PRODUCTION } from '../config';
 import { getMidtransSnap, loadMidtransSnapScript } from '../types/midtransSnap';
 import { AppShellHeader } from './AppShellHeader';
 import { 
@@ -282,11 +282,19 @@ export default function SubscriptionPricing() {
               <div className="flex items-center justify-center gap-3 mb-2 text-indigo-650 dark:text-indigo-400">
                 <ShieldCheck className="w-5 h-5" />
                 <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">
-                  Pembayaran Terjamin & Aman
+                  Keamanan Transaksi Pembayaran
                 </h4>
               </div>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                Kami bermitra dengan <strong>Midtrans Payment Gateway</strong> (Sandbox) untuk memastikan kelancaran transaksi langganan. Kami tidak menyimpan detail kartu kredit atau informasi sensitif perbankan Anda di server kami.
+                Pembayaran langganan diproses melalui{' '}
+                <strong>Midtrans</strong>, gateway pembayaran resmi dengan standar keamanan PCI DSS.
+                Seluruh data kartu dan informasi perbankan ditangani langsung oleh Midtrans—platform
+                kami tidak menyimpan detail sensitif pembayaran di server.
+                {!MIDTRANS_IS_PRODUCTION && (
+                  <span className="block mt-1 text-slate-400 dark:text-slate-500">
+                    Lingkungan saat ini: sandbox (uji coba).
+                  </span>
+                )}
               </p>
             </div>
           </div>

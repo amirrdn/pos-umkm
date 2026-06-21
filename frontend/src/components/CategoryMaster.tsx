@@ -1,7 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
-import { apiClient } from '../api/apiClient';
+import {
+  createCategoryApi,
+  deleteCategoryApi,
+  getCategoriesApi,
+  updateCategoryApi,
+  type Category,
+} from '../api/categoryApi';
 import { getErrorMessage } from '../api/types';
 import { AppShellHeader } from './AppShellHeader';
 import {
@@ -15,13 +21,6 @@ import {
   FileSpreadsheet,
   AlertTriangle,
 } from 'lucide-react';
-
-interface Category {
-  id: string;
-  name: string;
-  slug: string;
-  prefix: string;
-}
 
 export const CategoryMaster: React.FC = () => {
   const navigate = useNavigate();
@@ -58,8 +57,7 @@ export const CategoryMaster: React.FC = () => {
   const fetchCategories = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await apiClient.get('/api/categories');
-      setCategories(response.data.data || []);
+      setCategories(await getCategoriesApi());
     } catch (err: unknown) {
       console.error(err);
       showToast('error', getErrorMessage(err, 'Koneksi ke API kategori gagal.'));
@@ -115,9 +113,9 @@ export const CategoryMaster: React.FC = () => {
 
     try {
       if (modalMode === 'create') {
-        await apiClient.post('/api/categories', payload);
+        await createCategoryApi(payload);
       } else {
-        await apiClient.put(`/api/categories/${currentId}`, payload);
+        await updateCategoryApi(currentId, payload);
       }
 
       showToast('success', modalMode === 'create' ? 'Kategori baru berhasil ditambahkan.' : 'Kategori berhasil diperbarui.');
@@ -142,7 +140,7 @@ export const CategoryMaster: React.FC = () => {
     if (!targetCategory) return;
     setDeleteLoading(true);
     try {
-      await apiClient.delete(`/api/categories/${targetCategory.id}`);
+      await deleteCategoryApi(targetCategory.id);
       showToast('success', 'Kategori berhasil dihapus.');
       closeDeleteDialog();
       fetchCategories();

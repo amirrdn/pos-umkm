@@ -1,4 +1,4 @@
-import { TransferStatus, MutationType } from '@prisma/client';
+import { Prisma, TransferStatus, MutationType } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 
 interface TransferItemInput {
@@ -443,7 +443,7 @@ export async function cancelTransfer(tenantId: string, userId: string, transferI
  * Bisa difilter berdasarkan outlet asal atau tujuan.
  */
 export async function listTransfers(tenantId: string, filters: { fromOutletId?: string; toOutletId?: string; status?: TransferStatus }) {
-  const whereClause: any = { tenantId };
+  const whereClause: Prisma.StockTransferWhereInput = { tenantId };
 
   if (filters.fromOutletId) {
     whereClause.fromOutletId = filters.fromOutletId;

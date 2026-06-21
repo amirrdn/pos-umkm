@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { LucideIcon } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
-import { useSubscriptionStore, type UsageDetail } from '../store/useSubscriptionStore';
+import { useSubscriptionStore, type UsageDetail, isUnlimitedUsageLimit } from '../store/useSubscriptionStore';
 import { getErrorMessage } from '../api/types';
 import { getMidtransClientKey } from '../config';
 import { getMidtransSnap, loadMidtransSnapScript } from '../types/midtransSnap';
@@ -117,8 +117,11 @@ export default function BillingDashboard() {
 
   const renderLimitBar = (title: string, icon: LucideIcon, details: UsageDetail, maxText: string) => {
     const IconComponent = icon;
-    const isUnlimited = details.limit === Infinity;
-    const percentage = isUnlimited ? 0 : Math.min((details.current / details.limit) * 100, 100);
+    const isUnlimited = isUnlimitedUsageLimit(details.limit);
+    const percentage =
+      isUnlimited || details.limit == null
+        ? 0
+        : Math.min((details.current / details.limit) * 100, 100);
     
     let barColor = 'bg-indigo-500';
     if (details.isFull) barColor = 'bg-rose-500';
@@ -144,7 +147,12 @@ export default function BillingDashboard() {
           </div>
           <div className="text-right">
             <span className="text-sm font-black font-mono text-slate-800 dark:text-slate-100">{details.current}</span>
-            {!isUnlimited && <span className="text-xs text-slate-400 font-semibold font-mono"> / {details.limit}</span>}
+            {!isUnlimited && (
+              <span className="text-xs text-slate-400 font-semibold font-mono"> / {details.limit}</span>
+            )}
+            {isUnlimited && (
+              <span className="text-xs text-slate-400 font-semibold font-mono"> / ∞</span>
+            )}
           </div>
         </div>
 

@@ -23,7 +23,7 @@ export class CustomerService {
    * Mengambil semua pelanggan milik tenant tertentu, mendukung pencarian nama/telepon.
    */
   async getAllCustomers(tenantId: string, search?: string) {
-    const whereClause: any = {
+    const whereClause: Prisma.CustomerWhereInput = {
       tenantId: tenantId
     };
 

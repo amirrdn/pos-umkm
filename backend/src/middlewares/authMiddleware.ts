@@ -66,10 +66,10 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
 
     return next();
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('JWT Verification Error:', error);
 
-    if (error.name === 'TokenExpiredError') {
+    if (error instanceof Error && error.name === 'TokenExpiredError') {
       return res.status(401).json({
         success: false,
         message: 'Akses Ditolak: Token Anda telah kedaluwarsa. Silakan login kembali.'

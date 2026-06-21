@@ -12,7 +12,7 @@ import {
   Phone,
 } from 'lucide-react';
 import { usePlatformStore } from '../../store/usePlatformStore';
-import { useSubscriptionStore } from '../../store/useSubscriptionStore';
+import { useSubscriptionStore, isUnlimitedUsageLimit } from '../../store/useSubscriptionStore';
 
 const TIER_LABELS: Record<string, string> = {
   FREE: 'Gratis',
@@ -140,7 +140,7 @@ export function PlatformTenantDetailView() {
                   {data.current}
                   <span className="text-xs font-semibold text-slate-400">
                     {' '}
-                    / {data.limit === Infinity ? '∞' : data.limit}
+                    / {isUnlimitedUsageLimit(data.limit) ? '∞' : data.limit}
                   </span>
                 </p>
               </div>

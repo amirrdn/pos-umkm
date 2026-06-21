@@ -49,15 +49,16 @@ function buildUsageMetric(
   limit: number
 ): {
   current: number;
-  limit: number;
+  limit: number | null;
   isNearLimit: boolean;
   isFull: boolean;
 } {
+  const unlimited = !Number.isFinite(limit);
   return {
     current,
-    limit,
-    isNearLimit: limit !== Infinity && current >= limit * 0.9,
-    isFull: limit !== Infinity && current >= limit,
+    limit: unlimited ? null : limit,
+    isNearLimit: !unlimited && current >= limit * 0.9,
+    isFull: !unlimited && current >= limit,
   };
 }
 
