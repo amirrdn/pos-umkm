@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
 import { Prisma } from '@prisma/client';
+import { isAppError } from '../lib/errors';
 
 export interface AppError extends Error {
   statusCode?: number;
@@ -12,19 +13,21 @@ export interface AppError extends Error {
  * Dipasang di akhir chain routing.
  */
 export function errorHandler(
-  err: any,
+  err: unknown,
   req: Request,
   res: Response,
   _next: NextFunction
 ) {
+  const message = err instanceof Error ? err.message : 'Unknown error';
+  const stack = err instanceof Error ? err.stack : undefined;
+
   console.error('🚨 Global Error Caught:', {
-    message: err.message,
-    stack: err.stack,
+    message,
+    stack,
     path: req.path,
     method: req.method,
   });
 
-  // 1. Zod Validation Error
   if (err instanceof ZodError) {
     return res.status(400).json({
       success: false,
@@ -33,9 +36,7 @@ export function errorHandler(
     });
   }
 
-  // 2. Prisma Database Errors
   if (err instanceof Prisma.PrismaClientKnownRequestError) {
-    // Unique constraint violation (e.g., duplicate SKU or email)
     if (err.code === 'P2002') {
       const target = (err.meta?.target as string[]) || [];
       return res.status(409).json({
@@ -44,7 +45,6 @@ export function errorHandler(
       });
     }
 
-    // Foreign key constraint violation
     if (err.code === 'P2003') {
       return res.status(400).json({
         success: false,
@@ -52,7 +52,6 @@ export function errorHandler(
       });
     }
 
-    // Record not found
     if (err.code === 'P2025') {
       return res.status(404).json({
         success: false,
@@ -61,13 +60,13 @@ export function errorHandler(
     }
   }
 
-  // 3. Custom Application Errors (dengan statusCode)
-  const statusCode = err.statusCode || 500;
-  const message = err.message || 'Terjadi kesalahan internal server.';
-  
+  const appError = isAppError(err) ? err : null;
+  const statusCode = appError?.statusCode ?? 500;
+  const responseMessage = appError?.message ?? 'Terjadi kesalahan internal server.';
+
   return res.status(statusCode).json({
     success: false,
-    code: err.code || undefined,
-    message: message,
+    code: appError?.code,
+    message: responseMessage,
   });
 }

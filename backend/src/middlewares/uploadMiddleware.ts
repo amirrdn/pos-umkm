@@ -1,8 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import multer from 'multer';
-import { v2 as cloudinary } from 'cloudinary';
+import { v2 as cloudinary, type UploadApiErrorResponse, type UploadApiResponse } from 'cloudinary';
+import { getErrorMessage } from '../lib/errors';
 
-// Configure Cloudinary
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
@@ -11,7 +11,7 @@ cloudinary.config({
 
 const storage = multer.memoryStorage();
 
-const fileFilter = (_req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+const fileFilter = (_req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
   const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
   if (allowedTypes.includes(file.mimetype)) {
     cb(null, true);
@@ -24,16 +24,16 @@ export const upload = multer({
   storage,
   fileFilter,
   limits: {
-    fileSize: 5 * 1024 * 1024
-  }
+    fileSize: 5 * 1024 * 1024,
+  },
 });
 
 export const uploadSingleImage = (req: Request, res: Response, next: NextFunction): void => {
-  upload.single('image')(req, res, async (err: any) => {
+  upload.single('image')(req, res, async (err: unknown) => {
     if (err) {
       res.status(400).json({
         success: false,
-        message: err.message || 'Gagal mengunggah gambar.'
+        message: getErrorMessage(err, 'Gagal mengunggah gambar.'),
       });
       return;
     }
@@ -44,12 +44,11 @@ export const uploadSingleImage = (req: Request, res: Response, next: NextFunctio
     }
 
     try {
-      // Upload file buffer to Cloudinary using upload_stream
       const uploadStream = cloudinary.uploader.upload_stream(
         {
           folder: 'saaspos-products',
         },
-        (error: any, result: any) => {
+        (error: UploadApiErrorResponse | undefined, result: UploadApiResponse | undefined) => {
           if (error) {
             console.error('Cloudinary Upload Stream Error:', error);
             res.status(500).json({
@@ -60,7 +59,6 @@ export const uploadSingleImage = (req: Request, res: Response, next: NextFunctio
           }
 
           if (result) {
-            // Attach secure url to request so controller can access it
             req.fileUrl = result.secure_url;
             next();
           } else {
@@ -73,11 +71,11 @@ export const uploadSingleImage = (req: Request, res: Response, next: NextFunctio
       );
 
       uploadStream.end(req.file.buffer);
-    } catch (uploadError: any) {
+    } catch (uploadError: unknown) {
       console.error('Cloudinary Middleware Catch Error:', uploadError);
       res.status(500).json({
         success: false,
-        message: 'Terjadi kesalahan sistem saat mengunggah ke Cloudinary.'
+        message: 'Terjadi kesalahan sistem saat mengunggah ke Cloudinary.',
       });
     }
   });
