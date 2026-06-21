@@ -1,5 +1,6 @@
 // Konfigurasi URL API Backend untuk Lingkungan Produksi dan Pengembangan
-export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+export const API_BASE_URL = import.meta.env.VITE_API_URL;
+export const API_TIMEOUT_MS = 300000; // 5 Menit
 
 export const MIDTRANS_IS_PRODUCTION =
   import.meta.env.VITE_MIDTRANS_IS_PRODUCTION === 'true';

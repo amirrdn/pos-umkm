@@ -63,6 +63,7 @@ model Tenant {
   updatedAt   DateTime     @updatedAt
   deletedAt   DateTime?    // Indikator Soft Delete
   requireStockApproval Boolean @default(false)
+  taxRate     Decimal      @db.Decimal(5, 4) @default(0.11)
 
   // ===== SUBSCRIPTION FIELDS =====
   subscriptionTier      SubscriptionTier   @default(FREE)

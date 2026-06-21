@@ -1,7 +1,8 @@
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePlatformStore } from '../../store/usePlatformStore';
-import { Loader2, Package, Store, Users, ShoppingCart, Eye } from 'lucide-react';
+import { Loader2, Package, Store, Users, ShoppingCart, Eye, Plus, Edit2, Trash2 } from 'lucide-react';
+import { PlatformTenantModal } from './PlatformTenantModal';
 
 const TIER_COLORS: Record<string, string> = {
   FREE: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
@@ -23,10 +24,34 @@ export function PlatformTenantsView() {
   const error = usePlatformStore((state) => state.error);
   const fetchTenants = usePlatformStore((state) => state.fetchTenants);
   const setActiveTenant = usePlatformStore((state) => state.setActiveTenant);
+  const deleteTenant = usePlatformStore((state) => state.deleteTenant);
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingTenantId, setEditingTenantId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchTenants();
   }, [fetchTenants]);
+
+  const handleOpenCreateModal = () => {
+    setEditingTenantId(null);
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEditModal = (tenantId: string) => {
+    setEditingTenantId(tenantId);
+    setIsModalOpen(true);
+  };
+
+  const handleDelete = async (tenantId: string, tenantName: string) => {
+    if (confirm(`Apakah Anda yakin ingin menghapus toko "${tenantName}" secara permanen? Tindakan ini tidak dapat dibatalkan.`)) {
+      try {
+        await deleteTenant(tenantId);
+      } catch (err: any) {
+        alert(err.message || 'Gagal menghapus tenant.');
+      }
+    }
+  };
 
   const handleInspect = (tenantId: string) => {
     setActiveTenant(tenantId);
@@ -51,11 +76,30 @@ export function PlatformTenantsView() {
 
   if (tenants.length === 0) {
     return (
-      <div className="rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 p-12 text-center">
-        <Store className="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
-        <p className="text-sm font-semibold text-slate-600 dark:text-slate-400">
-          Belum ada tenant terdaftar
-        </p>
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-black text-slate-800 dark:text-slate-100">
+            Semua Tenant (0)
+          </h2>
+          <button
+            onClick={handleOpenCreateModal}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white text-sm font-bold rounded-xl shadow-sm transition-all active:scale-95"
+          >
+            <Plus className="w-4 h-4" />
+            Tambah Tenant
+          </button>
+        </div>
+        <div className="rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 p-12 text-center">
+          <Store className="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
+          <p className="text-sm font-semibold text-slate-600 dark:text-slate-400">
+            Belum ada tenant terdaftar
+          </p>
+        </div>
+        <PlatformTenantModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          tenantIdToEdit={editingTenantId}
+        />
       </div>
     );
   }
@@ -66,6 +110,13 @@ export function PlatformTenantsView() {
         <h2 className="text-sm font-black text-slate-800 dark:text-slate-100">
           Semua Tenant ({tenants.length})
         </h2>
+        <button
+          onClick={handleOpenCreateModal}
+          className="inline-flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white text-sm font-bold rounded-xl shadow-sm transition-all active:scale-95"
+        >
+          <Plus className="w-4 h-4" />
+          Tambah Tenant
+        </button>
       </div>
 
       <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-sm">
@@ -147,13 +198,26 @@ export function PlatformTenantsView() {
                       {tenant._count.transactions}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <button
-                        onClick={() => handleInspect(tenant.id)}
-                        className="cursor-pointer inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wide bg-violet-100 text-violet-700 hover:bg-violet-200 dark:bg-violet-950 dark:text-violet-300 dark:hover:bg-violet-900 transition-colors"
-                      >
-                        <Eye className="w-3 h-3" />
-                        Inspeksi
-                      </button>
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          onClick={() => handleInspect(tenant.id)}
+                          className="cursor-pointer inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wide bg-violet-100 text-violet-700 hover:bg-violet-200 dark:bg-violet-950 dark:text-violet-300 dark:hover:bg-violet-900 transition-colors"
+                        >
+                          <Eye className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={() => handleOpenEditModal(tenant.id)}
+                          className="cursor-pointer inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wide bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 transition-colors"
+                        >
+                          <Edit2 className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(tenant.id, tenant.name)}
+                          className="cursor-pointer inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wide bg-rose-100 text-rose-700 hover:bg-rose-200 dark:bg-rose-950 dark:text-rose-300 dark:hover:bg-rose-900 transition-colors"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -162,6 +226,12 @@ export function PlatformTenantsView() {
           </table>
         </div>
       </div>
+      
+      <PlatformTenantModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        tenantIdToEdit={editingTenantId}
+      />
     </div>
   );
 }

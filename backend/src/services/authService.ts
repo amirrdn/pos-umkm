@@ -25,6 +25,9 @@ export class AuthService {
         deletedAt: null
       },
       include: {
+        tenant: {
+          select: { taxRate: true }
+        },
         userOutlets: {
           include: {
             outlet: {
@@ -97,6 +100,8 @@ export class AuthService {
       { expiresIn: getJwtExpiresIn() as any }
     );
 
+    const taxRate = user.tenant?.taxRate ? Number(user.tenant.taxRate) : 0.11;
+
     return {
       token,
       user: {
@@ -107,7 +112,8 @@ export class AuthService {
         roles,
         permissions,
         outletIds,
-        outlets
+        outlets,
+        taxRate
       }
     };
   }

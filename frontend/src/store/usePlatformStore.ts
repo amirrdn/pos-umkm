@@ -54,6 +54,9 @@ interface PlatformState {
   overview: PlatformOverview | null;
   activeTenantId: string | null;
   activeTenantMeta: PlatformTenantMeta | null;
+  staffList: any[];
+  revenueData: any[];
+  topProducts: any[];
   loading: boolean;
   error: string | null;
 
@@ -61,6 +64,12 @@ interface PlatformState {
   ensureActiveTenant: () => Promise<void>;
   fetchTenants: () => Promise<void>;
   fetchOverview: () => Promise<void>;
+  fetchStaffList: (page?: number, limit?: number) => Promise<void>;
+  fetchRevenueData: () => Promise<void>;
+  fetchTopProducts: () => Promise<void>;
+  createTenant: (payload: any) => Promise<void>;
+  updateTenant: (id: string, payload: any) => Promise<void>;
+  deleteTenant: (id: string) => Promise<void>;
 }
 
 export const usePlatformStore = create<PlatformState>()(
@@ -70,6 +79,9 @@ export const usePlatformStore = create<PlatformState>()(
       overview: null,
       activeTenantId: null,
       activeTenantMeta: null,
+      staffList: [],
+      revenueData: [],
+      topProducts: [],
       loading: false,
       error: null,
 
@@ -146,6 +158,78 @@ export const usePlatformStore = create<PlatformState>()(
         } catch (err) {
           const message = err instanceof Error ? err.message : 'Gagal memuat ringkasan platform.';
           set({ error: message, loading: false });
+        }
+      },
+
+      fetchStaffList: async (page = 1, limit = 50) => {
+        set({ loading: true, error: null });
+        try {
+          const response = await apiClient.get<{ data: any[] }>(`/api/platform/staff?page=${page}&limit=${limit}`);
+          set({ staffList: response.data.data || [], loading: false });
+        } catch (err) {
+          const message = err instanceof Error ? err.message : 'Gagal memuat daftar staf.';
+          set({ error: message, loading: false });
+        }
+      },
+
+      fetchRevenueData: async () => {
+        set({ loading: true, error: null });
+        try {
+          const response = await apiClient.get<{ data: any[] }>('/api/platform/analytics/revenue');
+          set({ revenueData: response.data.data || [], loading: false });
+        } catch (err) {
+          const message = err instanceof Error ? err.message : 'Gagal memuat data pendapatan.';
+          set({ error: message, loading: false });
+        }
+      },
+
+      fetchTopProducts: async () => {
+        set({ loading: true, error: null });
+        try {
+          const response = await apiClient.get<{ data: any[] }>('/api/platform/analytics/top-products');
+          set({ topProducts: response.data.data || [], loading: false });
+        } catch (err) {
+          const message = err instanceof Error ? err.message : 'Gagal memuat daftar produk terlaris.';
+          set({ error: message, loading: false });
+        }
+      },
+
+      createTenant: async (payload) => {
+        set({ loading: true, error: null });
+        try {
+          await apiClient.post('/api/platform/tenants', payload);
+          await get().fetchTenants();
+        } catch (err) {
+          const message = err instanceof Error ? err.message : 'Gagal membuat tenant.';
+          set({ error: message, loading: false });
+          throw err;
+        }
+      },
+
+      updateTenant: async (id, payload) => {
+        set({ loading: true, error: null });
+        try {
+          await apiClient.put(`/api/platform/tenants/${id}`, payload);
+          await get().fetchTenants();
+        } catch (err) {
+          const message = err instanceof Error ? err.message : 'Gagal memperbarui tenant.';
+          set({ error: message, loading: false });
+          throw err;
+        }
+      },
+
+      deleteTenant: async (id) => {
+        set({ loading: true, error: null });
+        try {
+          await apiClient.delete(`/api/platform/tenants/${id}`);
+          if (get().activeTenantId === id) {
+            set({ activeTenantId: null, activeTenantMeta: null });
+          }
+          await get().fetchTenants();
+        } catch (err) {
+          const message = err instanceof Error ? err.message : 'Gagal menghapus tenant.';
+          set({ error: message, loading: false });
+          throw err;
         }
       },
     }),

@@ -5,8 +5,13 @@ export const PLATFORM_ADMIN_ROLE_LABEL = 'Admin Platform';
 /** Pemilik toko (tenant) */
 export const TENANT_OWNER_ROLE = 'Owner';
 
+/** Peran lainnya di toko */
+export const ROLE_MANAGER = 'Manager';
+export const ROLE_CASHIER = 'Kasir';
+export const ROLE_INVENTORY = 'Staf Gudang';
+
 /** Peran yang boleh memilih outlet mana saja / agregat semua outlet dalam tenant */
-export const TENANT_WIDE_OUTLET_ROLES = [TENANT_OWNER_ROLE, 'Manager', PLATFORM_ADMIN_ROLE] as const;
+export const TENANT_WIDE_OUTLET_ROLES = [TENANT_OWNER_ROLE, ROLE_MANAGER, PLATFORM_ADMIN_ROLE] as const;
 
 export function isPlatformAdmin(roles: string[]): boolean {
   return roles.includes(PLATFORM_ADMIN_ROLE);
