@@ -129,13 +129,36 @@ export function useProductMaster() {
   };
 
   useEffect(() => {
-    if (token) {
-      void (async () => {
-        await Promise.resolve();
-        await Promise.all([fetchProducts(''), fetchCategories(), fetchOutlets()]);
-      })();
-    }
-  }, [token, fetchProducts, fetchCategories, fetchOutlets]);
+    if (!token) return;
+
+    let cancelled = false;
+
+    void (async () => {
+      await Promise.resolve();
+      if (cancelled) return;
+      await Promise.all([fetchCategories(), fetchOutlets()]);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token, fetchCategories, fetchOutlets]);
+
+  useEffect(() => {
+    if (!token) return;
+
+    let cancelled = false;
+
+    void (async () => {
+      await Promise.resolve();
+      if (cancelled) return;
+      await fetchProducts(filterOutletId);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token, filterOutletId, fetchProducts]);
 
   const handleOpenCreate = () => {
     setModalMode('create');
@@ -280,7 +303,6 @@ export function useProductMaster() {
 
   const handleFilterOutletChange = (outletId: string) => {
     setFilterOutletId(outletId);
-    fetchProducts(outletId);
   };
 
   const goToInventoryMutation = () => {
