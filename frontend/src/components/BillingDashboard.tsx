@@ -38,7 +38,7 @@ export default function BillingDashboard() {
   useEffect(() => {
     fetchActiveSubscription();
     fetchInvoices();
-  }, []);
+  }, [fetchActiveSubscription, fetchInvoices]);
 
   const formatRupiah = (value: number) => {
     return new Intl.NumberFormat('id-ID', {
