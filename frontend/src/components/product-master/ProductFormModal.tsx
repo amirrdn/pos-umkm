@@ -1,4 +1,4 @@
-import { Package } from 'lucide-react';
+import { Package, Loader2 } from 'lucide-react';
 import { ProductGeneralFormTab } from './ProductGeneralFormTab';
 import { ProductOutletsFormTab } from './ProductOutletsFormTab';
 import type { UseProductMasterReturn } from '../../hooks/useProductMaster';
@@ -43,6 +43,7 @@ export function ProductFormModal({ productMaster }: ProductFormModalProps) {
     setMinStocks,
     handleSavePrice,
     handleSaveMinStock,
+    isSubmitting,
   } = productMaster;
 
   if (!isModalOpen) {
@@ -142,8 +143,10 @@ export function ProductFormModal({ productMaster }: ProductFormModalProps) {
             {activeTab === 'general' && (
               <button
                 type="submit"
-                className="cursor-pointer px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-xs font-bold shadow-lg shadow-indigo-100 transition-all"
+                disabled={isSubmitting}
+                className="cursor-pointer px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-xs font-bold shadow-lg shadow-indigo-100 transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
               >
+                {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
                 {modalMode === 'create' ? 'Tambah Produk' : 'Simpan Perubahan'}
               </button>
             )}
