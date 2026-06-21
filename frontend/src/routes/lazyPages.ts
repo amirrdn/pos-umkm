@@ -30,6 +30,14 @@ export const PlatformDashboard = lazyNamed(
   () => import('../components/platform/PlatformDashboard'),
   'PlatformDashboard'
 );
+export const PlatformAnalyticsView = lazyNamed(
+  () => import('../components/platform/PlatformAnalyticsView'),
+  'PlatformAnalyticsView'
+);
+export const PlatformStaffView = lazyNamed(
+  () => import('../components/platform/PlatformStaffView'),
+  'PlatformStaffView'
+);
 export const PlatformTenantsView = lazyNamed(
   () => import('../components/platform/PlatformTenantsView'),
   'PlatformTenantsView'

@@ -46,7 +46,8 @@ const calculateTotals = (
   }
 
   const taxableAmount = subTotal - discountAmount;
-  const taxAmount = applyTax ? taxableAmount * 0.11 : 0;
+  const taxRate = useAuthStore.getState().user?.taxRate ?? 0.11;
+  const taxAmount = applyTax ? taxableAmount * taxRate : 0;
 
   const grandTotal = taxableAmount + taxAmount;
   return { subTotal, grandTotal };

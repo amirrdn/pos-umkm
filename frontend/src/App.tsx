@@ -1,6 +1,7 @@
 import { Suspense, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore, isPlatformAdmin } from './store/useAuthStore';
+import { TENANT_OWNER_ROLE, ROLE_MANAGER, ROLE_CASHIER, ROLE_INVENTORY, PLATFORM_ADMIN_ROLE } from './utils/roles';
 import { useThemeStore } from './store/useThemeStore';
 import { NotificationPoller } from './components/NotificationPoller';
 import { RouteFallback } from './components/RouteFallback';
@@ -17,6 +18,8 @@ import {
   PlatformBillingView,
   PlatformConsoleLayout,
   PlatformDashboard,
+  PlatformAnalyticsView,
+  PlatformStaffView,
   PlatformTenantDetailView,
   PlatformTenantsView,
   PosView,
@@ -44,7 +47,7 @@ const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode;
   if (allowedRoles && user) {
     const hasRole = user.roles.some((role) => allowedRoles.includes(role));
     if (!hasRole) {
-      if (user.roles.includes('Staf Gudang')) {
+      if (user.roles.includes(ROLE_INVENTORY)) {
         return <Navigate to="/admin/inventory" replace />;
       }
       return <Navigate to="/pos" replace />;
@@ -123,6 +126,8 @@ function App() {
             }
           >
             <Route index element={<PlatformDashboard />} />
+            <Route path="analytics" element={<PlatformAnalyticsView />} />
+            <Route path="staff" element={<PlatformStaffView />} />
             <Route path="tenants" element={<PlatformTenantsView />} />
             <Route path="tenants/:tenantId" element={<PlatformTenantDetailView />} />
             <Route path="billing" element={<PlatformBillingView />} />
@@ -131,7 +136,7 @@ function App() {
           <Route
             path="/pos"
             element={
-              <ProtectedRoute allowedRoles={['Owner', 'Manager', 'Admin', 'Kasir']}>
+              <ProtectedRoute allowedRoles={[TENANT_OWNER_ROLE, ROLE_MANAGER, PLATFORM_ADMIN_ROLE, ROLE_CASHIER]}>
                 <PosView />
               </ProtectedRoute>
             }
@@ -140,7 +145,7 @@ function App() {
           <Route
             path="/pos/history"
             element={
-              <ProtectedRoute allowedRoles={['Owner', 'Manager', 'Admin', 'Kasir']}>
+              <ProtectedRoute allowedRoles={[TENANT_OWNER_ROLE, ROLE_MANAGER, PLATFORM_ADMIN_ROLE, ROLE_CASHIER]}>
                 <TransactionHistory />
               </ProtectedRoute>
             }
@@ -149,7 +154,7 @@ function App() {
           <Route
             path="/admin/products"
             element={
-              <ProtectedRoute allowedRoles={['Owner', 'Manager', 'Admin', 'Staf Gudang']}>
+              <ProtectedRoute allowedRoles={[TENANT_OWNER_ROLE, ROLE_MANAGER, PLATFORM_ADMIN_ROLE, ROLE_INVENTORY]}>
                 <ProductMaster />
               </ProtectedRoute>
             }
@@ -158,7 +163,7 @@ function App() {
           <Route
             path="/admin/categories"
             element={
-              <ProtectedRoute allowedRoles={['Owner', 'Manager', 'Admin', 'Staf Gudang']}>
+              <ProtectedRoute allowedRoles={[TENANT_OWNER_ROLE, ROLE_MANAGER, PLATFORM_ADMIN_ROLE, ROLE_INVENTORY]}>
                 <CategoryMaster />
               </ProtectedRoute>
             }
@@ -167,7 +172,7 @@ function App() {
           <Route
             path="/admin/dashboard"
             element={
-              <ProtectedRoute allowedRoles={['Owner', 'Manager', 'Admin']}>
+              <ProtectedRoute allowedRoles={[TENANT_OWNER_ROLE, ROLE_MANAGER, PLATFORM_ADMIN_ROLE]}>
                 <DashboardAdmin />
               </ProtectedRoute>
             }
@@ -176,7 +181,7 @@ function App() {
           <Route
             path="/admin/staff"
             element={
-              <ProtectedRoute allowedRoles={['Owner', 'Manager', 'Admin']}>
+              <ProtectedRoute allowedRoles={[TENANT_OWNER_ROLE, ROLE_MANAGER, PLATFORM_ADMIN_ROLE]}>
                 <StaffManagementView />
               </ProtectedRoute>
             }
@@ -185,7 +190,7 @@ function App() {
           <Route
             path="/admin/inventory"
             element={
-              <ProtectedRoute allowedRoles={['Owner', 'Manager', 'Admin', 'Staf Gudang']}>
+              <ProtectedRoute allowedRoles={[TENANT_OWNER_ROLE, ROLE_MANAGER, PLATFORM_ADMIN_ROLE, ROLE_INVENTORY]}>
                 <InventoryView />
               </ProtectedRoute>
             }
@@ -194,7 +199,7 @@ function App() {
           <Route
             path="/admin/customers"
             element={
-              <ProtectedRoute allowedRoles={['Owner', 'Manager', 'Admin', 'Kasir']}>
+              <ProtectedRoute allowedRoles={[TENANT_OWNER_ROLE, ROLE_MANAGER, PLATFORM_ADMIN_ROLE, ROLE_CASHIER]}>
                 <CustomerManagementView />
               </ProtectedRoute>
             }
@@ -203,7 +208,7 @@ function App() {
           <Route
             path="/admin/outlets"
             element={
-              <ProtectedRoute allowedRoles={['Owner', 'Admin']}>
+              <ProtectedRoute allowedRoles={[TENANT_OWNER_ROLE, PLATFORM_ADMIN_ROLE]}>
                 <OutletManagementView />
               </ProtectedRoute>
             }
@@ -214,7 +219,7 @@ function App() {
           <Route
             path="/admin/billing"
             element={
-              <ProtectedRoute allowedRoles={['Owner', 'Manager', 'Admin']}>
+              <ProtectedRoute allowedRoles={[TENANT_OWNER_ROLE, ROLE_MANAGER, PLATFORM_ADMIN_ROLE]}>
                 <BillingDashboard />
               </ProtectedRoute>
             }
@@ -223,7 +228,7 @@ function App() {
           <Route
             path="/admin/pricing"
             element={
-              <ProtectedRoute allowedRoles={['Owner', 'Manager', 'Admin']}>
+              <ProtectedRoute allowedRoles={[TENANT_OWNER_ROLE, ROLE_MANAGER, PLATFORM_ADMIN_ROLE]}>
                 <SubscriptionPricing />
               </ProtectedRoute>
             }

@@ -42,6 +42,7 @@ export interface AuthUser {
   tenantId: string;
   outletIds?: string[];
   outlets?: AuthOutlet[];
+  taxRate?: number;
 }
 
 interface AuthState {

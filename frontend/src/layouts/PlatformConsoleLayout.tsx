@@ -10,6 +10,8 @@ import {
   Shield,
   Menu,
   X,
+  BarChart2,
+  Users,
 } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { useThemeStore } from '../store/useThemeStore';
@@ -19,7 +21,9 @@ import { TenantSwitcher } from '../components/platform/TenantSwitcher';
 
 const NAV_ITEMS = [
   { path: '/platform', label: 'Dashboard', icon: LayoutDashboard, exact: true },
+  { path: '/platform/analytics', label: 'Analytics', icon: BarChart2, exact: false },
   { path: '/platform/tenants', label: 'Tenant', icon: Building2, exact: false },
+  { path: '/platform/staff', label: 'Staff', icon: Users, exact: false },
   { path: '/platform/billing', label: 'Billing', icon: CreditCard, exact: false },
 ] as const;
 
