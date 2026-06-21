@@ -1,16 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { loginApi, resendVerificationApi, type LoginErrorCode } from '../api/authApi';
+import { isApiError } from '../api/types';
 import { useAuthStore } from '../store/useAuthStore';
 import { useThemeStore } from '../store/useThemeStore';
-import { API_BASE_URL } from '../config';
 import { Lock, Mail, RefreshCw, ShoppingBag, AlertCircle, Sun, Moon, Clock3 } from 'lucide-react';
-
-type LoginErrorCode =
-  | 'EMAIL_NOT_VERIFIED'
-  | 'APPROVAL_PENDING'
-  | 'ACCOUNT_REJECTED'
-  | 'ACCOUNT_DISABLED'
-  | 'INVALID_CREDENTIALS';
 
 export const LoginView: React.FC = () => {
   const navigate = useNavigate();
@@ -33,16 +27,10 @@ export const LoginView: React.FC = () => {
     setResendLoading(true);
     setResendMsg(null);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/auth/resend-verification`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Gagal mengirim ulang email.');
+      const data = await resendVerificationApi(email);
       setResendMsg(data.message || 'Email verifikasi telah dikirim ulang.');
-    } catch (err: any) {
-      setResendMsg(err.message || 'Gagal mengirim ulang email verifikasi.');
+    } catch (err: unknown) {
+      setResendMsg(err instanceof Error ? err.message : 'Gagal mengirim ulang email verifikasi.');
     } finally {
       setResendLoading(false);
     }
@@ -61,29 +49,15 @@ export const LoginView: React.FC = () => {
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        const code = data.code as LoginErrorCode | undefined;
-        if (code) setErrorCode(code);
-        throw new Error(data.message || 'Gagal masuk sistem. Periksa kembali email dan password Anda.');
-      }
-
+      const data = await loginApi({ email, password });
       login(data.data.token, data.data.user);
-
       navigate('/pos');
-
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Login Error:', err);
-      setErrorMsg(err.message || 'Koneksi ke server gagal. Pastikan backend aktif.');
+      if (isApiError(err) && err.code) {
+        setErrorCode(err.code as LoginErrorCode);
+      }
+      setErrorMsg(err instanceof Error ? err.message : 'Koneksi ke server gagal. Pastikan backend aktif.');
     } finally {
       setLoading(false);
     }

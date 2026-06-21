@@ -1,7 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Store, User, Mail, Lock, ArrowLeft, AlertTriangle, CheckCircle, Briefcase } from 'lucide-react';
-import { API_BASE_URL } from '../config';
+import {
+  fetchRegisterOutletsApi,
+  fetchRegisterTenantsApi,
+  registerOwnerApi,
+  registerStaffApi,
+} from '../api/authApi';
+import { isApiError } from '../api/types';
 import { AppSelect } from './AppSelect';
 
 export default function RegisterView() {
@@ -26,39 +32,32 @@ export default function RegisterView() {
   const [success, setSuccess] = useState<string | null>(null);
 
   useEffect(() => {
-    if (registerType === 'staff') {
-      fetchTenants();
-    }
+    if (registerType !== 'staff') return;
+
+    void (async () => {
+      try {
+        setTenantsList(await fetchRegisterTenantsApi());
+      } catch (err) {
+        console.error('Failed to fetch tenants', err);
+      }
+    })();
   }, [registerType]);
 
   useEffect(() => {
-    if (tenantId) {
-      fetchOutlets(tenantId);
-    } else {
+    if (!tenantId) {
       setOutletsList([]);
       setSelectedOutlets([]);
+      return;
     }
+
+    void (async () => {
+      try {
+        setOutletsList(await fetchRegisterOutletsApi(tenantId));
+      } catch (err) {
+        console.error('Failed to fetch outlets', err);
+      }
+    })();
   }, [tenantId]);
-
-  const fetchTenants = async () => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/auth/tenants`);
-      const data = await res.json();
-      if (data.success) setTenantsList(data.data);
-    } catch (err) {
-      console.error('Failed to fetch tenants', err);
-    }
-  };
-
-  const fetchOutlets = async (id: string) => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/auth/tenants/${id}/outlets`);
-      const data = await res.json();
-      if (data.success) setOutletsList(data.data);
-    } catch (err) {
-      console.error('Failed to fetch outlets', err);
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,28 +84,16 @@ export default function RegisterView() {
     setLoading(true);
 
     try {
-      const endpoint = registerType === 'owner' ? '/api/auth/register' : '/api/auth/register-staff';
-      const payload = registerType === 'owner' 
-        ? { tenantName, ownerName, email, password }
-        : { tenantId, name: ownerName, email, password, outletIds: selectedOutlets };
-
-      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        if (data.code === 'EMAIL_NOT_VERIFIED_RESENT') {
-          setSuccess(data.message || 'Email verifikasi telah dikirim ulang. Periksa kotak masuk Anda.');
-          return;
-        }
-        if (data.code === 'REGISTRATION_EMAIL_FAILED') {
-          throw new Error(data.message || 'Gagal mengirim email verifikasi. Registrasi dibatalkan — periksa konfigurasi SMTP.');
-        }
-        throw new Error(data.message || 'Proses pendaftaran gagal.');
+      if (registerType === 'owner') {
+        await registerOwnerApi({ tenantName, ownerName, email, password });
+      } else {
+        await registerStaffApi({
+          tenantId,
+          name: ownerName,
+          email,
+          password,
+          outletIds: selectedOutlets,
+        });
       }
 
       setSuccess(registerType === 'owner'
@@ -117,9 +104,19 @@ export default function RegisterView() {
         navigate('/login');
       }, 8000);
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      setError(err.message || 'Terjadi kesalahan sistem.');
+      if (isApiError(err)) {
+        if (err.code === 'EMAIL_NOT_VERIFIED_RESENT') {
+          setSuccess(err.message || 'Email verifikasi telah dikirim ulang. Periksa kotak masuk Anda.');
+          return;
+        }
+        if (err.code === 'REGISTRATION_EMAIL_FAILED') {
+          setError(err.message || 'Gagal mengirim email verifikasi. Registrasi dibatalkan — periksa konfigurasi SMTP.');
+          return;
+        }
+      }
+      setError(err instanceof Error ? err.message : 'Terjadi kesalahan sistem.');
     } finally {
       setLoading(false);
     }

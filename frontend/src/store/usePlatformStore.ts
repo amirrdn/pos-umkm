@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { API_BASE_URL } from '../config';
+import { apiClient } from '../api/apiClient';
 import { useAuthStore } from './useAuthStore';
 
 export interface PlatformTenantSummary {
@@ -46,13 +46,6 @@ function toTenantMeta(tenant: PlatformTenantSummary): PlatformTenantMeta {
     subscriptionTier: tenant.subscriptionTier,
     subscriptionStatus: tenant.subscriptionStatus,
     productCount: tenant._count.products,
-  };
-}
-
-function buildPlatformAuthHeaders(): HeadersInit {
-  const token = useAuthStore.getState().token;
-  return {
-    Authorization: `Bearer ${token ?? ''}`,
   };
 }
 
@@ -128,15 +121,8 @@ export const usePlatformStore = create<PlatformState>()(
       fetchTenants: async () => {
         set({ loading: true, error: null });
         try {
-          const response = await fetch(`${API_BASE_URL}/api/platform/tenants`, {
-            headers: buildPlatformAuthHeaders(),
-          });
-          const data = await response.json();
-          if (!response.ok) {
-            throw new Error(data.message || 'Gagal memuat daftar tenant.');
-          }
-
-          const tenants: PlatformTenantSummary[] = data.data ?? [];
+          const response = await apiClient.get<{ data: PlatformTenantSummary[] }>('/api/platform/tenants');
+          const tenants = response.data.data ?? [];
           set({ tenants, loading: false });
 
           const { activeTenantId } = get();
@@ -155,14 +141,8 @@ export const usePlatformStore = create<PlatformState>()(
       fetchOverview: async () => {
         set({ loading: true, error: null });
         try {
-          const response = await fetch(`${API_BASE_URL}/api/platform/overview`, {
-            headers: buildPlatformAuthHeaders(),
-          });
-          const data = await response.json();
-          if (!response.ok) {
-            throw new Error(data.message || 'Gagal memuat ringkasan platform.');
-          }
-          set({ overview: data.data ?? null, loading: false });
+          const response = await apiClient.get<{ data: PlatformOverview }>('/api/platform/overview');
+          set({ overview: response.data.data ?? null, loading: false });
         } catch (err) {
           const message = err instanceof Error ? err.message : 'Gagal memuat ringkasan platform.';
           set({ error: message, loading: false });

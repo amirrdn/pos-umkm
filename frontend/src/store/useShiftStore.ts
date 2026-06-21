@@ -1,6 +1,5 @@
 import { create } from 'zustand';
-import { API_BASE_URL } from '../config';
-import { buildApiHeaders } from '../utils/apiHeaders';
+import { apiClient } from '../api/apiClient';
 
 // ==========================================
 // INTERFACE
@@ -41,14 +40,6 @@ interface ShiftStore {
 }
 
 // ==========================================
-// HELPER
-// ==========================================
-
-function buildHeaders(): HeadersInit {
-  return buildApiHeaders({ 'Content-Type': 'application/json' });
-}
-
-// ==========================================
 // STORE
 // ==========================================
 
@@ -63,14 +54,12 @@ export const useShiftStore = create<ShiftStore>((set) => ({
    * Dipanggil saat komponen PosView pertama kali di-mount.
    */
   fetchActiveShift: async (_token, _tenantId) => {
+    void _token;
+    void _tenantId;
     set({ isLoading: true, error: null });
     try {
-      const res = await fetch(`${API_BASE_URL}/api/shifts/active`, {
-        headers: buildHeaders(),
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.message || 'Gagal mengambil data shift aktif.');
-      set({ activeShift: json.data ?? null });
+      const response = await apiClient.get<{ data: ActiveShift | null }>('/api/shifts/active');
+      set({ activeShift: response.data.data ?? null });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Terjadi kesalahan.';
       set({ error: msg });
@@ -83,17 +72,13 @@ export const useShiftStore = create<ShiftStore>((set) => ({
    * Membuka shift baru dengan modal awal yang dimasukkan kasir.
    */
   openShift: async (_token, _tenantId, cashStart) => {
+    void _token;
+    void _tenantId;
     set({ isLoading: true, error: null });
     try {
-      const res = await fetch(`${API_BASE_URL}/api/shifts/open`, {
-        method: 'POST',
-        headers: buildHeaders(),
-        body: JSON.stringify({ cashStart }),
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.message || 'Gagal membuka shift.');
-      set({ activeShift: json.data, hasCheckedActiveShift: true });
-      return json.data;
+      const response = await apiClient.post<{ data: ActiveShift }>('/api/shifts/open', { cashStart });
+      set({ activeShift: response.data.data, hasCheckedActiveShift: true });
+      return response.data.data;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Terjadi kesalahan.';
       set({ error: msg });
@@ -107,17 +92,16 @@ export const useShiftStore = create<ShiftStore>((set) => ({
    * Menutup shift aktif dengan memasukkan jumlah uang fisik di laci.
    */
   closeShift: async (_token, _tenantId, shiftId, cashActual) => {
+    void _token;
+    void _tenantId;
     set({ isLoading: true, error: null });
     try {
-      const res = await fetch(`${API_BASE_URL}/api/shifts/close`, {
-        method: 'POST',
-        headers: buildHeaders(),
-        body: JSON.stringify({ shiftId, cashActual }),
+      const response = await apiClient.post<{ data: ActiveShift }>('/api/shifts/close', {
+        shiftId,
+        cashActual,
       });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.message || 'Gagal menutup shift.');
       set({ activeShift: null });
-      return json.data;
+      return response.data.data;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Terjadi kesalahan.';
       set({ error: msg });

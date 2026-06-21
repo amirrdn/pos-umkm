@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Mail, CheckCircle, AlertTriangle, ArrowLeft, RefreshCw } from 'lucide-react';
-import { API_BASE_URL } from '../config';
+import { verifyEmailApi } from '../api/authApi';
 
 export default function VerifyEmailView() {
   const navigate = useNavigate();
@@ -21,23 +21,13 @@ export default function VerifyEmailView() {
 
     const verify = async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/api/auth/verify-email`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token }),
-        });
-        const data = await res.json();
-
-        if (!res.ok) {
-          throw new Error(data.message || 'Verifikasi gagal.');
-        }
-
+        const data = await verifyEmailApi(token);
         setVerifiedEmail(data.data?.email ?? '');
         setStatus('success');
         setMessage(data.message || 'Email berhasil diverifikasi.');
-      } catch (err: any) {
+      } catch (err: unknown) {
         setStatus('error');
-        setMessage(err.message || 'Verifikasi email gagal.');
+        setMessage(err instanceof Error ? err.message : 'Verifikasi email gagal.');
       }
     };
 

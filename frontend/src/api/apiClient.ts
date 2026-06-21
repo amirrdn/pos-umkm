@@ -3,6 +3,7 @@ import { API_BASE_URL } from '../config';
 import { useAuthStore } from '../store/useAuthStore';
 import { usePlatformStore } from '../store/usePlatformStore';
 import { isPlatformAdmin } from '../utils/roles';
+import { ApiError } from './types';
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -44,11 +45,21 @@ apiClient.interceptors.request.use((config) => {
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Unify backend error responses to throw cleaner messages
-    const message = error.response?.data?.message || error.message || 'Terjadi kesalahan pada server.';
-    const customError = new Error(message);
-    (customError as any).status = error.response?.status;
-    (customError as any).data = error.response?.data;
-    return Promise.reject(customError);
+    const data = error.response?.data;
+    const message =
+      (typeof data === 'object' && data !== null && 'message' in data && typeof data.message === 'string'
+        ? data.message
+        : undefined) ||
+      error.message ||
+      'Terjadi kesalahan pada server.';
+
+    const payload = typeof data === 'object' && data !== null ? (data as Record<string, unknown>) : undefined;
+
+    return Promise.reject(
+      new ApiError(message, {
+        status: error.response?.status,
+        data: payload,
+      })
+    );
   }
 );

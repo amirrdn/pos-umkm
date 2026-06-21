@@ -1,6 +1,5 @@
 import { create } from 'zustand';
-import { API_BASE_URL } from '../config';
-import { buildApiHeaders } from '../utils/apiHeaders';
+import { apiClient } from '../api/apiClient';
 
 export interface UsageDetail {
   current: number;
@@ -65,66 +64,41 @@ export const useSubscriptionStore = create<SubscriptionState>((set) => ({
   fetchActiveSubscription: async () => {
     set({ loading: true, error: null });
     try {
-      const response = await fetch(`${API_BASE_URL}/api/subscriptions/active`, {
-        method: 'GET',
-        headers: buildApiHeaders(),
-      });
-
-      const res = await response.json();
-      if (!response.ok) {
-        throw new Error(res.message || 'Gagal mengambil detail langganan.');
-      }
-
-      set({ subscription: res.data, loading: false });
-    } catch (err: any) {
+      const response = await apiClient.get<{ data: SubscriptionDetails }>('/api/subscriptions/active');
+      set({ subscription: response.data.data, loading: false });
+    } catch (err: unknown) {
       console.error('FetchActiveSubscription Error:', err);
-      set({ error: err.message, loading: false });
+      set({ error: err instanceof Error ? err.message : 'Gagal mengambil detail langganan.', loading: false });
     }
   },
 
   fetchInvoices: async () => {
     set({ loading: true, error: null });
     try {
-      const response = await fetch(`${API_BASE_URL}/api/subscriptions/invoices`, {
-        method: 'GET',
-        headers: buildApiHeaders(),
-      });
-
-      const res = await response.json();
-      if (!response.ok) {
-        throw new Error(res.message || 'Gagal mengambil riwayat tagihan.');
-      }
-
-      set({ invoices: res.data || [], loading: false });
-    } catch (err: any) {
+      const response = await apiClient.get<{ data: SubscriptionInvoice[] }>('/api/subscriptions/invoices');
+      set({ invoices: response.data.data || [], loading: false });
+    } catch (err: unknown) {
       console.error('FetchInvoices Error:', err);
-      set({ error: err.message, loading: false });
+      set({ error: err instanceof Error ? err.message : 'Gagal mengambil riwayat tagihan.', loading: false });
     }
   },
 
   upgradeSubscription: async (tier: 'GROWTH' | 'ENTERPRISE') => {
     set({ loading: true, error: null });
     try {
-      const response = await fetch(`${API_BASE_URL}/api/subscriptions/upgrade`, {
-        method: 'POST',
-        headers: buildApiHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ tier }),
-      });
-
-      const res = await response.json();
-      if (!response.ok) {
-        throw new Error(res.message || 'Gagal mengajukan upgrade paket.');
-      }
+      const response = await apiClient.post<{
+        data: { snapToken: string; snapUrl: string; invoiceNumber: string };
+      }>('/api/subscriptions/upgrade', { tier });
 
       set({ loading: false });
       return {
-        snapToken: res.data.snapToken,
-        snapUrl: res.data.snapUrl,
-        invoiceNumber: res.data.invoiceNumber,
+        snapToken: response.data.data.snapToken,
+        snapUrl: response.data.data.snapUrl,
+        invoiceNumber: response.data.data.invoiceNumber,
       };
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('UpgradeSubscription Error:', err);
-      set({ error: err.message, loading: false });
+      set({ error: err instanceof Error ? err.message : 'Gagal mengajukan upgrade paket.', loading: false });
       throw err;
     }
   },
@@ -132,20 +106,11 @@ export const useSubscriptionStore = create<SubscriptionState>((set) => ({
   downgradeSubscription: async () => {
     set({ loading: true, error: null });
     try {
-      const response = await fetch(`${API_BASE_URL}/api/subscriptions/downgrade`, {
-        method: 'POST',
-        headers: buildApiHeaders(),
-      });
-
-      const res = await response.json();
-      if (!response.ok) {
-        throw new Error(res.message || 'Gagal mengubah paket ke gratis.');
-      }
-
+      await apiClient.post('/api/subscriptions/downgrade');
       set({ loading: false });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('DowngradeSubscription Error:', err);
-      set({ error: err.message, loading: false });
+      set({ error: err instanceof Error ? err.message : 'Gagal mengubah paket ke gratis.', loading: false });
       throw err;
     }
   },

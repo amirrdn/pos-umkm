@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Store } from 'lucide-react';
-import { API_BASE_URL } from '../config';
+import { apiClient } from '../api/apiClient';
 import { useAuthStore, hasTenantWideOutletAccess, isPlatformAdmin } from '../store/useAuthStore';
-import { buildApiHeaders } from '../utils/apiHeaders';
 import { getAssignedOutletIds } from '../utils/outletAccess';
 import { AppSelect, type AppSelectGroup } from './AppSelect';
 
@@ -45,23 +44,18 @@ export function OutletSwitcher({
     const fetchOutlets = async () => {
       setLoading(true);
       try {
-        const response = await fetch(
-          `${API_BASE_URL}/api/outlets${operationalOnly ? '?operationalOnly=true' : ''}`,
-          {
-            headers: buildApiHeaders(),
-          }
-        );
-        const json = await response.json();
-        if (response.ok) {
-          setTenantOutlets(
+        const response = await apiClient.get('/api/outlets', {
+          params: operationalOnly ? { operationalOnly: 'true' } : undefined,
+        });
+        const json = response.data;
+        setTenantOutlets(
             (json.data ?? []).map((o: OutletOption) => ({
               id: o.id,
               name: o.name,
               type: o.type,
               isActive: o.isActive,
             }))
-          );
-        }
+        );
       } catch (err) {
         console.error('Gagal mengambil daftar outlet:', err);
       } finally {
