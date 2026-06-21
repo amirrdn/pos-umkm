@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { AlertTriangle, CheckCircle } from 'lucide-react';
 import { usePos } from '../hooks/usePos';
@@ -17,7 +17,8 @@ import { PosSubscriptionBanner } from './pos/PosSubscriptionBanner';
 export const PosView: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const pos = usePos();
+  const printComponentRef = useRef<HTMLDivElement>(null);
+  const pos = usePos({ printRef: printComponentRef });
 
   return (
     <div className="h-screen w-screen bg-slate-50 dark:bg-slate-950 flex flex-col font-sans overflow-hidden transition-colors duration-150">
@@ -42,7 +43,7 @@ export const PosView: React.FC = () => {
 
       {/* Template Struk Tersembunyi (hanya terlihat saat cetak) */}
       <div className="hidden print:block">
-        <ReceiptTemplate ref={pos.printComponentRef} transactionData={pos.currentTransaction} />
+        <ReceiptTemplate ref={printComponentRef} transactionData={pos.currentTransaction} />
       </div>
 
       {/* Toast Notification */}

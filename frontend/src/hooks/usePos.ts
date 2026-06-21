@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, type RefObject } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useReactToPrint } from 'react-to-print';
 import { useCartStore } from '../store/useCartStore';
@@ -26,7 +26,11 @@ export interface Product {
   imageUrl: string;
 }
 
-export function usePos() {
+interface UsePosOptions {
+  printRef: RefObject<HTMLDivElement | null>;
+}
+
+export function usePos({ printRef }: UsePosOptions) {
   const navigate = useNavigate();
 
   const {
@@ -101,9 +105,8 @@ export function usePos() {
   const [newCustEmail, setNewCustEmail] = useState<string>('');
   const [isCreatingCustomer, setIsCreatingCustomer] = useState<boolean>(false);
 
-  const printComponentRef = useRef<HTMLDivElement>(null);
   const customerWindowRef = useRef<Window | null>(null);
-  const pollingIntervalRef = useRef<any>(null);
+  const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const showToast = (type: 'success' | 'error', message: string) => {
     setNotification({ type, message });
@@ -394,7 +397,7 @@ export function usePos() {
   };
 
   const handlePrint = useReactToPrint({
-    contentRef: printComponentRef,
+    contentRef: printRef,
   });
 
   const handleSendWhatsApp = (transaction: any) => {
@@ -662,9 +665,6 @@ Terima kasih atas kunjungan Anda!`;
     newCustEmail,
     setNewCustEmail,
     isCreatingCustomer,
-
-    // Refs
-    printComponentRef,
 
     // Cart details
     cart,
