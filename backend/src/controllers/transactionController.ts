@@ -1,32 +1,12 @@
 import { Request, Response } from 'express';
 import { Prisma } from '@prisma/client';
-import { z } from 'zod';
 import {
   buildQrisSaleLedgerEntries,
 } from '../domain/inventory';
 import { prisma } from '../lib/prisma';
 import { MidtransService } from '../services/midtransService';
 import { SubscriptionService } from '../services/subscriptionService';
-
-// ==========================================
-// SKEMA VALIDASI INPUT (ZOD) - DIPERBARUI DENGAN DISKON & PAJAK PPN
-
-// ==========================================
-
-export const checkoutSchema = z.object({
-  paymentMethod: z.string().min(1, 'Metode pembayaran wajib diisi'),
-  discountType: z.enum(['PERCENT', 'NOMINAL']).optional(),
-  discountValue: z.number().nonnegative('Nilai diskon tidak boleh negatif').optional(),
-  applyTax: z.boolean().optional(),
-  customerId: z.string().nullable().optional(),
-  shiftId: z.string().uuid('ID Shift harus berupa format UUID yang valid').optional(),
-  items: z.array(
-    z.object({
-      productId: z.string().uuid('ID Produk harus berupa format UUID yang valid'),
-      quantity: z.number().int('Kuantitas harus berupa bilangan bulat').positive('Kuantitas harus lebih besar dari 0')
-    })
-  ).min(1, 'Daftar item belanja tidak boleh kosong')
-});
+import { checkoutSchema } from '../schemas/transactionSchema';
 
 // ==========================================
 // CONTROLLER TRANSAKSI
