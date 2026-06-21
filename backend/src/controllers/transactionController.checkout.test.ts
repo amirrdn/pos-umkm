@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { CheckoutError } from '../domain/transaction';
 import {
   createMockRequest,
   createMockResponse,
@@ -7,64 +8,27 @@ import {
   userId,
 } from '../test/helpers/http';
 
-const { mockTx, mockPrisma, mockSubscriptionService } = vi.hoisted(() => {
-  const tx = {
-    product: {
-      findFirst: vi.fn(),
-    },
-  };
-
-  return {
-    mockTx: tx,
-    mockPrisma: {
-      $transaction: vi.fn(async (callback: (innerTx: typeof tx) => Promise<unknown>) =>
-        callback(tx)
-      ),
-    },
-    mockSubscriptionService: {
-      checkTransactionLimit: vi.fn().mockResolvedValue(true),
-      checkProductLimit: vi.fn().mockResolvedValue(true),
-      checkOutletLimit: vi.fn().mockResolvedValue(true),
-      checkStaffLimit: vi.fn().mockResolvedValue(true),
-    },
-  };
-});
-
-vi.mock('../lib/prisma', () => ({
-  prisma: mockPrisma,
-}));
-
-vi.mock('../domain/inventory', () => ({
-  decrementOutletStock: vi.fn(),
-  buildQrisSaleLedgerEntries: vi.fn(),
-  restoreStockForVoidedTransaction: vi.fn(),
-}));
-
-vi.mock('../services/midtransService', () => ({
-  MidtransService: vi.fn(),
-}));
-
-vi.mock('../services/subscriptionService', () => ({
-  SubscriptionService: mockSubscriptionService,
+vi.mock('../services/transactionCheckoutService', () => ({
+  processCheckout: vi.fn(),
 }));
 
 import { checkout } from './transactionController';
+import { processCheckout } from '../services/transactionCheckoutService';
 
-describe('checkout (INV-7)', () => {
+describe('checkout controller', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockSubscriptionService.checkTransactionLimit.mockResolvedValue(true);
-
-    mockTx.product.findFirst.mockResolvedValue({
-      id: productId,
-      name: 'Produk Test',
-      sellingPrice: 10000,
-      purchasePrice: 5000,
-      deletedAt: null,
-    });
   });
 
   it('rejects checkout when x-outlet-id context is missing', async () => {
+    vi.mocked(processCheckout).mockRejectedValue(
+      new CheckoutError(
+        'Aksi ditolak: Transaksi POS wajib dikaitkan dengan Outlet aktif.',
+        'OUTLET_REQUIRED',
+        400
+      )
+    );
+
     const req = createMockRequest({
       tenantId,
       user: {
@@ -84,11 +48,49 @@ describe('checkout (INV-7)', () => {
 
     await checkout(req, res);
 
+    expect(processCheckout).toHaveBeenCalledOnce();
     expect(res.statusCode).toBe(400);
     expect(res.body).toMatchObject({
       success: false,
       message: expect.stringContaining('Outlet aktif'),
     });
-    expect(mockPrisma.$transaction).toHaveBeenCalledOnce();
+  });
+
+  it('returns success payload from checkout service', async () => {
+    vi.mocked(processCheckout).mockResolvedValue({
+      transaction: {
+        id: 'txn-1',
+        invoiceNumber: 'INV-001',
+        grandTotal: 10000,
+        paymentMethod: 'CASH',
+        status: 'COMPLETED',
+      } as any,
+    });
+
+    const req = createMockRequest({
+      tenantId,
+      outletId: 'outlet-1',
+      user: {
+        id: userId,
+        tenantId,
+        name: 'Kasir Test',
+        email: 'kasir@test.com',
+        roles: ['Kasir'],
+        permissions: [],
+      },
+      body: {
+        paymentMethod: 'CASH',
+        items: [{ productId, quantity: 1 }],
+      },
+    } as any);
+    const res = createMockResponse();
+
+    await checkout(req, res);
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toMatchObject({
+      success: true,
+      data: expect.objectContaining({ invoiceNumber: 'INV-001' }),
+    });
   });
 });

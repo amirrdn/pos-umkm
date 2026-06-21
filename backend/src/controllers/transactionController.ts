@@ -1,11 +1,12 @@
 import { Request, Response } from 'express';
-import { Prisma } from '@prisma/client';
 import {
   buildQrisSaleLedgerEntries,
 } from '../domain/inventory';
+import { isCheckoutError } from '../domain/transaction';
 import { prisma } from '../lib/prisma';
 import { MidtransService } from '../services/midtransService';
 import { SubscriptionService } from '../services/subscriptionService';
+import { processCheckout } from '../services/transactionCheckoutService';
 import { checkoutSchema } from '../schemas/transactionSchema';
 
 // ==========================================
@@ -22,371 +23,47 @@ export async function checkout(req: Request, res: Response) {
       return res.status(400).json({
         success: false,
         message: 'Validasi input gagal.',
-        errors: validation.error.format()
+        errors: validation.error.format(),
       });
     }
 
-    const { items, discountType, discountValue, applyTax, paymentMethod, customerId, shiftId } = validation.data;
-
-    const tenantId = req.tenantId!;
-    const userId = req.user!.id;
-
-    const subscriptionAccess = { bypassLimits: req.isPlatformAdmin };
-
-    // Periksa batas kuota transaksi bulanan
-    const canCreateTransaction = await SubscriptionService.checkTransactionLimit(
-      tenantId,
-      subscriptionAccess
-    );
-    if (!canCreateTransaction) {
-      return res.status(403).json({
-        success: false,
-        error: 'LIMIT_EXCEEDED',
-        message: 'Batas maksimal kuota transaksi bulanan untuk paket Anda telah tercapai. Silakan lakukan upgrade untuk melanjutkan penjualan.'
-      });
-    }
-
-    if (paymentMethod === 'DEBT') {
-      if (!customerId) {
-        return res.status(400).json({
-          success: false,
-          message: 'Pelanggan wajib dipilih untuk metode pembayaran HUTANG.',
-        });
-      }
-
-      try {
-        await SubscriptionService.assertDebtPaymentAllowed(tenantId, subscriptionAccess);
-      } catch (error: any) {
-        return res.status(403).json({
-          success: false,
-          error: 'TIER_INSUFFICIENT',
-          message: error.message,
-        });
-      }
-    }
-
-    const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    const randomSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
-    const invoiceNumber = `INV-${today}-${Date.now()}-${randomSuffix}`;
-
-    const result = await prisma.$transaction(async (tx) => {
-      let subTotal = new Prisma.Decimal(0);
-      const itemsToCreate: {
-        productId: string;
-        quantity: number;
-        priceAtTransaction: Prisma.Decimal;
-        costAtTransaction: Prisma.Decimal;
-        subtotal: Prisma.Decimal;
-      }[] = [];
-      const stockLedgerEntries: Prisma.StockLedgerCreateManyInput[] = [];
-      const stockUpdates: { productId: string; newStock: number; stockBefore: number }[] = [];
-
-      if (!req.outletId) {
-        throw new Error('Aksi ditolak: Transaksi POS wajib dikaitkan dengan Outlet aktif.');
-      }
-      const outletId = req.outletId;
-
-      // 1. Batch fetch products matching items in the cart
-      const productIds = items.map(item => item.productId);
-      const products = await tx.product.findMany({
-        where: {
-          id: { in: productIds },
-          tenantId: tenantId,
-          deletedAt: null
-        }
-      });
-
-      const productMap = new Map(products.map(p => [p.id, p]));
-
-      // 2. Batch fetch price overrides for the active outlet
-      const priceOverrides = await tx.outletProductPrice.findMany({
-        where: {
-          outletId,
-          productId: { in: productIds }
-        }
-      });
-      const priceOverrideMap = new Map(priceOverrides.map(po => [po.productId, po.price]));
-
-      // 3. Batch fetch current stock levels for the active outlet
-      const stockLevels = await tx.outletStock.findMany({
-        where: {
-          outletId,
-          productId: { in: productIds }
-        }
-      });
-      const stockMap = new Map(stockLevels.map(sl => [sl.productId, sl.stock]));
-
-      // 4. Validate and compute items in-memory
-      for (const item of items) {
-        const product = productMap.get(item.productId);
-        if (!product) {
-          throw new Error(`Produk dengan ID ${item.productId} tidak ditemukan di tenant Anda.`);
-        }
-
-        const priceOverride = priceOverrideMap.get(product.id);
-        const activeSellingPrice = priceOverride !== undefined ? priceOverride : product.sellingPrice;
-
-        const sellingPrice = new Prisma.Decimal(activeSellingPrice);
-        const costPrice = new Prisma.Decimal(product.purchasePrice);
-        const itemSubtotal = sellingPrice.mul(item.quantity);
-        subTotal = subTotal.add(itemSubtotal);
-
-        itemsToCreate.push({
-          productId: product.id,
-          quantity: item.quantity,
-          priceAtTransaction: sellingPrice,
-          costAtTransaction: costPrice,
-          subtotal: itemSubtotal,
-        });
-
-        // Resolve stock level
-        const stockBefore = stockMap.get(product.id) ?? 0;
-        const stockAfter = stockBefore - item.quantity;
-
-        if (stockAfter < 0) {
-          throw new Error(
-            `Stok tidak mencukupi untuk ${product.name}. Tersedia: ${stockBefore}, diminta: ${item.quantity}.`
-          );
-        }
-
-        stockUpdates.push({ productId: product.id, newStock: stockAfter, stockBefore });
-
-        if (paymentMethod !== 'QRIS') {
-          stockLedgerEntries.push({
-            tenantId,
-            productId: product.id,
-            userId,
-            type: 'SALE',
-            quantity: -item.quantity,
-            stockBefore,
-            stockAfter,
-            outletId,
-            note: 'Penjualan - Invoice',
-          });
-        }
-      }
-
-      let discountAmount = new Prisma.Decimal(0);
-      if (discountType === 'PERCENT' && discountValue && discountValue > 0) {
-        const pct = new Prisma.Decimal(discountValue).div(100);
-        discountAmount = subTotal.mul(pct);
-      } else if (discountType === 'NOMINAL' && discountValue && discountValue > 0) {
-        discountAmount = new Prisma.Decimal(discountValue);
-      }
-
-      if (discountAmount.gt(subTotal)) {
-        discountAmount = subTotal;
-      }
-      let taxAmount = new Prisma.Decimal(0);
-      const taxableAmount = subTotal.sub(discountAmount);
-      if (applyTax) {
-        taxAmount = taxableAmount.mul(0.11);
-      }
-
-      const grandTotal = taxableAmount.add(taxAmount);
-
-      if (paymentMethod === 'DEBT' && !customerId) {
-        throw new Error('Pelanggan wajib dipilih untuk metode pembayaran HUTANG.');
-      }
-
-      let earnedPoints = 0;
-      if (customerId) {
-        const customer = await tx.customer.findFirst({
-          where: { id: customerId, tenantId }
-        });
-        if (!customer) {
-          throw new Error('Pelanggan tidak ditemukan di tenant Anda.');
-        }
-
-        earnedPoints = Math.floor(grandTotal.toNumber() / 10000);
-
-        const updateData: Prisma.CustomerUpdateInput = {};
-        if (earnedPoints > 0) {
-          updateData.points = { increment: earnedPoints };
-        }
-        if (paymentMethod === 'DEBT') {
-          updateData.debtBalance = { increment: grandTotal };
-        }
-
-        if (Object.keys(updateData).length > 0) {
-          await tx.customer.update({
-            where: { id: customerId },
-            data: updateData
-          });
-        }
-      }
-
-      if (shiftId) {
-        const openShift = await tx.shift.findFirst({
-          where: {
-            id: shiftId,
-            tenantId,
-            userId,
-            outletId: req.outletId,
-            status: 'OPEN',
-          },
-          select: { id: true },
-        });
-
-        if (!openShift) {
-          throw new Error('Shift tidak valid, sudah ditutup, atau tidak terbuka di outlet ini.');
-        }
-      }
-
-      // 5. Update stock levels for non-QRIS payments (sequential writes, no N+1 reads)
-      if (paymentMethod !== 'QRIS') {
-        for (const update of stockUpdates) {
-          await tx.outletStock.upsert({
-            where: {
-              outletId_productId: {
-                outletId,
-                productId: update.productId,
-              },
-            },
-            create: {
-              tenantId,
-              outletId,
-              productId: update.productId,
-              stock: update.newStock,
-            },
-            update: {
-              stock: update.newStock,
-            },
-          });
-        }
-      }
-
-      // 6. Create transaction record
-      const transaction = await tx.transaction.create({
-        data: {
-          tenantId,
-          userId,
-          outletId: req.outletId || null,
-          shiftId: shiftId ?? null,
-          customerId: customerId || null,
-          paymentMethod: paymentMethod ?? 'CASH',
-          invoiceNumber,
-          subTotal,
-          discount: discountAmount,
-          tax: taxAmount,
-          grandTotal,
-          status: paymentMethod === 'QRIS' ? 'PENDING' : 'COMPLETED',
-          items: {
-            create: itemsToCreate.map(item => ({
-              productId: item.productId,
-              quantity: item.quantity,
-              priceAtTransaction: item.priceAtTransaction,
-              costAtTransaction: item.costAtTransaction,
-              subtotal: item.subtotal
-            }))
-          }
-        },
-        include: {
-          items: {
-            include: {
-              product: { select: { name: true, sku: true } }
-            }
-          },
-          customer: {
-            select: {
-              id: true,
-              name: true,
-              phone: true,
-              points: true,
-              debtBalance: true
-            }
-          },
-          outlet: true
-        }
-      });
-
-      // 7. Write stock ledger entries for non-QRIS payments
-      if (paymentMethod !== 'QRIS' && stockLedgerEntries.length > 0) {
-        await tx.stockLedger.createMany({
-          data: stockLedgerEntries.map(entry => ({
-            ...entry,
-            transactionId: transaction.id,
-            note: `${entry.note} ${invoiceNumber}`,
-          })),
-        });
-      }
-
-      return transaction;
-    }, { maxWait: 15000, timeout: 30000 });
-
-    let finalResult = result;
-    let qrString = '';
-    if (paymentMethod === 'QRIS') {
-      try {
-        const chargeRes = await MidtransService.createQrisCharge(result.invoiceNumber, Number(result.grandTotal));
-        const qrisUrl = chargeRes.qrisUrl;
-        qrString = chargeRes.qrString;
-
-        finalResult = await prisma.transaction.update({
-          where: { id: result.id },
-          data: { qrisUrl },
-          include: {
-            items: {
-              include: {
-                product: { select: { name: true, sku: true } }
-              }
-            },
-            customer: {
-              select: {
-                id: true,
-                name: true,
-                phone: true,
-                points: true,
-                debtBalance: true
-              }
-            },
-            outlet: true
-          }
-        });
-      } catch (midtransError: any) {
-        console.error('Midtrans API Charge Error:', midtransError);
-        try {
-          await prisma.transaction.delete({ where: { id: result.id } });
-        } catch (cleanupError) {
-          console.error('Gagal menghapus transaksi QRIS gagal:', cleanupError);
-        }
-        return res.status(500).json({
-          success: false,
-          message: `Gagal membuat pembayaran QRIS: ${midtransError.message}`
-        });
-      }
-    }
+    const { paymentMethod } = validation.data;
+    const result = await processCheckout({
+      ...validation.data,
+      tenantId: req.tenantId!,
+      userId: req.user!.id,
+      outletId: req.outletId ?? null,
+      bypassSubscriptionLimits: req.isPlatformAdmin === true,
+    });
 
     return res.status(200).json({
       success: true,
-      message: paymentMethod === 'QRIS'
-        ? 'Transaksi QRIS berhasil dibuat. Silakan selesaikan pembayaran.'
-        : 'Transaksi berhasil diselesaikan.',
+      message:
+        paymentMethod === 'QRIS'
+          ? 'Transaksi QRIS berhasil dibuat. Silakan selesaikan pembayaran.'
+          : 'Transaksi berhasil diselesaikan.',
       data: {
-        ...finalResult,
-        qrString: qrString || undefined
-      }
+        ...result.transaction,
+        qrString: result.qrString || undefined,
+      },
     });
-
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Checkout Error:', error);
 
-    const errorMessage = error.message || '';
-    if (
-      errorMessage.includes('tidak ditemukan') ||
-      errorMessage.includes('stok') ||
-      errorMessage.includes('Stok') ||
-      errorMessage.includes('Outlet aktif')
-    ) {
-      return res.status(400).json({
+    if (isCheckoutError(error)) {
+      const body: Record<string, unknown> = {
         success: false,
-        message: errorMessage
-      });
+        message: error.message,
+      };
+      if (error.code === 'LIMIT_EXCEEDED' || error.code === 'TIER_INSUFFICIENT') {
+        body.error = error.code;
+      }
+      return res.status(error.httpStatus).json(body);
     }
 
     return res.status(500).json({
       success: false,
-      message: 'Terjadi kesalahan internal server saat memproses transaksi checkout.'
+      message: 'Terjadi kesalahan internal server saat memproses transaksi checkout.',
     });
   }
 }
