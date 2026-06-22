@@ -10,7 +10,7 @@ import {
   YAxis,
 } from 'recharts';
 import { useThemeStore } from '../../store/useThemeStore';
-import { DASHBOARD_CHART_COLORS, getBarChartTooltipStyle } from '../../utils/dashboardAdminHelpers';
+import { DASHBOARD_CHART_AXIS_PROPS, DASHBOARD_CHART_COLORS, getBarChartTooltipStyle } from '../../utils/dashboardAdminHelpers';
 import type { BestSellerProduct } from '../../types/dashboardAdmin';
 
 export interface DashboardBestSellersChartProps {
@@ -23,9 +23,9 @@ export function DashboardBestSellersChart({ loading, bestSellers }: DashboardBes
 
   return (
     <div className="lg:col-span-2 bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm dark:shadow-lg backdrop-blur-sm">
-      <h3 className="text-sm font-bold text-slate-800 dark:text-slate-250 mb-6 flex items-center gap-2 uppercase tracking-wider">
-        <Award className="w-5 h-5 text-amber-500" />
-        Visualisasi 5 Produk Terlaris (Kuantitas)
+      <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-250 mb-4 flex items-center gap-2">
+        <Award className="w-4 h-4 text-amber-500" />
+        5 Produk Terlaris (Kuantitas)
       </h3>
 
       {loading ? (
@@ -49,14 +49,13 @@ export function DashboardBestSellersChart({ loading, bestSellers }: DashboardBes
               <XAxis
                 dataKey="name"
                 stroke={theme === 'light' ? '#475569' : '#94a3b8'}
-                fontSize={10}
-                tickLine={false}
+                {...DASHBOARD_CHART_AXIS_PROPS}
               />
               <YAxis
                 stroke={theme === 'light' ? '#475569' : '#94a3b8'}
-                fontSize={10}
-                tickLine={false}
+                {...DASHBOARD_CHART_AXIS_PROPS}
                 allowDecimals={false}
+                width={36}
               />
               <Tooltip
                 contentStyle={getBarChartTooltipStyle(theme)}

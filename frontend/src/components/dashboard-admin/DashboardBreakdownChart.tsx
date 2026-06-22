@@ -11,6 +11,8 @@ import {
 } from 'recharts';
 import { useThemeStore } from '../../store/useThemeStore';
 import {
+  DASHBOARD_CHART_AXIS_PROPS,
+  DASHBOARD_CHART_LEGEND_STYLE,
   formatChartYAxisTick,
   formatDashboardRupiah,
   getChartTooltipStyle,
@@ -31,11 +33,11 @@ export function DashboardBreakdownChart({
 
   return (
     <div className="bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm dark:shadow-lg mb-8 backdrop-blur-sm">
-      <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-2 flex items-center gap-2">
-        <Store className="w-5 h-5 text-indigo-500 dark:text-indigo-400" />
+      <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-1.5 flex items-center gap-2">
+        <Store className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
         Perbandingan MAIN vs Cabang (Bulan Ini)
       </h3>
-      <p className="text-xs text-slate-500 dark:text-slate-400 mb-6">
+      <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-4">
         Omset dan laba bersih agregat toko pusat dibandingkan seluruh cabang.
       </p>
 
@@ -60,14 +62,13 @@ export function DashboardBreakdownChart({
               <XAxis
                 dataKey="label"
                 stroke={theme === 'light' ? '#475569' : '#94a3b8'}
-                fontSize={10}
-                tickLine={false}
+                {...DASHBOARD_CHART_AXIS_PROPS}
               />
               <YAxis
                 stroke={theme === 'light' ? '#475569' : '#94a3b8'}
-                fontSize={10}
-                tickLine={false}
+                {...DASHBOARD_CHART_AXIS_PROPS}
                 tickFormatter={formatChartYAxisTick}
+                width={56}
               />
               <Tooltip
                 contentStyle={{
@@ -76,7 +77,7 @@ export function DashboardBreakdownChart({
                 }}
                 formatter={(value) => [formatDashboardRupiah(Number(value ?? 0)), '']}
               />
-              <Legend verticalAlign="top" height={28} iconType="circle" wrapperStyle={{ fontSize: '11px' }} />
+              <Legend verticalAlign="top" height={24} iconType="circle" iconSize={8} wrapperStyle={DASHBOARD_CHART_LEGEND_STYLE} />
               <Bar dataKey="omset" name="Omset Bulan Ini" fill="#6366f1" radius={[6, 6, 0, 0]} />
               <Bar dataKey="laba" name="Laba Bulan Ini" fill="#10b981" radius={[6, 6, 0, 0]} />
             </BarChart>

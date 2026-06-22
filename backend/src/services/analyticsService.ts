@@ -76,12 +76,13 @@ export class AnalyticsService {
         createdAt: true,
         grandTotal: true,
         discount: true,
+        customerId: true,
         items: { select: TX_ITEMS_SELECT },
       },
       orderBy: { createdAt: 'asc' },
     });
 
-    const trendMap = new Map<string, { revenue: number; profit: number }>();
+    const trendMap = new Map<string, { revenue: number; profit: number; customerTransactions: number }>();
 
     for (let i = 29; i >= 0; i--) {
       const d = new Date();
@@ -91,7 +92,7 @@ export class AnalyticsService {
         .split('/')
         .reverse()
         .join('-');
-      trendMap.set(dateStr, { revenue: 0, profit: 0 });
+      trendMap.set(dateStr, { revenue: 0, profit: 0, customerTransactions: 0 });
     }
 
     for (const tx of transactions) {
@@ -101,10 +102,11 @@ export class AnalyticsService {
         .reverse()
         .join('-');
 
-      const current = trendMap.get(dateStr) ?? { revenue: 0, profit: 0 };
+      const current = trendMap.get(dateStr) ?? { revenue: 0, profit: 0, customerTransactions: 0 };
       trendMap.set(dateStr, {
         revenue: current.revenue + Number(tx.grandTotal),
         profit: current.profit + calculateTransactionProfit(tx),
+        customerTransactions: current.customerTransactions + (tx.customerId ? 1 : 0),
       });
     }
 
@@ -112,6 +114,7 @@ export class AnalyticsService {
       date,
       revenue: Math.round(data.revenue),
       profit: Math.round(data.profit),
+      customerTransactions: data.customerTransactions,
     }));
   }
 

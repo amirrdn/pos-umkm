@@ -1,6 +1,19 @@
 import type { BreakdownData, TypeBreakdownChartRow } from '../types/dashboardAdmin';
 
 export const DASHBOARD_CHART_COLORS = ['#6366f1', '#3b82f6', '#10b981', '#f59e0b', '#ec4899'];
+export const DASHBOARD_CHART_AXIS_FONT_SIZE = 11;
+export const DASHBOARD_CHART_LEGEND_FONT_SIZE = 11;
+export const DASHBOARD_CHART_TOOLTIP_FONT_SIZE = 11;
+
+export const DASHBOARD_CHART_AXIS_PROPS = {
+  tickLine: false,
+  fontSize: DASHBOARD_CHART_AXIS_FONT_SIZE,
+} as const;
+
+export const DASHBOARD_CHART_LEGEND_STYLE = {
+  fontSize: `${DASHBOARD_CHART_LEGEND_FONT_SIZE}px`,
+  fontWeight: 500,
+} as const;
 
 export function formatDashboardRupiah(value: number): string {
   return new Intl.NumberFormat('id-ID', {
@@ -46,7 +59,7 @@ export function getChartTooltipStyle(theme: 'light' | 'dark') {
     borderColor: theme === 'light' ? '#e2e8f0' : '#1e293b',
     borderRadius: '1rem',
     color: theme === 'light' ? '#0f172a' : '#f8fafc',
-    fontSize: '11px',
+    fontSize: `${DASHBOARD_CHART_TOOLTIP_FONT_SIZE}px`,
     fontFamily: 'monospace',
   };
 }
@@ -57,7 +70,7 @@ export function getBarChartTooltipStyle(theme: 'light' | 'dark') {
     borderColor: theme === 'light' ? '#e2e8f0' : '#1e293b',
     borderRadius: '0.75rem',
     color: theme === 'light' ? '#0f172a' : '#f8fafc',
-    fontSize: '11px',
+    fontSize: `${DASHBOARD_CHART_TOOLTIP_FONT_SIZE}px`,
   };
 }
 
