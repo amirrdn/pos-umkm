@@ -1,11 +1,7 @@
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
-
-// ==========================================
-// INTERFACE
-// ==========================================
 
 export interface CreateStaffInput {
   tenantId: string;
@@ -23,44 +19,194 @@ export interface UpdateStaffInput {
   outletIds?: string[];
 }
 
-// ==========================================
-// SERVICE FUNCTIONS
-// ==========================================
+export interface StaffListFilters {
+  search?: string;
+  roleName?: string;
+  approvalStatus?: 'APPROVED' | 'PENDING';
+}
 
-/**
- * Mengambil semua karyawan aktif dan nonaktif untuk sebuah tenant.
- * Mengembalikan data user beserta role yang mereka miliki.
- */
-export async function getStaffList(tenantId: string) {
-  return prisma.user.findMany({
-    where: {
-      tenantId,
-      deletedAt: null,
-    },
-    orderBy: { createdAt: 'asc' },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      isActive: true,
-      approvalStatus: true,
-      userOutlets: {
-        include: {
-          outlet: {
-            select: { id: true, name: true }
-          }
-        }
+export interface StaffOverviewMetrics {
+  activeStaffCount: number;
+  inactiveStaffCount: number;
+  pendingApprovalCount: number;
+}
+
+const staffUserSelect = {
+  id: true,
+  name: true,
+  email: true,
+  isActive: true,
+  approvalStatus: true,
+  createdAt: true,
+  userOutlets: {
+    include: {
+      outlet: {
+        select: { id: true, name: true },
       },
-      createdAt: true,
-      userRoles: {
-        include: {
-          role: {
-            select: { id: true, name: true, description: true },
-          },
+    },
+  },
+  userRoles: {
+    include: {
+      role: {
+        select: { id: true, name: true, description: true },
+      },
+    },
+  },
+} satisfies Prisma.UserSelect;
+
+function buildStaffTenantWhere(tenantId: string): Prisma.UserWhereInput {
+  return {
+    tenantId,
+    deletedAt: null,
+  };
+}
+
+function buildStaffListWhere(tenantId: string, filters?: StaffListFilters): Prisma.UserWhereInput {
+  const where = buildStaffTenantWhere(tenantId);
+
+  if (filters?.approvalStatus) {
+    where.approvalStatus = filters.approvalStatus;
+  }
+
+  if (filters?.search) {
+    where.OR = [
+      { name: { contains: filters.search, mode: 'insensitive' } },
+      { email: { contains: filters.search, mode: 'insensitive' } },
+    ];
+  }
+
+  if (filters?.roleName) {
+    where.userRoles = {
+      some: {
+        role: {
+          name: filters.roleName,
+          tenantId,
         },
       },
+    };
+  }
+
+  return where;
+}
+
+export async function getStaffSummary(tenantId: string): Promise<StaffOverviewMetrics> {
+  const baseWhere = buildStaffTenantWhere(tenantId);
+
+  const [activeStaffCount, inactiveStaffCount, pendingApprovalCount] = await Promise.all([
+    prisma.user.count({
+      where: { ...baseWhere, approvalStatus: 'APPROVED', isActive: true },
+    }),
+    prisma.user.count({
+      where: { ...baseWhere, approvalStatus: 'APPROVED', isActive: false },
+    }),
+    prisma.user.count({
+      where: { ...baseWhere, approvalStatus: 'PENDING' },
+    }),
+  ]);
+
+  return {
+    activeStaffCount,
+    inactiveStaffCount,
+    pendingApprovalCount,
+  };
+}
+
+export async function getStaffList(tenantId: string, filters?: StaffListFilters) {
+  return prisma.user.findMany({
+    where: buildStaffListWhere(tenantId, filters),
+    orderBy: { createdAt: 'asc' },
+    select: staffUserSelect,
+  });
+}
+
+export interface StaffDetailStats {
+  totalShifts: number;
+  openShifts: number;
+}
+
+export interface StaffDetail {
+  id: string;
+  name: string;
+  email: string;
+  isActive: boolean;
+  approvalStatus: string;
+  createdAt: Date;
+  updatedAt: Date;
+  emailVerifiedAt: Date | null;
+  userOutlets: {
+    outlet: {
+      id: string;
+      name: string;
+    };
+  }[];
+  userRoles: {
+    role: {
+      id: string;
+      name: string;
+      description: string | null;
+    };
+  }[];
+  stats: StaffDetailStats;
+}
+
+export async function getStaffDetail(staffId: string, tenantId: string): Promise<StaffDetail> {
+  const user = await prisma.user.findFirst({
+    where: { id: staffId, ...buildStaffTenantWhere(tenantId) },
+    select: {
+      ...staffUserSelect,
+      updatedAt: true,
+      emailVerifiedAt: true,
     },
   });
+
+  if (!user) {
+    throw new Error('Karyawan tidak ditemukan.');
+  }
+
+  const [totalShifts, openShifts] = await Promise.all([
+    prisma.shift.count({ where: { userId: staffId, tenantId } }),
+    prisma.shift.count({ where: { userId: staffId, tenantId, status: 'OPEN' } }),
+  ]);
+
+  return {
+    ...user,
+    stats: { totalShifts, openShifts },
+  };
+}
+
+export async function bulkApproveStaff(staffIds: string[], tenantId: string) {
+  const uniqueIds = [...new Set(staffIds)];
+
+  const pendingStaff = await prisma.user.findMany({
+    where: {
+      id: { in: uniqueIds },
+      ...buildStaffTenantWhere(tenantId),
+      approvalStatus: 'PENDING',
+    },
+    select: staffUserSelect,
+  });
+
+  if (pendingStaff.length === 0) {
+    throw new Error('Tidak ada permintaan staf yang valid untuk disetujui.');
+  }
+
+  const pendingIds = pendingStaff.map((staff) => staff.id);
+
+  await prisma.user.updateMany({
+    where: { id: { in: pendingIds }, tenantId, approvalStatus: 'PENDING' },
+    data: { approvalStatus: 'APPROVED' },
+  });
+
+  const approvedStaff = pendingStaff.map((staff) => ({
+    ...staff,
+    approvalStatus: 'APPROVED',
+  }));
+
+  return {
+    approvedCount: approvedStaff.length,
+    skippedCount: uniqueIds.length - approvedStaff.length,
+    staff: approvedStaff,
+  };
 }
 
 /**

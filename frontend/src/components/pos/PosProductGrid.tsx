@@ -1,16 +1,24 @@
 import React from 'react';
-import { Search, RefreshCw, AlertTriangle, Package, Coffee } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Search, AlertTriangle, Package, Coffee, Plus } from 'lucide-react';
 import type { Product } from '../../hooks/usePos';
 import type { CartItem } from '../../store/useCartStore';
+import { PosProductCardSkeleton } from './PosProductCardSkeleton';
+import { PosQuickPickRow } from './PosQuickPickRow';
 
 interface PosProductGridProps {
   loadingProducts: boolean;
   filteredProducts: Product[];
+  recentProducts: Product[];
   categoriesList: string[];
   selectedCategory: string;
   setSelectedCategory: (cat: string) => void;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
+  inStockOnly: boolean;
+  setInStockOnly: (val: boolean) => void;
+  searchInputRef: React.RefObject<HTMLInputElement | null>;
+  onSearchKeyDown: (event: React.KeyboardEvent<HTMLInputElement>) => void;
   addToCart: (product: Omit<CartItem, 'quantity'>) => void;
   getRemainingStock: (productId: string, originalStock: number) => number;
 }
@@ -18,22 +26,29 @@ interface PosProductGridProps {
 export const PosProductGrid: React.FC<PosProductGridProps> = ({
   loadingProducts,
   filteredProducts,
+  recentProducts,
   categoriesList,
   selectedCategory,
   setSelectedCategory,
   searchQuery,
   setSearchQuery,
+  inStockOnly,
+  setInStockOnly,
+  searchInputRef,
+  onSearchKeyDown,
   addToCart,
   getRemainingStock,
 }) => {
+  const navigate = useNavigate();
+
   return (
     <section className="flex-1 lg:w-[65%] xl:w-[70%] h-full flex flex-col p-4 sm:p-6 lg:p-8 overflow-hidden min-h-0 pb-20 lg:pb-8">
-      {/* Filter Kategori & Pencarian */}
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 shrink-0 gap-4">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 shrink-0 gap-4">
         <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-none snap-x snap-mandatory [-webkit-overflow-scrolling:touch] -mx-1 px-1">
           {categoriesList.map((cat) => (
             <button
               key={cat}
+              type="button"
               onClick={() => setSelectedCategory(cat)}
               className={`cursor-pointer px-5 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap snap-start shrink-0 shadow-sm ${
                 selectedCategory === cat
@@ -44,28 +59,44 @@ export const PosProductGrid: React.FC<PosProductGridProps> = ({
               {cat}
             </button>
           ))}
+          <button
+            type="button"
+            onClick={() => setInStockOnly(!inStockOnly)}
+            className={`cursor-pointer px-4 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap snap-start shrink-0 shadow-sm ${
+              inStockOnly
+                ? 'bg-emerald-600 text-white'
+                : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
+            }`}
+          >
+            Ada Stok
+          </button>
         </div>
 
-        {/* Kolom Pencarian */}
         <div className="relative w-full sm:w-72 lg:w-96 shrink-0">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
           <input
+            ref={searchInputRef}
             type="text"
-            placeholder="Cari nama barang..."
+            placeholder="Cari nama / SKU / scan barcode..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={onSearchKeyDown}
             className="w-full pl-11 pr-4 py-3 text-base bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 placeholder-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all shadow-sm"
           />
         </div>
       </div>
 
-      {/* Grid Katalog Produk */}
+      {!loadingProducts && recentProducts.length > 0 && (
+        <PosQuickPickRow
+          products={recentProducts}
+          getRemainingStock={getRemainingStock}
+          onAddToCart={addToCart}
+        />
+      )}
+
       <div className="flex-1 overflow-y-auto pr-2">
         {loadingProducts ? (
-          <div className="h-60 w-full flex flex-col items-center justify-center">
-            <RefreshCw className="h-10 w-10 text-indigo-600 animate-spin mb-4" />
-            <p className="text-base font-bold text-slate-600 dark:text-slate-400">Tunggu sebentar ya, lagi nyari barang...</p>
-          </div>
+          <PosProductCardSkeleton />
         ) : filteredProducts.length > 0 ? (
           <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5 lg:gap-6">
             {filteredProducts.map((product) => {
@@ -91,7 +122,6 @@ export const PosProductGrid: React.FC<PosProductGridProps> = ({
                     isOutOfStock ? 'opacity-60 cursor-not-allowed' : ''
                   }`}
                 >
-                  {/* Gambar Produk */}
                   <div className="h-32 sm:h-40 lg:h-48 w-full bg-slate-100 dark:bg-slate-800 overflow-hidden relative shrink-0">
                     <img
                       src={product.imageUrl}
@@ -107,9 +137,27 @@ export const PosProductGrid: React.FC<PosProductGridProps> = ({
                         Mau Habis
                       </span>
                     )}
+                    {!isOutOfStock && (
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          addToCart({
+                            productId: product.id,
+                            name: product.name,
+                            price: product.price,
+                            sku: product.sku,
+                            stock: product.stock,
+                          });
+                        }}
+                        className="cursor-pointer absolute bottom-2 right-2 h-9 w-9 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                        aria-label={`Tambah ${product.name}`}
+                      >
+                        <Plus className="h-5 w-5" />
+                      </button>
+                    )}
                   </div>
 
-                  {/* Informasi Produk */}
                   <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between">
                     <div>
                       <p className="text-xs font-bold text-slate-500 dark:text-slate-400">
@@ -142,7 +190,6 @@ export const PosProductGrid: React.FC<PosProductGridProps> = ({
                     </div>
                   </div>
 
-                  {/* Overlay Habis */}
                   {isOutOfStock && (
                     <div className="absolute inset-0 bg-white/70 dark:bg-slate-900/70 flex items-center justify-center">
                       <span className="bg-red-600 text-white px-4 py-2 rounded-xl font-bold shadow-lg">
@@ -156,11 +203,18 @@ export const PosProductGrid: React.FC<PosProductGridProps> = ({
           </div>
         ) : (
           <div className="h-60 w-full flex flex-col items-center justify-center border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-3xl bg-white dark:bg-slate-900 p-6 text-center">
-            <Coffee className="h-16 w-16 text-slate-300 mb-4" />
+            <Coffee className="h-16 w-16 text-slate-300 dark:text-slate-600 mb-4" />
             <p className="font-bold text-slate-700 dark:text-slate-200 text-lg">Barang Belum Ada</p>
             <p className="text-slate-500 dark:text-slate-400 text-sm mt-2 max-w-md">
-              Toko kamu belum punya barang yang bisa dijual. Yuk tambah barang dulu di menu "Master Produk".
+              Toko kamu belum punya barang yang bisa dijual. Tambah barang di Master Produk.
             </p>
+            <button
+              type="button"
+              onClick={() => navigate('/admin/products')}
+              className="cursor-pointer mt-4 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold transition-colors"
+            >
+              Buka Master Produk
+            </button>
           </div>
         )}
       </div>

@@ -1,5 +1,15 @@
 import { Router } from 'express';
-import { listStaff, listRoles, createStaff, updateStaff, deleteStaff, approveStaff, rejectStaff } from '../controllers/staffController';
+import {
+  listStaff,
+  listRoles,
+  createStaff,
+  getStaffDetail,
+  updateStaff,
+  deleteStaff,
+  approveStaff,
+  rejectStaff,
+  bulkApproveStaff,
+} from '../controllers/staffController';
 import { authMiddleware } from '../middlewares/authMiddleware';
 import { tenantMiddleware } from '../middlewares/tenantMiddleware';
 import { requireRole } from '../middlewares/roleMiddleware';
@@ -27,6 +37,18 @@ router.get('/roles', listRoles);
  * Menambahkan karyawan baru dengan role yang dipilih.
  */
 router.post('/', createStaff);
+
+/**
+ * PATCH /api/staff/bulk-approve
+ * Menyetujui beberapa permintaan staf sekaligus.
+ */
+router.patch('/bulk-approve', bulkApproveStaff);
+
+/**
+ * GET /api/staff/:id
+ * Mengambil detail karyawan.
+ */
+router.get('/:id', getStaffDetail);
 
 /**
  * PATCH /api/staff/:id

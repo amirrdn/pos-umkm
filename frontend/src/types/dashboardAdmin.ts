@@ -19,6 +19,7 @@ export interface TrendData {
   date: string;
   revenue: number;
   profit: number;
+  customerTransactions: number;
 }
 
 export interface TypeBreakdownRow {

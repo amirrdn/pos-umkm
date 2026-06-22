@@ -31,3 +31,16 @@ export const updateStaffSchema = z.object({
   roleId: z.string().min(1, 'ID Role tidak valid').optional(),
   outletIds: z.array(z.string()).optional(),
 });
+
+export const listStaffQuerySchema = z.object({
+  search: z.string().trim().max(100).optional(),
+  roleName: z.string().trim().max(50).optional(),
+  approvalStatus: z.enum(['APPROVED', 'PENDING']).optional(),
+});
+
+export const bulkApproveStaffSchema = z.object({
+  staffIds: z
+    .array(z.string().uuid('ID staf tidak valid'))
+    .min(1, 'Pilih minimal satu staf untuk disetujui')
+    .max(50, 'Maksimal 50 staf per permintaan'),
+});

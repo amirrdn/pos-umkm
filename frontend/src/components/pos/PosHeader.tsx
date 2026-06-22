@@ -11,6 +11,7 @@ interface PosHeaderProps {
   setShowCloseShiftModal: (val: boolean) => void;
   setShowCartPanel: (val: boolean) => void;
   cartItemCount: number;
+  cartBadgePulse?: boolean;
   theme: string;
   toggleTheme: () => void;
   user: AuthUser | null;
@@ -25,6 +26,7 @@ export const PosHeader: React.FC<PosHeaderProps> = ({
   setShowCloseShiftModal,
   setShowCartPanel,
   cartItemCount,
+  cartBadgePulse = false,
   theme,
   toggleTheme,
   user,
@@ -105,7 +107,7 @@ export const PosHeader: React.FC<PosHeaderProps> = ({
           >
             <ShoppingBag className="h-4 w-4" />
             {cartItemCount > 0 && (
-              <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 flex items-center justify-center bg-indigo-600 text-white text-[9px] font-bold rounded-full">
+              <span className={`absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 flex items-center justify-center bg-indigo-600 text-white text-[9px] font-bold rounded-full ${cartBadgePulse ? 'animate-ping' : ''}`}>
                 {cartItemCount}
               </span>
             )}

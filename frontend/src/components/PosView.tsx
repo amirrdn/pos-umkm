@@ -1,7 +1,8 @@
-import React, { useRef } from 'react';
+import React, { useRef, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { AlertTriangle, CheckCircle } from 'lucide-react';
 import { usePos } from '../hooks/usePos';
+import { usePosKeyboard } from '../hooks/usePosKeyboard';
 import { ShiftModal } from './ShiftModal';
 import { CloseShiftModal } from './CloseShiftModal';
 import { ReceiptTemplate } from './ReceiptTemplate';
@@ -13,6 +14,10 @@ import { PosSuccessModal } from './pos/PosSuccessModal';
 import { PosQrisModal } from './pos/PosQrisModal';
 import { PosAddCustomerModal } from './pos/PosAddCustomerModal';
 import { PosSubscriptionBanner } from './pos/PosSubscriptionBanner';
+import { PosStatusBar } from './pos/PosStatusBar';
+import { PosCheckoutConfirmModal } from './pos/PosCheckoutConfirmModal';
+import { PosShiftDrawer } from './pos/PosShiftDrawer';
+import { PosOnboarding } from './pos/PosOnboarding';
 
 export const PosView: React.FC = () => {
   const navigate = useNavigate();
@@ -20,9 +25,28 @@ export const PosView: React.FC = () => {
   const printComponentRef = useRef<HTMLDivElement>(null);
   const pos = usePos({ printRef: printComponentRef });
 
+  const keyboardHandlers = useMemo(
+    () => ({
+      onFocusSearch: pos.focusSearchInput,
+      onCloseCart: () => pos.setShowCartPanel(false),
+      onOpenCart: () => pos.setShowCartPanel(true),
+      onCheckout: () => void pos.handleCheckout(),
+      onIncrementLastItem: pos.incrementLastCartItem,
+      onDecrementLastItem: pos.decrementLastCartItem,
+    }),
+    [
+      pos.focusSearchInput,
+      pos.setShowCartPanel,
+      pos.handleCheckout,
+      pos.incrementLastCartItem,
+      pos.decrementLastCartItem,
+    ]
+  );
+
+  usePosKeyboard(keyboardHandlers);
+
   return (
     <div className="h-screen w-screen bg-slate-50 dark:bg-slate-950 flex flex-col font-sans overflow-hidden transition-colors duration-150">
-      {/* Modal Buka Shift — diblokir jika belum ada shift aktif */}
       {pos.hasCheckedActiveShift && !pos.activeShift && !pos.isShiftLoading && (
         <ShiftModal
           cashierName={pos.user?.name || 'Kasir'}
@@ -31,28 +55,27 @@ export const PosView: React.FC = () => {
         />
       )}
 
-      {/* Modal Tutup Shift */}
       {pos.showCloseShiftModal && pos.activeShift && (
         <CloseShiftModal
           shift={pos.activeShift}
           onClose={pos.handleCloseShift}
           onCancel={() => pos.setShowCloseShiftModal(false)}
           isLoading={pos.isShiftLoading}
+          cartItemCount={pos.cartItemCount}
+          hasPendingQris={pos.showQrisModal}
         />
       )}
 
-      {/* Template Struk Tersembunyi (hanya terlihat saat cetak) */}
       <div className="hidden print:block">
         <ReceiptTemplate ref={printComponentRef} transactionData={pos.currentTransaction} />
       </div>
 
-      {/* Toast Notification */}
       {pos.notification && (
         <div
           className={`fixed top-4 right-4 z-50 flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg border transition-all duration-300 transform translate-y-0 ${
             pos.notification.type === 'success'
-              ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-              : 'bg-rose-50 border-rose-200 text-rose-800'
+              ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300'
+              : 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-300'
           }`}
         >
           {pos.notification.type === 'success' ? (
@@ -62,6 +85,7 @@ export const PosView: React.FC = () => {
           )}
           <span className="text-sm font-medium">{pos.notification.message}</span>
           <button
+            type="button"
             onClick={() => pos.setNotification(null)}
             className="cursor-pointer ml-2 hover:opacity-75 text-xs font-bold"
           >
@@ -70,7 +94,13 @@ export const PosView: React.FC = () => {
         </div>
       )}
 
-      {/* HEADER UTAMA */}
+      {pos.shiftError && (
+        <div className="shrink-0 px-4 py-2 bg-rose-50 dark:bg-rose-950/30 border-b border-rose-200 dark:border-rose-900 flex items-center gap-2 text-rose-700 dark:text-rose-400 text-sm">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          <span>{pos.shiftError}</span>
+        </div>
+      )}
+
       <PosHeader
         platformAdmin={pos.platformAdmin}
         activeShift={pos.activeShift}
@@ -78,6 +108,7 @@ export const PosView: React.FC = () => {
         setShowCloseShiftModal={pos.setShowCloseShiftModal}
         setShowCartPanel={pos.setShowCartPanel}
         cartItemCount={pos.cartItemCount}
+        cartBadgePulse={pos.cartBadgePulse}
         theme={pos.theme}
         toggleTheme={pos.toggleTheme}
         user={pos.user}
@@ -85,7 +116,16 @@ export const PosView: React.FC = () => {
         handleLogout={pos.handleLogout}
       />
 
-      {/* Bar navigasi */}
+      <PosStatusBar
+        activeOutletName={pos.activeOutletName}
+        shiftActive={Boolean(pos.activeShift)}
+        shiftStartedLabel={pos.shiftStartedLabel}
+        cartItemCount={pos.cartItemCount}
+        grandTotal={pos.grandTotal}
+        isOnline={pos.isOnline}
+        onShiftClick={pos.activeShift ? () => pos.setShowShiftDrawer(true) : undefined}
+      />
+
       <PosNavigation
         navigate={navigate}
         locationPathname={location.pathname}
@@ -95,7 +135,6 @@ export const PosView: React.FC = () => {
         managesSubscription={pos.managesSubscription}
       />
 
-      {/* Banner Peringatan Langganan */}
       <PosSubscriptionBanner
         subscription={pos.subscription}
         subscriptionBypass={pos.subscriptionBypass}
@@ -103,17 +142,21 @@ export const PosView: React.FC = () => {
         navigate={navigate}
       />
 
-      {/* KONTEN UTAMA */}
       <main className="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
         <PosProductGrid
           loadingProducts={pos.loadingProducts}
           filteredProducts={pos.filteredProducts}
+          recentProducts={pos.recentProducts}
           categoriesList={pos.categoriesList}
           selectedCategory={pos.selectedCategory}
           setSelectedCategory={pos.setSelectedCategory}
           searchQuery={pos.searchQuery}
           setSearchQuery={pos.setSearchQuery}
-          addToCart={pos.addToCart}
+          inStockOnly={pos.inStockOnly}
+          setInStockOnly={pos.setInStockOnly}
+          searchInputRef={pos.searchInputRef}
+          onSearchKeyDown={pos.handleSearchKeyDown}
+          addToCart={pos.handleAddToCart}
           getRemainingStock={pos.getRemainingStock}
         />
 
@@ -143,10 +186,13 @@ export const PosView: React.FC = () => {
           grandTotal={pos.grandTotal}
           handleCheckout={pos.handleCheckout}
           isSubmitting={pos.isSubmitting}
+          canCheckout={pos.canCheckout}
+          activeShift={Boolean(pos.activeShift)}
+          popularProducts={pos.popularProducts}
+          onAddToCart={pos.handleAddToCart}
         />
       </main>
 
-      {/* Modal Sukses Transaksi */}
       {pos.showSuccessModal && pos.currentTransaction && (
         <PosSuccessModal
           currentTransaction={pos.currentTransaction}
@@ -158,13 +204,13 @@ export const PosView: React.FC = () => {
         />
       )}
 
-      {/* Modal QRIS Pembayaran Dinamis */}
       {pos.showQrisModal && (
         <PosQrisModal
           qrisUrl={pos.qrisUrl}
           qrisInvoiceNumber={pos.qrisInvoiceNumber}
           qrisGrandTotal={pos.qrisGrandTotal}
           qrisFullscreen={pos.qrisFullscreen}
+          qrisPaymentStatus={pos.qrisPaymentStatus}
           setQrisFullscreen={pos.setQrisFullscreen}
           handleCancelQris={pos.handleCancelQris}
           handleOpenCustomerDisplay={pos.handleOpenCustomerDisplay}
@@ -172,7 +218,33 @@ export const PosView: React.FC = () => {
         />
       )}
 
-      {/* Modal Tambah Pelanggan Baru Cepat */}
+      {pos.showCheckoutConfirm && (
+        <PosCheckoutConfirmModal
+          itemCount={pos.cartItemCount}
+          grandTotal={pos.grandTotal}
+          paymentMethod={pos.paymentMethod}
+          submitting={pos.isSubmitting}
+          onClose={() => pos.setShowCheckoutConfirm(false)}
+          onConfirm={() => void pos.executeCheckout()}
+        />
+      )}
+
+      {pos.showShiftDrawer && (
+        <PosShiftDrawer
+          shift={pos.activeShift}
+          onClose={() => pos.setShowShiftDrawer(false)}
+          onCloseShift={() => pos.setShowCloseShiftModal(true)}
+        />
+      )}
+
+      {pos.showOnboarding && (
+        <PosOnboarding
+          step={pos.onboardingStep}
+          onNext={pos.advanceOnboarding}
+          onSkip={pos.completeOnboarding}
+        />
+      )}
+
       {pos.showAddCustomerModal && (
         <PosAddCustomerModal
           setShowAddCustomerModal={pos.setShowAddCustomerModal}

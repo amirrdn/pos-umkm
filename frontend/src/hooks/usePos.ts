@@ -12,6 +12,12 @@ import { isApiError } from '../api/types';
 import type { TransactionData } from '../components/ReceiptTemplate';
 import { API_BASE_URL } from '../config';
 import {
+  getRecentProductIds,
+  pushRecentProductId,
+  POS_CHECKOUT_CONFIRM_KEY,
+  POS_ONBOARDING_KEY,
+} from '../utils/posRecentProducts';
+import {
   getProductsApi,
   resolveSilentOutletApi,
   getTransactionStatusApi,
@@ -164,6 +170,20 @@ export function usePos({ printRef }: UsePosOptions) {
   const [customerQuery, setCustomerQuery] = useState<string>('');
   const [searchResults, setSearchResults] = useState<Customer[]>([]);
   const [showAddCustomerModal, setShowAddCustomerModal] = useState<boolean>(false);
+  const [inStockOnly, setInStockOnly] = useState<boolean>(true);
+  const [showCheckoutConfirm, setShowCheckoutConfirm] = useState<boolean>(false);
+  const [showShiftDrawer, setShowShiftDrawer] = useState<boolean>(false);
+  const [cartBadgePulse, setCartBadgePulse] = useState<boolean>(false);
+  const [isOnline, setIsOnline] = useState<boolean>(() =>
+    typeof navigator !== 'undefined' ? navigator.onLine : true
+  );
+  const [recentProductIds, setRecentProductIds] = useState<string[]>(() => getRecentProductIds());
+  const [qrisPaymentStatus, setQrisPaymentStatus] = useState<'waiting' | 'paid'>('waiting');
+  const [onboardingStep, setOnboardingStep] = useState<number>(0);
+  const [showOnboarding, setShowOnboarding] = useState<boolean>(false);
+
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const customerSearchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [newCustName, setNewCustName] = useState<string>('');
   const [newCustPhone, setNewCustPhone] = useState<string>('');
@@ -172,6 +192,30 @@ export function usePos({ printRef }: UsePosOptions) {
 
   const customerWindowRef = useRef<Window | null>(null);
   const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const checkoutConfirmEnabled = useMemo(() => {
+    try {
+      const stored = localStorage.getItem(POS_CHECKOUT_CONFIRM_KEY);
+      return stored === null ? true : stored === 'true';
+    } catch {
+      return true;
+    }
+  }, []);
+
+  const notifyCustomerDisplayPaid = useCallback(() => {
+    if (customerWindowRef.current && !customerWindowRef.current.closed) {
+      customerWindowRef.current.postMessage({ type: 'QRIS_PAID' }, window.location.origin);
+    }
+  }, []);
+
+  const focusSearchInput = useCallback(() => {
+    searchInputRef.current?.focus();
+  }, []);
+
+  const activeOutletName = useMemo(() => {
+    if (!activeOutletId || !user?.outlets) return null;
+    return user.outlets.find((outlet) => outlet.id === activeOutletId)?.name ?? null;
+  }, [activeOutletId, user?.outlets]);
 
   const showToast = useCallback((type: 'success' | 'error', message: string) => {
     setNotification({ type, message });
@@ -203,6 +247,52 @@ export function usePos({ printRef }: UsePosOptions) {
     }
     return false;
   }, [showToast, handleLogout, navigate]);
+
+  useEffect(() => {
+    const onOnline = () => setIsOnline(true);
+    const onOffline = () => setIsOnline(false);
+    window.addEventListener('online', onOnline);
+    window.addEventListener('offline', onOffline);
+    return () => {
+      window.removeEventListener('online', onOnline);
+      window.removeEventListener('offline', onOffline);
+    };
+  }, []);
+
+  useEffect(() => {
+    try {
+      const completed = localStorage.getItem(POS_ONBOARDING_KEY);
+      if (!completed) {
+        setShowOnboarding(true);
+      }
+    } catch {
+      // ignore storage errors
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!customerQuery.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    if (customerSearchTimeoutRef.current) {
+      clearTimeout(customerSearchTimeoutRef.current);
+    }
+
+    customerSearchTimeoutRef.current = setTimeout(() => {
+      void (async () => {
+        await fetchCustomers(customerQuery);
+        setSearchResults(useCustomerStore.getState().customers);
+      })();
+    }, 300);
+
+    return () => {
+      if (customerSearchTimeoutRef.current) {
+        clearTimeout(customerSearchTimeoutRef.current);
+      }
+    };
+  }, [customerQuery, fetchCustomers]);
 
   useEffect(() => {
     return () => {
@@ -381,6 +471,8 @@ export function usePos({ printRef }: UsePosOptions) {
           if (pollingIntervalRef.current) {
             clearInterval(pollingIntervalRef.current);
           }
+          setQrisPaymentStatus('paid');
+          notifyCustomerDisplayPaid();
           setShowQrisModal(false);
 
           const transactionDataForReceipt = toReceiptTransaction(resData.data, {
@@ -415,6 +507,7 @@ export function usePos({ printRef }: UsePosOptions) {
       customerWindowRef.current.close();
       customerWindowRef.current = null;
     }
+    setQrisPaymentStatus('waiting');
     setQrisFullscreen(false);
     setShowQrisModal(false);
     restoreLocalStock();
@@ -433,14 +526,21 @@ export function usePos({ printRef }: UsePosOptions) {
     }
   };
 
-  const handleCustomerSearch = async (query: string) => {
-    if (!query.trim()) {
-      setSearchResults([]);
-      return;
-    }
-    await fetchCustomers(query);
-    setSearchResults(useCustomerStore.getState().customers);
+  const handleCustomerSearch = async (_query: string) => {
+    // Debounced via customerQuery effect
   };
+
+  const handleAddToCart = useCallback(
+    (product: Parameters<typeof addToCart>[0]) => {
+      addToCart(product);
+      const nextRecent = pushRecentProductId(product.productId);
+      setRecentProductIds(nextRecent);
+      setCartBadgePulse(true);
+      setTimeout(() => setCartBadgePulse(false), 600);
+      showToast('success', `${product.name} ditambahkan ke keranjang.`);
+    },
+    [addToCart, showToast]
+  );
 
   const handleCreateCustomerSubmit = async (name: string, phone: string, email: string) => {
     if (!name.trim()) {
@@ -534,6 +634,11 @@ Terima kasih atas kunjungan Anda!`;
       return;
     }
 
+    if (!activeShift) {
+      showToast('error', 'Buka shift terlebih dahulu sebelum melakukan pembayaran.');
+      return;
+    }
+
     if (!activeOutletId) {
       showToast('error', 'Pilih outlet aktif terlebih dahulu sebelum checkout.');
       return;
@@ -549,6 +654,16 @@ Terima kasih atas kunjungan Anda!`;
       return;
     }
 
+    if (checkoutConfirmEnabled) {
+      setShowCheckoutConfirm(true);
+      return;
+    }
+
+    await executeCheckout();
+  };
+
+  const executeCheckout = async () => {
+    setShowCheckoutConfirm(false);
     setIsSubmitting(true);
     setNotification(null);
 
@@ -578,6 +693,7 @@ Terima kasih atas kunjungan Anda!`;
       );
 
       if (paymentMethod === 'QRIS') {
+        setQrisPaymentStatus('waiting');
         setQrisUrl(data.data.qrisUrl || '');
         setQrisInvoiceNumber(data.data.invoiceNumber);
         setQrisGrandTotal(Number(data.data.grandTotal));
@@ -639,14 +755,63 @@ Terima kasih atas kunjungan Anda!`;
     return originalStock - (cartItem ? cartItem.quantity : 0);
   };
 
+  const handleSearchKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLInputElement>) => {
+      if (event.key !== 'Enter' || !searchQuery.trim()) return;
+
+      const query = searchQuery.trim().toLowerCase();
+      const exactMatch = catalogProducts.find(
+        (product) =>
+          product.sku.toLowerCase() === query ||
+          product.name.toLowerCase() === query
+      );
+
+      if (!exactMatch) return;
+
+      const remaining = getRemainingStock(exactMatch.id, exactMatch.stock);
+      if (remaining <= 0) {
+        showToast('error', `${exactMatch.name} stok habis.`);
+        return;
+      }
+
+      handleAddToCart({
+        productId: exactMatch.id,
+        name: exactMatch.name,
+        price: exactMatch.price,
+        sku: exactMatch.sku,
+        stock: exactMatch.stock,
+      });
+      setSearchQuery('');
+    },
+    [searchQuery, catalogProducts, cart, handleAddToCart, showToast]
+  );
+
+  const incrementLastCartItem = useCallback(() => {
+    const lastItem = cart[cart.length - 1];
+    if (!lastItem) return;
+    if (lastItem.quantity >= lastItem.stock) {
+      showToast('error', 'Stok tidak mencukupi.');
+      return;
+    }
+    updateQuantity(lastItem.productId, lastItem.quantity + 1);
+  }, [cart, updateQuantity, showToast]);
+
+  const decrementLastCartItem = useCallback(() => {
+    const lastItem = cart[cart.length - 1];
+    if (!lastItem) return;
+    updateQuantity(lastItem.productId, lastItem.quantity - 1);
+  }, [cart, updateQuantity]);
+
   const filteredProducts = useMemo(() => {
     return catalogProducts.filter(product => {
       const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         product.sku.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesCategory = selectedCategory === 'SEMUA' || product.category === selectedCategory;
-      return matchesSearch && matchesCategory;
+      const remaining = getRemainingStock(product.id, product.stock);
+      const matchesStock = !inStockOnly || remaining > 0;
+      return matchesSearch && matchesCategory && matchesStock;
     });
-  }, [catalogProducts, searchQuery, selectedCategory]);
+  }, [catalogProducts, searchQuery, selectedCategory, inStockOnly, cart]);
 
   const categoriesList = useMemo(() => {
     return ['SEMUA', ...Array.from(new Set(catalogProducts.map(p => p.category)))];
@@ -664,6 +829,38 @@ Terima kasih atas kunjungan Anda!`;
       minute: '2-digit',
     });
   }, [activeShift]);
+
+  const recentProducts = useMemo(() => {
+    return recentProductIds
+      .map((id) => catalogProducts.find((product) => product.id === id))
+      .filter((product): product is Product => Boolean(product));
+  }, [recentProductIds, catalogProducts]);
+
+  const popularProducts = useMemo(() => {
+    return [...catalogProducts]
+      .filter((product) => getRemainingStock(product.id, product.stock) > 0)
+      .sort((a, b) => b.stock - a.stock)
+      .slice(0, 4);
+  }, [catalogProducts, cart]);
+
+  const canCheckout = cart.length > 0 && Boolean(activeShift) && !isSubmitting;
+
+  const completeOnboarding = useCallback(() => {
+    try {
+      localStorage.setItem(POS_ONBOARDING_KEY, 'true');
+    } catch {
+      // ignore
+    }
+    setShowOnboarding(false);
+  }, []);
+
+  const advanceOnboarding = useCallback(() => {
+    if (onboardingStep >= 2) {
+      completeOnboarding();
+      return;
+    }
+    setOnboardingStep((prev) => prev + 1);
+  }, [onboardingStep, completeOnboarding]);
 
   const primaryRole = getRoleDisplayLabel(user?.roles[0] ?? 'Kasir');
   const showAdminNav = !!(
@@ -733,6 +930,26 @@ Terima kasih atas kunjungan Anda!`;
     newCustEmail,
     setNewCustEmail,
     isCreatingCustomer,
+    inStockOnly,
+    setInStockOnly,
+    showCheckoutConfirm,
+    setShowCheckoutConfirm,
+    showShiftDrawer,
+    setShowShiftDrawer,
+    cartBadgePulse,
+    isOnline,
+    activeOutletName,
+    recentProducts,
+    popularProducts,
+    canCheckout,
+    checkoutConfirmEnabled,
+    qrisPaymentStatus,
+    showOnboarding,
+    onboardingStep,
+    advanceOnboarding,
+    completeOnboarding,
+    searchInputRef,
+    focusSearchInput,
 
     // Cart details
     cart,
@@ -757,6 +974,10 @@ Terima kasih atas kunjungan Anda!`;
     showOutletNav,
     filteredProducts,
     categoriesList,
+    handleAddToCart,
+    handleSearchKeyDown,
+    incrementLastCartItem,
+    decrementLastCartItem,
 
     // Handlers
     showToast,
@@ -768,6 +989,7 @@ Terima kasih atas kunjungan Anda!`;
     handleSendWhatsApp,
     handleFinishTransaction,
     handleCheckout,
+    executeCheckout,
     handleOpenShift,
     handleCloseShift,
     handleCancelQris,

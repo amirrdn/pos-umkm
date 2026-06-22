@@ -1,5 +1,32 @@
 export type StaffTab = 'active' | 'pending';
 
+export type StaffRoleFilter = 'all' | string;
+
+export interface StaffOverviewMetrics {
+  activeStaffCount: number;
+  inactiveStaffCount: number;
+  pendingApprovalCount: number;
+}
+
+export interface StaffListQuery {
+  search?: string;
+  roleName?: string;
+  approvalStatus?: 'APPROVED' | 'PENDING';
+}
+
+export interface StaffListResult {
+  staff: StaffUser[];
+  summary: StaffOverviewMetrics;
+}
+
+export type StaffConfirmActionType = 'approve' | 'reject' | 'deactivate' | 'activate' | 'bulk-approve';
+
+export interface StaffConfirmAction {
+  type: StaffConfirmActionType;
+  staff?: StaffUser;
+  staffIds?: string[];
+}
+
 export interface OutletOption {
   id: string;
   name: string;
@@ -24,6 +51,7 @@ export interface StaffUser {
   email: string;
   isActive: boolean;
   approvalStatus: string;
+  createdAt?: string;
   userOutlets: {
     outlet: {
       id: string;
@@ -49,4 +77,31 @@ export interface StaffFormState {
 export interface StaffNotification {
   type: 'success' | 'error';
   message: string;
+}
+
+export type StaffFormStep = 1 | 2;
+
+export interface StaffFormFieldErrors {
+  name?: string;
+  email?: string;
+  password?: string;
+  roleId?: string;
+  outletIds?: string;
+}
+
+export interface StaffDetailStats {
+  totalShifts: number;
+  openShifts: number;
+}
+
+export interface StaffDetail extends StaffUser {
+  updatedAt: string;
+  emailVerifiedAt: string | null;
+  stats: StaffDetailStats;
+}
+
+export interface StaffBulkApproveResult {
+  approvedCount: number;
+  skippedCount: number;
+  staff: StaffUser[];
 }
