@@ -1,7 +1,11 @@
 import { apiClient } from './apiClient';
 import type {
   OutletHierarchy,
+  StaffBulkApproveResult,
+  StaffDetail,
   StaffFormState,
+  StaffListQuery,
+  StaffListResult,
   StaffRole,
   StaffUser,
 } from '../types/staffManagement';
@@ -12,9 +16,16 @@ interface ApiResponse<T> {
   data: T;
 }
 
-export async function getStaffListApi(): Promise<StaffUser[]> {
-  const response = await apiClient.get<ApiResponse<StaffUser[]>>('/api/staff');
-  return response.data.data;
+interface StaffListApiResponse extends ApiResponse<StaffUser[]> {
+  summary: StaffListResult['summary'];
+}
+
+export async function getStaffListApi(query: StaffListQuery = {}): Promise<StaffListResult> {
+  const response = await apiClient.get<StaffListApiResponse>('/api/staff', { params: query });
+  return {
+    staff: response.data.data,
+    summary: response.data.summary,
+  };
 }
 
 export async function getStaffRolesApi(): Promise<StaffRole[]> {
@@ -59,5 +70,17 @@ export async function approveStaffApi(id: string): Promise<StaffUser> {
 
 export async function rejectStaffApi(id: string): Promise<StaffUser> {
   const response = await apiClient.patch<ApiResponse<StaffUser>>(`/api/staff/${id}/reject`);
+  return response.data.data;
+}
+
+export async function getStaffDetailApi(id: string): Promise<StaffDetail> {
+  const response = await apiClient.get<ApiResponse<StaffDetail>>(`/api/staff/${id}`);
+  return response.data.data;
+}
+
+export async function bulkApproveStaffApi(staffIds: string[]): Promise<StaffBulkApproveResult> {
+  const response = await apiClient.patch<ApiResponse<StaffBulkApproveResult>>('/api/staff/bulk-approve', {
+    staffIds,
+  });
   return response.data.data;
 }

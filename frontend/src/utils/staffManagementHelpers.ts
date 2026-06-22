@@ -1,10 +1,38 @@
+import { getRoleDisplayLabel, hasTenantWideOutletAccess } from './roles';
 import type {
   OutletHierarchy,
+  StaffFormFieldErrors,
   StaffFormState,
+  StaffListQuery,
   StaffRole,
   StaffTab,
   StaffUser,
 } from '../types/staffManagement';
+
+export function mapStaffTabToApprovalStatus(tab: StaffTab): 'APPROVED' | 'PENDING' {
+  return tab === 'active' ? 'APPROVED' : 'PENDING';
+}
+
+export function buildStaffListQuery(
+  tab: StaffTab,
+  searchQuery: string,
+  roleFilter: string
+): StaffListQuery {
+  const query: StaffListQuery = {
+    approvalStatus: mapStaffTabToApprovalStatus(tab),
+  };
+
+  const normalizedSearch = searchQuery.trim();
+  if (normalizedSearch) {
+    query.search = normalizedSearch;
+  }
+
+  if (roleFilter !== 'all') {
+    query.roleName = roleFilter;
+  }
+
+  return query;
+}
 
 export function getStaffInitials(name: string): string {
   return name
@@ -29,17 +57,6 @@ export function getRoleBadgeClass(roleName: string): string {
     return 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20';
   }
   return 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20';
-}
-
-export function filterStaffByTab(staffList: StaffUser[], tab: StaffTab): StaffUser[] {
-  if (tab === 'active') {
-    return staffList.filter((staff) => staff.approvalStatus === 'APPROVED');
-  }
-  return staffList.filter((staff) => staff.approvalStatus === 'PENDING');
-}
-
-export function countStaffByApproval(staffList: StaffUser[], status: 'APPROVED' | 'PENDING'): number {
-  return staffList.filter((staff) => staff.approvalStatus === status).length;
 }
 
 export function findDefaultRole(roles: StaffRole[]): StaffRole | undefined {
@@ -86,4 +103,120 @@ export function filterRolesBySearch(roles: StaffRole[], searchTerm: string): Sta
 export function isStaffManagementAllowed(roles: string[] | undefined): boolean {
   if (!roles) return false;
   return roles.includes('Owner') || roles.includes('Admin') || roles.includes('Manager');
+}
+
+export function formatStaffRegistrationDate(createdAt: string | undefined): string | null {
+  if (!createdAt) {
+    return null;
+  }
+
+  return new Date(createdAt).toLocaleDateString('id-ID', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export function roleRequiresOutletAssignment(roleName: string): boolean {
+  return !hasTenantWideOutletAccess([roleName]);
+}
+
+export function findStaffRoleById(roles: StaffRole[], roleId: string): StaffRole | undefined {
+  return roles.find((role) => role.id === roleId);
+}
+
+export function hasStaffFormFieldErrors(errors: StaffFormFieldErrors): boolean {
+  return Object.values(errors).some(Boolean);
+}
+
+export function validateStaffAccountStep(
+  form: StaffFormState,
+  isEdit: boolean
+): StaffFormFieldErrors {
+  const errors: StaffFormFieldErrors = {};
+  const trimmedName = form.name.trim();
+
+  if (trimmedName.length < 2) {
+    errors.name = 'Nama minimal 2 karakter.';
+  }
+
+  const trimmedEmail = form.email.trim();
+  if (!trimmedEmail || !EMAIL_PATTERN.test(trimmedEmail)) {
+    errors.email = 'Format email tidak valid.';
+  }
+
+  if (!isEdit && form.password.length < 6) {
+    errors.password = 'Kata sandi minimal 6 karakter.';
+  }
+
+  return errors;
+}
+
+export function validateStaffAccessStep(
+  form: StaffFormState,
+  roles: StaffRole[],
+  outletHierarchy: OutletHierarchy
+): StaffFormFieldErrors {
+  const errors: StaffFormFieldErrors = {};
+  const selectedRole = findStaffRoleById(roles, form.roleId);
+
+  if (!selectedRole) {
+    errors.roleId = 'Pilih peran untuk karyawan ini.';
+    return errors;
+  }
+
+  if (
+    roleRequiresOutletAssignment(selectedRole.name) &&
+    hasOutletHierarchy(outletHierarchy) &&
+    form.outletIds.length === 0
+  ) {
+    errors.outletIds = 'Pilih minimal satu outlet penempatan.';
+  }
+
+  return errors;
+}
+
+export interface StaffRoleGuide {
+  title: string;
+  description: string;
+  accessSummary: string;
+}
+
+const STAFF_ROLE_GUIDE_COPY: Record<string, Pick<StaffRoleGuide, 'description' | 'accessSummary'>> = {
+  Owner: {
+    description: 'Pemilik toko dengan akses penuh ke semua fitur bisnis.',
+    accessSummary: 'Laporan, billing, kelola staf, outlet, dan produk.',
+  },
+  Manager: {
+    description: 'Pengelola operasional harian di seluruh cabang.',
+    accessSummary: 'Dashboard, stok, shift, dan persetujuan permintaan internal.',
+  },
+  Kasir: {
+    description: 'Staf front-line yang melayani transaksi penjualan.',
+    accessSummary: 'POS, buka/tutup shift, dan riwayat transaksi outlet yang ditugaskan.',
+  },
+  'Staf Gudang': {
+    description: 'Staf yang mengelola persediaan barang.',
+    accessSummary: 'Mutasi stok, transfer barang, dan monitoring inventori outlet.',
+  },
+  Admin: {
+    description: 'Admin platform SaaS dengan akses lintas tenant.',
+    accessSummary: 'Panel platform, tenant, dan konfigurasi sistem.',
+  },
+};
+
+export function buildStaffRoleGuide(role: StaffRole | undefined): StaffRoleGuide | null {
+  if (!role) {
+    return null;
+  }
+
+  const guideCopy = STAFF_ROLE_GUIDE_COPY[role.name];
+
+  return {
+    title: getRoleDisplayLabel(role.name),
+    description: guideCopy?.description ?? role.description,
+    accessSummary: guideCopy?.accessSummary ?? 'Hak akses mengikuti peran yang dipilih.',
+  };
 }

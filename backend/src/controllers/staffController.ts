@@ -1,21 +1,31 @@
 import { Request, Response } from 'express';
-import { createStaffSchema, updateStaffSchema } from '../schemas/staffSchema';
+import { createStaffSchema, bulkApproveStaffSchema, listStaffQuerySchema, updateStaffSchema } from '../schemas/staffSchema';
 import * as staffService from '../services/staffService';
 
-// ==========================================
-// STAFF CONTROLLER
-// ==========================================
-
-/**
- * GET /api/staff
- * Mengambil semua daftar karyawan dalam tenant aktif.
- * Hanya bisa diakses oleh Owner/Admin.
- */
 export async function listStaff(req: Request, res: Response): Promise<Response> {
   try {
+    const validation = listStaffQuerySchema.safeParse(req.query);
+    if (!validation.success) {
+      return res.status(400).json({
+        success: false,
+        message: 'Parameter filter tidak valid.',
+      });
+    }
+
     const tenantId = req.tenantId!;
-    const staff = await staffService.getStaffList(tenantId);
-    return res.status(200).json({ success: true, data: staff });
+    const { search, roleName, approvalStatus } = validation.data;
+    const filters: staffService.StaffListFilters = {
+      ...(search ? { search } : {}),
+      ...(roleName ? { roleName } : {}),
+      ...(approvalStatus ? { approvalStatus } : {}),
+    };
+
+    const [staff, summary] = await Promise.all([
+      staffService.getStaffList(tenantId, filters),
+      staffService.getStaffSummary(tenantId),
+    ]);
+
+    return res.status(200).json({ success: true, data: staff, summary });
   } catch (error: unknown) {
     console.error('[StaffController.listStaff]', error);
     return res.status(500).json({ success: false, message: 'Terjadi kesalahan saat mengambil daftar karyawan.' });
@@ -68,6 +78,60 @@ export async function createStaff(req: Request, res: Response): Promise<Response
     }
     console.error('[StaffController.createStaff]', error);
     return res.status(500).json({ success: false, message: 'Terjadi kesalahan saat menambahkan karyawan.' });
+  }
+}
+
+/**
+ * PATCH /api/staff/bulk-approve
+ * Menyetujui beberapa permintaan staf sekaligus.
+ */
+export async function bulkApproveStaff(req: Request, res: Response): Promise<Response> {
+  try {
+    const validation = bulkApproveStaffSchema.safeParse(req.body);
+    if (!validation.success) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validasi input gagal.',
+        errors: validation.error.format(),
+      });
+    }
+
+    const tenantId = req.tenantId!;
+    const result = await staffService.bulkApproveStaff(validation.data.staffIds, tenantId);
+
+    return res.status(200).json({
+      success: true,
+      message: `${result.approvedCount} permintaan staf berhasil disetujui.`,
+      data: result,
+    });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Terjadi kesalahan internal server.';
+    if (message.includes('tidak ada') || message.includes('valid')) {
+      return res.status(400).json({ success: false, message });
+    }
+    console.error('[StaffController.bulkApproveStaff]', error);
+    return res.status(500).json({ success: false, message: 'Terjadi kesalahan saat menyetujui staf secara massal.' });
+  }
+}
+
+/**
+ * GET /api/staff/:id
+ * Mengambil detail karyawan termasuk statistik shift.
+ */
+export async function getStaffDetail(req: Request, res: Response): Promise<Response> {
+  try {
+    const tenantId = req.tenantId!;
+    const { id } = req.params;
+
+    const detail = await staffService.getStaffDetail(id, tenantId);
+    return res.status(200).json({ success: true, data: detail });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Terjadi kesalahan internal server.';
+    if (message.includes('tidak ditemukan')) {
+      return res.status(404).json({ success: false, message });
+    }
+    console.error('[StaffController.getStaffDetail]', error);
+    return res.status(500).json({ success: false, message: 'Terjadi kesalahan saat mengambil detail karyawan.' });
   }
 }
 

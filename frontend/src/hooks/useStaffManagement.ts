@@ -1,11 +1,14 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
+import { useSubscriptionStore } from '../store/useSubscriptionStore';
 import {
   approveStaffApi,
+  bulkApproveStaffApi,
   createStaffApi,
   deleteStaffApi,
   getOutletHierarchyApi,
+  getStaffDetailApi,
   getStaffListApi,
   getStaffRolesApi,
   rejectStaffApi,
@@ -14,33 +17,59 @@ import {
 } from '../api/staffManagementApi';
 import {
   buildStaffFormFromUser,
-  countStaffByApproval,
+  buildStaffListQuery,
   createEmptyStaffForm,
-  filterStaffByTab,
   findDefaultRoleId,
+  hasStaffFormFieldErrors,
   isStaffManagementAllowed,
+  validateStaffAccessStep,
+  validateStaffAccountStep,
 } from '../utils/staffManagementHelpers';
 import type {
   OutletHierarchy,
+  StaffConfirmAction,
+  StaffDetail,
+  StaffFormFieldErrors,
   StaffFormState,
+  StaffFormStep,
+  StaffOverviewMetrics,
   StaffRole,
+  StaffRoleFilter,
   StaffTab,
   StaffUser,
 } from '../types/staffManagement';
+
+interface FetchStaffOptions {
+  search?: string;
+  roleFilter?: StaffRoleFilter;
+  tab?: StaffTab;
+}
+
+const emptyStaffOverviewMetrics: StaffOverviewMetrics = {
+  activeStaffCount: 0,
+  inactiveStaffCount: 0,
+  pendingApprovalCount: 0,
+};
 
 export function useStaffManagement() {
   const navigate = useNavigate();
   const token = useAuthStore((state) => state.token);
   const currentUser = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
+  const subscription = useSubscriptionStore((state) => state.subscription);
+  const fetchActiveSubscription = useSubscriptionStore((state) => state.fetchActiveSubscription);
 
-  const [staffList, setStaffList] = useState<StaffUser[]>([]);
+  const [displayedStaff, setDisplayedStaff] = useState<StaffUser[]>([]);
+  const [staffOverviewMetrics, setStaffOverviewMetrics] =
+    useState<StaffOverviewMetrics>(emptyStaffOverviewMetrics);
   const [outletHierarchy, setOutletHierarchy] = useState<OutletHierarchy>({ main: null, branches: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const [activeTab, setActiveTab] = useState<StaffTab>('active');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [roleFilter, setRoleFilter] = useState<StaffRoleFilter>('all');
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [rolesList, setRolesList] = useState<StaffRole[]>([]);
@@ -49,14 +78,28 @@ export function useStaffManagement() {
   const [modalError, setModalError] = useState<string | null>(null);
   const [editingStaff, setEditingStaff] = useState<StaffUser | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<StaffUser | null>(null);
+  const [confirmAction, setConfirmAction] = useState<StaffConfirmAction | null>(null);
+  const [processingStaffId, setProcessingStaffId] = useState<string | null>(null);
+  const [formStep, setFormStep] = useState<StaffFormStep>(1);
+  const [fieldErrors, setFieldErrors] = useState<StaffFormFieldErrors>({});
+  const [detailStaff, setDetailStaff] = useState<StaffUser | null>(null);
+  const [staffDetail, setStaffDetail] = useState<StaffDetail | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [selectedStaffIds, setSelectedStaffIds] = useState<string[]>([]);
+
+  const staffQuota = subscription?.usage.staff ?? null;
+  const canRegisterNewStaff =
+    subscription?.platformAdminBypass === true || staffQuota === null || !staffQuota.isFull;
+
+  const isStaffManagementSessionAllowed = isStaffManagementAllowed(currentUser?.roles);
 
   const handleLogout = () => {
     logout();
     navigate('/login');
   };
 
-  const showSuccess = useCallback((msg: string) => {
-    setSuccessMsg(msg);
+  const showSuccess = useCallback((message: string) => {
+    setSuccessMsg(message);
     setTimeout(() => setSuccessMsg(null), 3000);
   }, []);
 
@@ -64,9 +107,10 @@ export function useStaffManagement() {
     try {
       const roles = await getStaffRolesApi();
       setRolesList(roles);
-      if (roles.length > 0) {
-        setNewStaff((prev) => ({ ...prev, roleId: findDefaultRoleId(roles) }));
-      }
+      setNewStaff((previous) => ({
+        ...previous,
+        roleId: previous.roleId || findDefaultRoleId(roles),
+      }));
     } catch (err) {
       console.error('Gagal mengambil daftar peran:', err);
     }
@@ -80,56 +124,240 @@ export function useStaffManagement() {
     }
   }, []);
 
-  const fetchStaff = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      setStaffList(await getStaffListApi());
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Gagal mengambil data staf.';
-      setError(message);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const fetchStaff = useCallback(
+    async (options?: FetchStaffOptions) => {
+      const tab = options?.tab ?? activeTab;
+      const search = options?.search ?? searchQuery;
+      const role = options?.roleFilter ?? roleFilter;
+
+      try {
+        setLoading(true);
+        setError(null);
+        const result = await getStaffListApi(buildStaffListQuery(tab, search, role));
+        setDisplayedStaff(result.staff);
+        setStaffOverviewMetrics(result.summary);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Gagal mengambil data staf.';
+        setError(message);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [activeTab, roleFilter, searchQuery]
+  );
+
+  const refreshStaffPage = useCallback(async () => {
+    await Promise.all([fetchStaff(), fetchActiveSubscription()]);
+  }, [fetchStaff, fetchActiveSubscription]);
 
   useEffect(() => {
     if (!token) {
       navigate('/login');
       return;
     }
-    if (!isStaffManagementAllowed(currentUser?.roles)) {
+    if (!isStaffManagementSessionAllowed) {
       navigate('/pos');
       return;
     }
 
-    void (async () => {
-      await Promise.resolve();
-      await Promise.all([fetchStaff(), fetchRoles(), fetchOutletHierarchy()]);
-    })();
-  }, [token, currentUser, navigate, fetchStaff, fetchRoles, fetchOutletHierarchy]);
+    void Promise.all([fetchRoles(), fetchOutletHierarchy(), fetchActiveSubscription()]);
+  }, [
+    token,
+    currentUser,
+    navigate,
+    fetchRoles,
+    fetchOutletHierarchy,
+    fetchActiveSubscription,
+    isStaffManagementSessionAllowed,
+  ]);
 
-  const handleToggleStatus = async (id: string, currentStatus: boolean) => {
+  useEffect(() => {
+    if (!token || !isStaffManagementSessionAllowed) {
+      return;
+    }
+
+    void fetchStaff();
+  }, [activeTab, roleFilter, token, isStaffManagementSessionAllowed, fetchStaff]);
+
+  useEffect(() => {
+    setSelectedStaffIds([]);
+    setDetailStaff(null);
+    setStaffDetail(null);
+  }, [activeTab]);
+
+  const handleSearchSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    void fetchStaff();
+  };
+
+  const handleClearSearch = () => {
+    setSearchQuery('');
+    setRoleFilter('all');
+    void fetchStaff({ search: '', roleFilter: 'all' });
+  };
+
+  const resetStaffFormState = () => {
+    setFormStep(1);
+    setFieldErrors({});
+    setModalError(null);
+  };
+
+  const openAddModal = () => {
+    if (!canRegisterNewStaff) {
+      setError('Kuota staf paket Anda sudah penuh. Upgrade paket untuk menambah karyawan.');
+      return;
+    }
+    setEditingStaff(null);
+    setNewStaff(createEmptyStaffForm(findDefaultRoleId(rolesList)));
+    resetStaffFormState();
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (staff: StaffUser) => {
+    setEditingStaff(staff);
+    setNewStaff(buildStaffFormFromUser(staff));
+    resetStaffFormState();
+    setIsModalOpen(true);
+  };
+
+  const advanceFormStep = () => {
+    const accountErrors = validateStaffAccountStep(newStaff, false);
+    if (hasStaffFormFieldErrors(accountErrors)) {
+      setFieldErrors(accountErrors);
+      return;
+    }
+    setFieldErrors({});
+    setFormStep(2);
+  };
+
+  const retreatFormStep = () => {
+    setFieldErrors({});
+    setFormStep(1);
+  };
+
+  const requestApproveStaff = (staff: StaffUser) => {
+    setConfirmAction({ type: 'approve', staff });
+  };
+
+  const requestRejectStaff = (staff: StaffUser) => {
+    setConfirmAction({ type: 'reject', staff });
+  };
+
+  const requestBulkApprove = () => {
+    if (selectedStaffIds.length === 0) {
+      return;
+    }
+    setConfirmAction({ type: 'bulk-approve', staffIds: selectedStaffIds });
+  };
+
+  const openDetailDrawer = (staff: StaffUser) => {
+    setDetailStaff(staff);
+    setStaffDetail(null);
+    setDetailLoading(true);
+
+    void (async () => {
+      try {
+        const detail = await getStaffDetailApi(staff.id);
+        setStaffDetail(detail);
+      } catch (err) {
+        console.error('Gagal mengambil detail staf:', err);
+      } finally {
+        setDetailLoading(false);
+      }
+    })();
+  };
+
+  const closeDetailDrawer = () => {
+    setDetailStaff(null);
+    setStaffDetail(null);
+    setDetailLoading(false);
+  };
+
+  const toggleStaffSelection = (staffId: string) => {
+    setSelectedStaffIds((previous) =>
+      previous.includes(staffId)
+        ? previous.filter((id) => id !== staffId)
+        : [...previous, staffId]
+    );
+  };
+
+  const toggleSelectAllPending = () => {
+    const pendingIds = displayedStaff.map((staff) => staff.id);
+    const isAllSelected =
+      pendingIds.length > 0 && pendingIds.every((id) => selectedStaffIds.includes(id));
+
+    setSelectedStaffIds(isAllSelected ? [] : pendingIds);
+  };
+
+  const clearStaffSelection = () => {
+    setSelectedStaffIds([]);
+  };
+
+  const requestToggleStaffStatus = (staff: StaffUser) => {
+    setConfirmAction({
+      type: staff.isActive ? 'deactivate' : 'activate',
+      staff,
+    });
+  };
+
+  const executeConfirmAction = async () => {
+    if (!confirmAction) {
+      return;
+    }
+
+    const { type, staff, staffIds } = confirmAction;
+
     try {
+      setProcessingStaffId(staff?.id ?? 'bulk');
       setError(null);
-      const updated = await toggleStaffStatusApi(id, !currentStatus);
-      showSuccess(`Status ${updated.name} berhasil diubah.`);
-      fetchStaff();
+
+      if (type === 'bulk-approve') {
+        const ids = staffIds ?? [];
+        const result = await bulkApproveStaffApi(ids);
+        showSuccess(`${result.approvedCount} permintaan staf berhasil disetujui.`);
+        setSelectedStaffIds([]);
+      } else if (!staff) {
+        return;
+      } else {
+        const staffId = staff.id;
+
+        if (type === 'approve') {
+          const updated = await approveStaffApi(staffId);
+          showSuccess(`Pendaftaran staf "${updated.name}" berhasil disetujui.`);
+        } else if (type === 'reject') {
+          const updated = await rejectStaffApi(staffId);
+          showSuccess(`Pendaftaran staf "${updated.name}" ditolak.`);
+        } else if (type === 'deactivate') {
+          const updated = await toggleStaffStatusApi(staffId, false);
+          showSuccess(`Staf "${updated.name}" dinonaktifkan.`);
+        } else {
+          const updated = await toggleStaffStatusApi(staffId, true);
+          showSuccess(`Staf "${updated.name}" diaktifkan kembali.`);
+        }
+      }
+
+      setConfirmAction(null);
+      await Promise.all([fetchStaff(), fetchActiveSubscription()]);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Gagal mengubah status staf.';
+      const message = err instanceof Error ? err.message : 'Gagal memproses permintaan staf.';
       setError(message);
+    } finally {
+      setProcessingStaffId(null);
     }
   };
 
   const handleDeleteStaff = async () => {
-    if (!deleteTarget) return;
+    if (!deleteTarget) {
+      return;
+    }
+
     try {
       setSubmitting(true);
       setError(null);
       await deleteStaffApi(deleteTarget.id);
       showSuccess(`Staf "${deleteTarget.name}" berhasil dihapus.`);
       setDeleteTarget(null);
-      fetchStaff();
+      await Promise.all([fetchStaff(), fetchActiveSubscription()]);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Gagal menghapus staf.';
       setError(message);
@@ -138,62 +366,48 @@ export function useStaffManagement() {
     }
   };
 
-  const handleApproveStaff = async (id: string) => {
-    try {
-      setLoading(true);
-      setError(null);
-      const updated = await approveStaffApi(id);
-      showSuccess(`Pendaftaran staf "${updated.name}" berhasil disetujui.`);
-      fetchStaff();
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Gagal menyetujui pendaftaran staf.';
-      setError(message);
-      setLoading(false);
+  const handleCreateStaff = async (event: React.FormEvent) => {
+    event.preventDefault();
+
+    if (!editingStaff && formStep === 1) {
+      advanceFormStep();
+      return;
     }
-  };
 
-  const handleRejectStaff = async (id: string) => {
-    try {
-      setLoading(true);
-      setError(null);
-      const updated = await rejectStaffApi(id);
-      showSuccess(`Pendaftaran staf "${updated.name}" ditolak.`);
-      fetchStaff();
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Gagal menolak pendaftaran staf.';
-      setError(message);
-      setLoading(false);
+    const isEdit = Boolean(editingStaff);
+    const accountErrors = validateStaffAccountStep(newStaff, isEdit);
+    const accessErrors = validateStaffAccessStep(newStaff, rolesList, outletHierarchy);
+    const validationErrors = { ...accountErrors, ...accessErrors };
+
+    if (hasStaffFormFieldErrors(validationErrors)) {
+      setFieldErrors(validationErrors);
+      if (!isEdit && hasStaffFormFieldErrors(accountErrors)) {
+        setFormStep(1);
+      }
+      return;
     }
-  };
 
-  const openAddModal = () => {
-    setEditingStaff(null);
-    setNewStaff(createEmptyStaffForm(findDefaultRoleId(rolesList)));
-    setModalError(null);
-    setIsModalOpen(true);
-  };
+    if (!isEdit && !canRegisterNewStaff) {
+      setModalError('Kuota staf paket Anda sudah penuh. Upgrade paket untuk menambah karyawan.');
+      return;
+    }
 
-  const openEditModal = (staff: StaffUser) => {
-    setEditingStaff(staff);
-    setNewStaff(buildStaffFormFromUser(staff));
-    setModalError(null);
-    setIsModalOpen(true);
-  };
-
-  const handleCreateStaff = async (e: React.FormEvent) => {
-    e.preventDefault();
     try {
       setSubmitting(true);
       setModalError(null);
+      setFieldErrors({});
 
-      const isEdit = Boolean(editingStaff);
       const result = isEdit
         ? await updateStaffApi(editingStaff!.id, {
-            name: newStaff.name,
+            name: newStaff.name.trim(),
             roleId: newStaff.roleId,
             outletIds: newStaff.outletIds,
           })
-        : await createStaffApi(newStaff);
+        : await createStaffApi({
+            ...newStaff,
+            name: newStaff.name.trim(),
+            email: newStaff.email.trim(),
+          });
 
       showSuccess(
         isEdit
@@ -203,7 +417,8 @@ export function useStaffManagement() {
       setIsModalOpen(false);
       setNewStaff(createEmptyStaffForm(findDefaultRoleId(rolesList)));
       setEditingStaff(null);
-      fetchStaff();
+      resetStaffFormState();
+      await Promise.all([fetchStaff(), fetchActiveSubscription()]);
     } catch (err) {
       const message =
         err instanceof Error
@@ -216,40 +431,51 @@ export function useStaffManagement() {
   };
 
   const handleOutletToggle = (outletId: string) => {
-    setNewStaff((prev) => {
-      const exists = prev.outletIds.includes(outletId);
-      const updated = exists
-        ? prev.outletIds.filter((id) => id !== outletId)
-        : [...prev.outletIds, outletId];
-      return { ...prev, outletIds: updated };
+    setNewStaff((previous) => {
+      const exists = previous.outletIds.includes(outletId);
+      const outletIds = exists
+        ? previous.outletIds.filter((id) => id !== outletId)
+        : [...previous.outletIds, outletId];
+      return { ...previous, outletIds };
     });
   };
 
-  const displayedStaff = useMemo(
-    () => filterStaffByTab(staffList, activeTab),
-    [staffList, activeTab]
-  );
+  const hasActiveStaffFilters = searchQuery.trim().length > 0 || roleFilter !== 'all';
+  const activeStaffCount =
+    staffOverviewMetrics.activeStaffCount + staffOverviewMetrics.inactiveStaffCount;
+  const pendingStaffCount = staffOverviewMetrics.pendingApprovalCount;
+  const tabStaffCount = activeTab === 'active' ? activeStaffCount : pendingStaffCount;
+  const isStaffListFilteredEmpty =
+    !loading && displayedStaff.length === 0 && hasActiveStaffFilters && tabStaffCount > 0;
 
-  const activeStaffCount = useMemo(
-    () => countStaffByApproval(staffList, 'APPROVED'),
-    [staffList]
-  );
+  const selectPendingTab = () => setActiveTab('pending');
 
-  const pendingStaffCount = useMemo(
-    () => countStaffByApproval(staffList, 'PENDING'),
-    [staffList]
-  );
+  const openEditModalFromDetail = (staff: StaffUser) => {
+    closeDetailDrawer();
+    openEditModal(staff);
+  };
+
+  const pendingIds = displayedStaff.map((staff) => staff.id);
+  const isAllPendingSelected =
+    activeTab === 'pending' &&
+    pendingIds.length > 0 &&
+    pendingIds.every((id) => selectedStaffIds.includes(id));
+
+  const navigateToUpgradePlan = () => navigate('/admin/pricing');
 
   return {
     currentUser,
     handleLogout,
-    staffList,
     outletHierarchy,
     loading,
     error,
     successMsg,
     activeTab,
     setActiveTab,
+    searchQuery,
+    setSearchQuery,
+    roleFilter,
+    setRoleFilter,
     isModalOpen,
     setIsModalOpen,
     rolesList,
@@ -260,18 +486,47 @@ export function useStaffManagement() {
     editingStaff,
     deleteTarget,
     setDeleteTarget,
+    confirmAction,
+    setConfirmAction,
+    processingStaffId,
+    formStep,
+    fieldErrors,
+    staffQuota,
+    canRegisterNewStaff,
+    staffOverviewMetrics,
     fetchStaff,
-    handleToggleStatus,
+    refreshStaffPage,
+    handleSearchSubmit,
+    handleClearSearch,
+    handleToggleStatus: requestToggleStaffStatus,
     handleDeleteStaff,
-    handleApproveStaff,
-    handleRejectStaff,
+    handleApproveStaff: requestApproveStaff,
+    handleRejectStaff: requestRejectStaff,
+    executeConfirmAction,
     openAddModal,
     openEditModal,
+    advanceFormStep,
+    retreatFormStep,
     handleCreateStaff,
     handleOutletToggle,
     displayedStaff,
     activeStaffCount,
     pendingStaffCount,
+    isStaffListFilteredEmpty,
+    selectPendingTab,
+    navigateToUpgradePlan,
+    detailStaff,
+    staffDetail,
+    detailLoading,
+    openDetailDrawer,
+    closeDetailDrawer,
+    openEditModalFromDetail,
+    selectedStaffIds,
+    toggleStaffSelection,
+    toggleSelectAllPending,
+    clearStaffSelection,
+    isAllPendingSelected,
+    requestBulkApprove,
   };
 }
 

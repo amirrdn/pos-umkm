@@ -29,13 +29,16 @@ export function StaffTabBar({
       <button
         type="button"
         onClick={() => onTabChange('pending')}
-        className={`cursor-pointer pb-3 text-sm font-bold transition-all relative ${
+        className={`cursor-pointer pb-3 text-sm font-bold transition-all relative flex items-center gap-2 ${
           activeTab === 'pending'
             ? 'text-indigo-600 dark:text-indigo-400 border-b-2 border-indigo-600 dark:border-indigo-400'
             : 'text-slate-400 hover:text-slate-650 dark:hover:text-slate-350'
         }`}
       >
         Permintaan Persetujuan ({pendingStaffCount})
+        {pendingStaffCount > 0 && activeTab !== 'pending' && (
+          <span className="inline-flex h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+        )}
       </button>
     </div>
   );
