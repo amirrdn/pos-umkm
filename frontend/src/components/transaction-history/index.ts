@@ -1,6 +1,8 @@
 export { TransactionStatusBadge } from './TransactionStatusBadge';
 export { TransactionSearchBar } from './TransactionSearchBar';
 export type { TransactionSearchBarProps } from './TransactionSearchBar';
+export { TransactionOverviewStats } from './TransactionOverviewStats';
+export type { TransactionOverviewStatsProps } from './TransactionOverviewStats';
 export { TransactionListPanel } from './TransactionListPanel';
 export type { TransactionListPanelProps } from './TransactionListPanel';
 export { TransactionDetailModal } from './TransactionDetailModal';

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
 import { useTransferStore } from '../store/useTransferStore';
@@ -80,6 +80,9 @@ export function useInventory() {
   const [stockRequests, setStockRequests] = useState<StockRequest[]>([]);
   const [requestsLoading, setRequestsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<InventoryTab>('inventory');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategoryName, setSelectedCategoryName] = useState('');
+  const [selectedStockFilter, setSelectedStockFilter] = useState<'all' | 'critical' | 'empty'>('all');
 
   // State untuk Transfer Stok
   const {
@@ -510,16 +513,84 @@ export function useInventory() {
     }
   };
 
+  const isBelowMinStock = (prod: Product) =>
+    (prod.minStock ?? 0) > 0 && prod.stock < (prod.minStock ?? 0);
+
+  const filteredProducts = useMemo(() => {
+    return products.filter((prod) => {
+      const query = searchQuery.toLowerCase().trim();
+      const matchQuery =
+        !query ||
+        prod.name.toLowerCase().includes(query) ||
+        prod.sku.toLowerCase().includes(query);
+      if (!matchQuery) return false;
+
+      if (selectedCategoryName && prod.category?.name !== selectedCategoryName) {
+        return false;
+      }
+
+      if (selectedStockFilter === 'critical') {
+        const isCritical = prod.stock > 0 && (isBelowMinStock(prod) || prod.stock <= 10);
+        if (!isCritical) return false;
+      } else if (selectedStockFilter === 'empty') {
+        if (prod.stock !== 0) return false;
+      }
+
+      return true;
+    });
+  }, [products, searchQuery, selectedCategoryName, selectedStockFilter, isBelowMinStock]);
+
+  const categories = useMemo(() => {
+    const list = products.map((p) => p.category?.name).filter(Boolean);
+    return Array.from(new Set(list));
+  }, [products]);
+
+  const summaryStats = useMemo(() => {
+    const totalItems = products.length;
+    let criticalItems = 0;
+    let emptyItems = 0;
+    let totalAssetValue = 0;
+
+    products.forEach((prod) => {
+      if (prod.stock === 0) {
+        emptyItems += 1;
+      } else if (isBelowMinStock(prod) || prod.stock <= 10) {
+        criticalItems += 1;
+      }
+      totalAssetValue += prod.stock * Number(prod.purchasePrice || 0);
+    });
+
+    return {
+      totalItems,
+      criticalItems,
+      emptyItems,
+      totalAssetValue,
+    };
+  }, [products, isBelowMinStock]);
+
+  const resetFilters = useCallback(() => {
+    setSearchQuery('');
+    setSelectedCategoryName('');
+    setSelectedStockFilter('all');
+  }, []);
+
   const isOwner = currentUser?.roles.includes('Owner');
   const isOwnerOrManager = currentUser?.roles.some(r => ['Owner', 'Manager', 'Admin'].includes(r));
   const canMutate = currentUser?.roles.some(r => ['Owner', 'Manager', 'Admin', 'Staf Gudang'].includes(r));
   const lowStockCount = lowStockItems.length;
 
-  const isBelowMinStock = (prod: Product) =>
-    (prod.minStock ?? 0) > 0 && prod.stock < (prod.minStock ?? 0);
-
   return {
     products,
+    filteredProducts,
+    searchQuery,
+    setSearchQuery,
+    selectedCategoryName,
+    setSelectedCategoryName,
+    selectedStockFilter,
+    setSelectedStockFilter,
+    categories,
+    summaryStats,
+    resetFilters,
     loading,
     error,
     setError,

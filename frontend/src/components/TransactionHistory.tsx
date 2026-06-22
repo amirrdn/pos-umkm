@@ -18,7 +18,7 @@ export const TransactionHistory = () => {
       />
 
       <TransactionContent transactionHistory={transactionHistory} />
-      <TransactionModals transactionHistory={transactionHistory} />
+      <TransactionModals transactionHistory={transactionHistory} accent="indigo" />
     </div>
   );
 };

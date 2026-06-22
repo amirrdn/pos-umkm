@@ -18,7 +18,6 @@ export function CustomerContent({ customerManagement }: CustomerContentProps) {
     handleClearSearch,
     openEditModal,
     handleDelete,
-    openRepayModal,
   } = customerManagement;
 
   return (
@@ -38,7 +37,6 @@ export function CustomerContent({ customerManagement }: CustomerContentProps) {
         error={error}
         onEdit={openEditModal}
         onDelete={handleDelete}
-        onRepay={openRepayModal}
       />
     </main>
   );

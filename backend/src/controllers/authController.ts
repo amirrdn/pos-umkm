@@ -6,6 +6,7 @@ import {
   registerStaffSchema,
   verifyEmailSchema,
   resendVerificationSchema,
+  googleAuthSchema,
 } from '../schemas/authSchema';
 import {
   verifyEmailToken,
@@ -245,6 +246,50 @@ export async function resendVerification(req: Request, res: Response) {
     return res.status(400).json({
       success: false,
       message: getErrorMessage(error, 'Gagal mengirim ulang email verifikasi.'),
+    });
+  }
+}
+
+export async function googleLogin(req: Request, res: Response) {
+  try {
+    const validation = googleAuthSchema.safeParse(req.body);
+    if (!validation.success) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validasi input Google login gagal.',
+        errors: validation.error.format(),
+      });
+    }
+
+    const { loginWithGoogle } = await import('../services/googleAuthService');
+    const result = await loginWithGoogle(validation.data);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Login Google berhasil.',
+      data: result,
+    });
+  } catch (error: unknown) {
+    console.error('Google Login Controller Error:', error);
+    const message = getErrorMessage(error);
+
+    if (message.includes('menunggu persetujuan') || message.includes('ditolak') || message.includes('dinonaktifkan')) {
+      return res.status(403).json({
+        success: false,
+        message,
+      });
+    }
+
+    if (message.includes('verifikasi') || message.includes('token')) {
+      return res.status(401).json({
+        success: false,
+        message,
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: 'Terjadi kesalahan internal server saat memproses login Google.',
     });
   }
 }

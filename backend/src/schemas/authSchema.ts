@@ -36,3 +36,8 @@ export const verifyEmailSchema = z.object({
 export const resendVerificationSchema = z.object({
   email: z.string().min(1, 'Email wajib diisi').email('Format email tidak valid'),
 });
+
+export const googleAuthSchema = z.object({
+  idToken: z.string().min(1, 'Google ID token wajib diisi'),
+  role: z.enum(['owner', 'staff']).default('owner').optional(),
+});

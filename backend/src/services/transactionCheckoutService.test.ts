@@ -49,7 +49,6 @@ const { mockTx, mockPrisma, mockSubscriptionService, mockMidtransService } = vi.
     },
     mockSubscriptionService: {
       checkTransactionLimit: vi.fn().mockResolvedValue(true),
-      assertDebtPaymentAllowed: vi.fn().mockResolvedValue(undefined),
     },
     mockMidtransService: {
       createQrisCharge: vi.fn(),
@@ -71,7 +70,6 @@ vi.mock('./subscriptionService', () => ({
       maxStaff: 2,
       hasQris: false,
       hasCogs: false,
-      maxDebtLimit: 0,
     },
     GROWTH: {
       maxTransactionsPerMonth: 3000,
@@ -80,7 +78,6 @@ vi.mock('./subscriptionService', () => ({
       maxStaff: 5,
       hasQris: true,
       hasCogs: true,
-      maxDebtLimit: 5000000,
     },
     ENTERPRISE: {
       maxTransactionsPerMonth: Infinity,
@@ -89,7 +86,6 @@ vi.mock('./subscriptionService', () => ({
       maxStaff: Infinity,
       hasQris: true,
       hasCogs: true,
-      maxDebtLimit: Infinity,
     },
   },
 }));
@@ -243,18 +239,4 @@ describe('processCheckout', () => {
     });
   });
 
-  it('requires customer for DEBT payment before transaction', async () => {
-    await expect(
-      processCheckout({
-        paymentMethod: 'DEBT',
-        items: [{ productId, quantity: 1 }],
-        tenantId,
-        userId,
-        outletId,
-        bypassSubscriptionLimits: false,
-      })
-    ).rejects.toBeInstanceOf(CheckoutError);
-
-    expect(mockSubscriptionService.assertDebtPaymentAllowed).not.toHaveBeenCalled();
-  });
 });

@@ -143,7 +143,6 @@ export const PosView: React.FC = () => {
           grandTotal={pos.grandTotal}
           handleCheckout={pos.handleCheckout}
           isSubmitting={pos.isSubmitting}
-          debtFeatureEnabled={pos.debtFeatureEnabled}
         />
       </main>
 

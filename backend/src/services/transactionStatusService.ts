@@ -19,7 +19,6 @@ const statusPollInclude = {
       name: true,
       phone: true,
       points: true,
-      debtBalance: true,
     },
   },
   outlet: true,

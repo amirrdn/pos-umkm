@@ -40,8 +40,6 @@ export const PosSuccessModal: React.FC<PosSuccessModalProps> = ({
               <span className="font-bold text-slate-700">
                 {currentTransaction.paymentMethod === 'CASH'
                   ? 'TUNAI'
-                  : currentTransaction.paymentMethod === 'DEBT'
-                  ? 'HUTANG'
                   : 'QRIS'}
               </span>
             </div>

@@ -164,7 +164,6 @@ export class AnalyticsService {
         totalSales: number;
         cashSales: number;
         qrisSales: number;
-        debtSales: number;
       }
     >();
 
@@ -177,7 +176,6 @@ export class AnalyticsService {
         totalSales: 0,
         cashSales: 0,
         qrisSales: 0,
-        debtSales: 0,
       };
 
       const amount = Number(tx.grandTotal);
@@ -185,7 +183,6 @@ export class AnalyticsService {
       current.totalSales += amount;
       if (tx.paymentMethod === 'CASH') current.cashSales += amount;
       else if (tx.paymentMethod === 'QRIS') current.qrisSales += amount;
-      else if (tx.paymentMethod === 'DEBT') current.debtSales += amount;
 
       reportMap.set(tx.userId, current);
     }
@@ -213,14 +210,12 @@ export class AnalyticsService {
       let totalSales = 0;
       let cashSales = 0;
       let qrisSales = 0;
-      let debtSales = 0;
 
       for (const tx of shift.transactions) {
         const amount = Number(tx.grandTotal);
         totalSales += amount;
         if (tx.paymentMethod === 'CASH') cashSales += amount;
         else if (tx.paymentMethod === 'QRIS') qrisSales += amount;
-        else if (tx.paymentMethod === 'DEBT') debtSales += amount;
       }
 
       return {
@@ -236,7 +231,6 @@ export class AnalyticsService {
         totalSales,
         cashSales,
         qrisSales,
-        debtSales,
         transactionCount: shift.transactions.length,
       };
     });

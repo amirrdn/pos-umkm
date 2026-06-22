@@ -9,7 +9,6 @@ import {
 } from '../api/transactionHistoryApi';
 import {
   buildReceiptData,
-  filterTransactionsByInvoice,
   openWhatsAppInvoice,
 } from '../utils/transactionHistoryHelpers';
 import type { TransactionRecord } from '../types/transactionHistory';
@@ -21,11 +20,15 @@ export function useTransactionHistory() {
   const token = useAuthStore((state) => state.token);
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
+  const activeOutletId = useAuthStore((state) => state.activeOutletId);
 
   const [transactions, setTransactions] = useState<TransactionRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState<'ALL' | 'COMPLETED' | 'PENDING' | 'VOID'>('ALL');
+  const [selectedPayment, setSelectedPayment] = useState<'ALL' | 'CASH' | 'QRIS'>('ALL');
+  const [selectedDateRange, setSelectedDateRange] = useState<'ALL' | 'TODAY' | 'WEEK'>('ALL');
   const [selectedTransaction, setSelectedTransaction] = useState<TransactionRecord | null>(null);
 
   const componentRef = useRef<HTMLDivElement>(null);
@@ -52,7 +55,7 @@ export function useTransactionHistory() {
     } finally {
       setLoading(false);
     }
-  }, [token, user]);
+  }, [token, user, activeOutletId]);
 
   useEffect(() => {
     void (async () => {
@@ -108,10 +111,78 @@ export function useTransactionHistory() {
     navigate('/');
   };
 
-  const filteredTransactions = useMemo(
-    () => filterTransactionsByInvoice(transactions, searchQuery),
-    [transactions, searchQuery]
-  );
+  const filteredTransactions = useMemo(() => {
+    return transactions.filter((tx) => {
+      const query = searchQuery.toLowerCase().trim();
+      const matchQuery =
+        !query ||
+        tx.invoiceNumber.toLowerCase().includes(query) ||
+        (tx.customer?.name && tx.customer.name.toLowerCase().includes(query));
+
+      if (!matchQuery) return false;
+
+      if (selectedStatus !== 'ALL' && tx.status !== selectedStatus) {
+        return false;
+      }
+
+      if (selectedPayment !== 'ALL' && tx.paymentMethod !== selectedPayment) {
+        return false;
+      }
+
+      if (selectedDateRange !== 'ALL') {
+        const txDate = new Date(tx.createdAt);
+        if (selectedDateRange === 'TODAY') {
+          if (txDate.toDateString() !== new Date().toDateString()) {
+            return false;
+          }
+        } else if (selectedDateRange === 'WEEK') {
+          const oneWeekAgo = new Date();
+          oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+          oneWeekAgo.setHours(0, 0, 0, 0);
+          if (txDate < oneWeekAgo) {
+            return false;
+          }
+        }
+      }
+
+      return true;
+    });
+  }, [transactions, searchQuery, selectedStatus, selectedPayment, selectedDateRange]);
+
+  const summaryStats = useMemo(() => {
+    let totalRevenue = 0;
+    let successCount = 0;
+    let pendingCount = 0;
+    let pendingAmount = 0;
+    let voidCount = 0;
+
+    transactions.forEach((tx) => {
+      if (tx.status === 'COMPLETED') {
+        totalRevenue += Number(tx.grandTotal);
+        successCount += 1;
+      } else if (tx.status === 'PENDING') {
+        pendingCount += 1;
+        pendingAmount += Number(tx.grandTotal);
+      } else if (tx.status === 'VOID') {
+        voidCount += 1;
+      }
+    });
+
+    return {
+      totalRevenue,
+      successCount,
+      pendingCount,
+      pendingAmount,
+      voidCount,
+    };
+  }, [transactions]);
+
+  const resetFilters = useCallback(() => {
+    setSearchQuery('');
+    setSelectedStatus('ALL');
+    setSelectedPayment('ALL');
+    setSelectedDateRange('ALL');
+  }, []);
 
   const receiptData = useMemo(
     () => buildReceiptData(selectedTransaction, user),
@@ -131,6 +202,14 @@ export function useTransactionHistory() {
     error,
     searchQuery,
     setSearchQuery,
+    selectedStatus,
+    setSelectedStatus,
+    selectedPayment,
+    setSelectedPayment,
+    selectedDateRange,
+    setSelectedDateRange,
+    summaryStats,
+    resetFilters,
     fetchHistory,
     filteredTransactions,
     selectedTransaction,

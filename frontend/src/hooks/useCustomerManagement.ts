@@ -5,7 +5,6 @@ import { useCustomerStore, type Customer } from '../store/useCustomerStore';
 import type {
   CustomerModalMode,
   CustomerNotification,
-  RepayMethod,
 } from '../types/customerManagement';
 
 export function useCustomerManagement() {
@@ -19,7 +18,6 @@ export function useCustomerManagement() {
     createCustomer,
     updateCustomer,
     deleteCustomer,
-    payDebt,
     loading,
     error,
   } = useCustomerStore();
@@ -34,13 +32,6 @@ export function useCustomerManagement() {
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const [isRepayModalOpen, setIsRepayModalOpen] = useState(false);
-  const [repayCustomer, setRepayCustomer] = useState<Customer | null>(null);
-  const [repayAmount, setRepayAmount] = useState<number | ''>('');
-  const [repayMethod, setRepayMethod] = useState<RepayMethod>('CASH');
-  const [repayNote, setRepayNote] = useState('');
-  const [isRepaying, setIsRepaying] = useState(false);
 
   useEffect(() => {
     fetchCustomers();
@@ -140,50 +131,6 @@ export function useCustomerManagement() {
     }
   };
 
-  const openRepayModal = (cust: Customer) => {
-    setRepayCustomer(cust);
-    setRepayAmount(Number(cust.debtBalance));
-    setRepayMethod('CASH');
-    setRepayNote('');
-    setIsRepayModalOpen(true);
-  };
-
-  const closeRepayModal = () => {
-    setIsRepayModalOpen(false);
-    setRepayCustomer(null);
-  };
-
-  const handleRepaySubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!repayCustomer) return;
-    if (!repayAmount || Number(repayAmount) <= 0) {
-      showToast('error', 'Jumlah pembayaran tidak valid!');
-      return;
-    }
-
-    setIsRepaying(true);
-    try {
-      const res = await payDebt(
-        repayCustomer.id,
-        Number(repayAmount),
-        repayMethod,
-        repayNote
-      );
-
-      if (res.success) {
-        showToast('success', `Berhasil mencatat pembayaran hutang Rp ${Number(repayAmount).toLocaleString('id-ID')}`);
-        closeRepayModal();
-        setRepayAmount('');
-      } else {
-        showToast('error', res.message || 'Gagal memproses pembayaran hutang.');
-      }
-    } catch {
-      showToast('error', 'Terjadi kesalahan sistem saat memproses pembayaran.');
-    } finally {
-      setIsRepaying(false);
-    }
-  };
-
   return {
     user,
     handleLogout,
@@ -198,7 +145,6 @@ export function useCustomerManagement() {
     openCreateModal,
     openEditModal,
     handleDelete,
-    openRepayModal,
     isModalOpen,
     setIsModalOpen,
     modalMode,
@@ -212,17 +158,6 @@ export function useCustomerManagement() {
     setEmail,
     isSubmitting,
     handleSubmit,
-    isRepayModalOpen,
-    repayCustomer,
-    repayAmount,
-    setRepayAmount,
-    repayMethod,
-    setRepayMethod,
-    repayNote,
-    setRepayNote,
-    isRepaying,
-    closeRepayModal,
-    handleRepaySubmit,
   };
 }
 

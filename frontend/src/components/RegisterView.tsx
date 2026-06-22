@@ -1,306 +1,174 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Store, User, Mail, Lock, ArrowLeft, AlertTriangle, CheckCircle, Briefcase } from 'lucide-react';
-import {
-  fetchRegisterOutletsApi,
-  fetchRegisterTenantsApi,
-  registerOwnerApi,
-  registerStaffApi,
-} from '../api/authApi';
+import { Store, User, Mail, Lock, ArrowLeft, AlertTriangle, CheckCircle } from 'lucide-react';
+import { registerOwnerApi } from '../api/authApi';
 import { isApiError } from '../api/types';
-import { AppSelect } from './AppSelect';
+import { GoogleAuthButton } from './GoogleAuthButton';
 
 export default function RegisterView() {
   const navigate = useNavigate();
-  const [registerType, setRegisterType] = useState<'owner' | 'staff'>('owner');
 
-  // Form states
   const [tenantName, setTenantName] = useState('');
   const [ownerName, setOwnerName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  
-  // Staff specific states
-  const [tenantId, setTenantId] = useState('');
-  const [selectedOutlets, setSelectedOutlets] = useState<string[]>([]);
-  const [tenantsList, setTenantsList] = useState<{id: string, name: string}[]>([]);
-  const [outletsList, setOutletsList] = useState<{id: string, name: string}[]>([]);
 
-  // Status states
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (registerType !== 'staff') return;
-
-    void (async () => {
-      try {
-        setTenantsList(await fetchRegisterTenantsApi());
-      } catch (err) {
-        console.error('Failed to fetch tenants', err);
-      }
-    })();
-  }, [registerType]);
-
-  const handleTenantChange = (nextTenantId: string) => {
-    setTenantId(nextTenantId);
-    if (!nextTenantId) {
-      setOutletsList([]);
-      setSelectedOutlets([]);
-    }
-  };
-
-  useEffect(() => {
-    if (!tenantId) return;
-
-    let cancelled = false;
-
-    void (async () => {
-      try {
-        const outlets = await fetchRegisterOutletsApi(tenantId);
-        if (!cancelled) {
-          setOutletsList(outlets);
-        }
-      } catch (err) {
-        console.error('Failed to fetch outlets', err);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [tenantId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setSuccess(null);
 
-    if (registerType === 'owner') {
-      if (!tenantName || !ownerName || !email || !password) {
-        setError('Seluruh kolom formulir wajib diisi.');
-        return;
-      }
-    } else {
-      if (!tenantId || !ownerName || !email || !password || selectedOutlets.length === 0) {
-        setError('Seluruh kolom formulir wajib diisi dan minimal 1 outlet dipilih.');
-        return;
-      }
+    if (!tenantName || !ownerName || !email || !password) {
+      setError('Ups, masih ada kotak yang kosong nih. Diisi dulu ya!');
+      return;
     }
 
     if (password.length < 6) {
-      setError('Password minimal harus terdiri dari 6 karakter.');
+      setError('Password minimal harus 6 karakter biar aman.');
       return;
     }
 
     setLoading(true);
 
     try {
-      if (registerType === 'owner') {
-        await registerOwnerApi({ tenantName, ownerName, email, password });
-      } else {
-        await registerStaffApi({
-          tenantId,
-          name: ownerName,
-          email,
-          password,
-          outletIds: selectedOutlets,
-        });
-      }
-
-      setSuccess(registerType === 'owner'
-        ? `Pendaftaran berhasil! Kami telah mengirim email verifikasi ke ${email}. Buka tautan di email untuk mengaktifkan akun sebelum login.`
-        : `Pendaftaran staf berhasil! Verifikasi email di ${email} terlebih dahulu, lalu tunggu persetujuan Admin toko.`);
+      await registerOwnerApi({ tenantName, ownerName, email, password });
+      setSuccess(`Berhasil daftar! Kami sudah mengirim link konfirmasi ke ${email}. Tolong dicek ya biar akunnya aktif.`);
 
       setTimeout(() => {
         navigate('/login');
       }, 8000);
-
     } catch (err: unknown) {
       console.error(err);
       if (isApiError(err)) {
         if (err.code === 'EMAIL_NOT_VERIFIED_RESENT') {
-          setSuccess(err.message || 'Email verifikasi telah dikirim ulang. Periksa kotak masuk Anda.');
+          setSuccess(err.message || 'Kami sudah mengirim ulang link ke email kamu. Coba dicek lagi ya!');
           return;
         }
         if (err.code === 'REGISTRATION_EMAIL_FAILED') {
-          setError(err.message || 'Gagal mengirim email verifikasi. Registrasi dibatalkan — periksa konfigurasi SMTP.');
+          setError(err.message || 'Gagal mengirim email. Pendaftaran dibatalkan, coba lagi nanti ya.');
           return;
         }
       }
-      setError(err instanceof Error ? err.message : 'Terjadi kesalahan sistem.');
+      setError(err instanceof Error ? err.message : 'Terjadi masalah di sistem kami. Coba lagi ya.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleOutletToggle = (id: string) => {
-    setSelectedOutlets(prev => 
-      prev.includes(id) ? prev.filter(o => o !== id) : [...prev, id]
-    );
-  };
-
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans flex flex-col items-center justify-center p-6 relative overflow-hidden">
-      <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] bg-indigo-500/10 rounded-full blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] bg-cyan-500/10 rounded-full blur-[120px] pointer-events-none" />
-
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans flex flex-col items-center justify-center p-4">
       <button
         onClick={() => navigate('/')}
-        className="cursor-pointer absolute top-8 left-8 flex items-center gap-2 px-4 py-2.5 bg-slate-900 border border-slate-800 text-slate-300 hover:text-white rounded-xl text-xs font-bold transition-all active:scale-95 shadow-sm"
+        className="absolute top-6 left-6 flex items-center gap-2 px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-white rounded-xl text-sm font-semibold shadow-sm transition-all"
       >
-        <ArrowLeft className="w-4 h-4" />
-        Kembali ke Beranda
+        <ArrowLeft className="w-5 h-5" />
+        Kembali
       </button>
 
-      <div className="w-full max-w-md bg-slate-900 border border-slate-800/80 rounded-3xl p-8 shadow-2xl relative z-10">
-        
+      <div className="w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 md:p-8 shadow-lg mt-16 md:mt-0">
         <div className="text-center mb-6">
-          <div className="mx-auto w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/25 mb-4">
-            <Store className="w-6 h-6 text-white" />
+          <div className="mx-auto w-14 h-14 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-md mb-4">
+            <Store className="w-8 h-8 text-white" />
           </div>
-          <h2 className="text-2xl font-black tracking-tight text-white mb-2">Pendaftaran Akun</h2>
-          <p className="text-xs text-slate-400">Silakan pilih jenis pendaftaran Anda. Verifikasi email diperlukan untuk mengaktifkan akun.</p>
+          <h2 className="text-2xl md:text-3xl font-bold text-slate-800 dark:text-white mb-2">
+            Daftar Toko Gratis
+          </h2>
+          <p className="text-sm md:text-base text-slate-500 dark:text-slate-400">
+            Isi data di bawah ini untuk langsung mulai jualan.
+          </p>
         </div>
 
-        {/* Tab Selection */}
-        <div className="flex bg-slate-950 p-1 rounded-xl mb-6 border border-slate-800">
-          <button
-            onClick={() => { setRegisterType('owner'); setError(null); setSuccess(null); }}
-            className={`cursor-pointer flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold transition-all ${registerType === 'owner' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`}
-          >
-            <Store className="w-4 h-4" /> Owner / Toko Baru
-          </button>
-          <button
-            onClick={() => { setRegisterType('staff'); setError(null); setSuccess(null); }}
-            className={`cursor-pointer flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold transition-all ${registerType === 'staff' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`}
-          >
-            <Briefcase className="w-4 h-4" /> Staf Outlet
-          </button>
+        <GoogleAuthButton mode="register" />
+
+        <div className="flex items-center gap-3 my-6">
+          <div className="flex-1 h-px bg-slate-200 dark:bg-slate-700"></div>
+          <span className="text-sm text-slate-500 font-medium">atau isi manual</span>
+          <div className="flex-1 h-px bg-slate-200 dark:bg-slate-700"></div>
         </div>
 
         {error && (
-          <div className="mb-6 p-4 bg-rose-500/10 border border-rose-500/25 text-rose-400 rounded-2xl text-xs flex items-start gap-2.5">
-            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+          <div className="mb-6 p-4 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 text-red-700 dark:text-red-400 rounded-xl text-sm flex gap-3">
+            <AlertTriangle className="w-5 h-5 shrink-0" />
             <span>{error}</span>
           </div>
         )}
 
         {success && (
-          <div className="mb-6 p-4 bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 rounded-2xl text-xs flex items-start gap-2.5">
-            <CheckCircle className="w-4 h-4 shrink-0 mt-0.5" />
+          <div className="mb-6 p-4 bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/30 text-green-700 dark:text-green-400 rounded-xl text-sm flex gap-3">
+            <CheckCircle className="w-5 h-5 shrink-0" />
             <span>{success}</span>
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-5">
-          {registerType === 'owner' ? (
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Nama Toko (UMKM)</label>
-              <div className="relative">
-                <Store className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                <input
-                  type="text"
-                  placeholder="Contoh: Toko Berkah Sejahtera"
-                  value={tenantName}
-                  onChange={(e) => setTenantName(e.target.value)}
-                  disabled={loading || !!success}
-                  className="w-full pl-10 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/50 text-white placeholder-slate-600 disabled:opacity-50"
-                  required
-                />
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Pilih Toko / Tenant</label>
-              <AppSelect
-                value={tenantId}
-                onChange={handleTenantChange}
-                placeholder="-- Pilih Toko --"
-                disabled={loading || !!success}
-                variant="dark"
-                searchable={tenantsList.length > 4}
-                leadingIcon={<Store className="w-4 h-4" />}
-                name="tenantId"
-                required
-                options={tenantsList.map((t) => ({ value: t.id, label: t.name }))}
-              />
-            </div>
-          )}
-
-          {registerType === 'staff' && tenantId && (
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Pilih Outlet Penempatan</label>
-              <div className="bg-slate-950 border border-slate-800 rounded-xl p-3 max-h-32 overflow-y-auto space-y-2">
-                {outletsList.length === 0 ? (
-                  <p className="text-xs text-slate-500">Belum ada outlet di toko ini.</p>
-                ) : (
-                  outletsList.map(outlet => (
-                    <label key={outlet.id} className="flex items-center gap-3 cursor-pointer">
-                      <div className="relative flex items-center">
-                        <input 
-                          type="checkbox" 
-                          checked={selectedOutlets.includes(outlet.id)}
-                          onChange={() => handleOutletToggle(outlet.id)}
-                          className="peer sr-only"
-                          disabled={loading || !!success}
-                        />
-                        <div className="w-4 h-4 border-2 border-slate-600 rounded bg-slate-900 peer-checked:bg-indigo-500 peer-checked:border-indigo-500 transition-colors"></div>
-                        <CheckCircle className="absolute inset-0 w-4 h-4 text-white scale-0 peer-checked:scale-100 transition-transform pointer-events-none" />
-                      </div>
-                      <span className="text-xs text-slate-300 font-medium">{outlet.name}</span>
-                    </label>
-                  ))
-                )}
-              </div>
-            </div>
-          )}
-
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Nama Lengkap</label>
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+              Nama Toko / Warung
+            </label>
             <div className="relative">
-              <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+              <Store className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
               <input
                 type="text"
-                placeholder={registerType === 'owner' ? "Nama Pemilik" : "Nama Staf"}
-                value={ownerName}
-                onChange={(e) => setOwnerName(e.target.value)}
+                placeholder="Contoh: Warung Berkah"
+                value={tenantName}
+                onChange={(e) => setTenantName(e.target.value)}
                 disabled={loading || !!success}
-                className="w-full pl-10 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/50 text-white placeholder-slate-600 disabled:opacity-50"
-                required
+                className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-white placeholder-slate-400 disabled:opacity-60"
               />
             </div>
           </div>
 
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Alamat Email</label>
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+              Nama Anda (Pemilik)
+            </label>
             <div className="relative">
-              <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+              <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Nama Lengkap"
+                value={ownerName}
+                onChange={(e) => setOwnerName(e.target.value)}
+                disabled={loading || !!success}
+                className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-white placeholder-slate-400 disabled:opacity-60"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+              Alamat Email
+            </label>
+            <div className="relative">
+              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
               <input
                 type="email"
                 placeholder="email@contoh.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 disabled={loading || !!success}
-                className="w-full pl-10 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/50 text-white placeholder-slate-600 disabled:opacity-50"
-                required
+                className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-white placeholder-slate-400 disabled:opacity-60"
               />
             </div>
           </div>
 
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Kata Sandi Akun</label>
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+              Password
+            </label>
             <div className="relative">
-              <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
               <input
                 type="password"
-                placeholder="Minimal 6 karakter"
+                placeholder="Buat password (minimal 6 karakter)"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 disabled={loading || !!success}
-                className="w-full pl-10 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/50 text-white placeholder-slate-600 disabled:opacity-50"
-                required
+                className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-white placeholder-slate-400 disabled:opacity-60"
               />
             </div>
           </div>
@@ -308,19 +176,19 @@ export default function RegisterView() {
           <button
             type="submit"
             disabled={loading || !!success}
-            className="cursor-pointer w-full py-4 bg-indigo-600 hover:bg-indigo-700 active:scale-98 text-white font-bold rounded-xl text-xs transition-all shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full py-4 mt-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-base shadow-md transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            {loading ? 'Memproses Pendaftaran...' : 'Daftar Sekarang'}
+            {loading ? 'Memproses...' : 'Daftar Sekarang'}
           </button>
         </form>
 
-        <p className="text-center text-xs text-slate-400 mt-6 pt-6 border-t border-slate-800/60">
-          Sudah memiliki akun?{' '}
+        <p className="text-center text-sm text-slate-500 dark:text-slate-400 mt-8 pt-6 border-t border-slate-200 dark:border-slate-800">
+          Sudah punya akun?{' '}
           <button
             onClick={() => navigate('/login')}
-            className="cursor-pointer text-indigo-400 font-bold hover:text-indigo-300 transition-colors"
+            className="text-indigo-600 dark:text-indigo-400 font-bold hover:underline"
           >
-            Masuk Kasir
+            Masuk di sini
           </button>
         </p>
       </div>

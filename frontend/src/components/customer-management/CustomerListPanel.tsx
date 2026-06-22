@@ -1,11 +1,6 @@
-import { DollarSign, Edit, RefreshCw, Trash2 } from 'lucide-react';
+import { Edit, RefreshCw, Trash2 } from 'lucide-react';
 import type { Customer } from '../../store/useCustomerStore';
-import {
-  formatCustomerDebt,
-  formatCustomerJoinDate,
-  getCustomerDebtClass,
-  hasCustomerDebt,
-} from '../../utils/customerManagementHelpers';
+import { formatCustomerJoinDate } from '../../utils/customerManagementHelpers';
 
 export interface CustomerListPanelProps {
   customers: Customer[];
@@ -13,7 +8,6 @@ export interface CustomerListPanelProps {
   error: string | null;
   onEdit: (customer: Customer) => void;
   onDelete: (id: string, name: string) => void;
-  onRepay: (customer: Customer) => void;
 }
 
 export function CustomerListPanel({
@@ -22,7 +16,6 @@ export function CustomerListPanel({
   error,
   onEdit,
   onDelete,
-  onRepay,
 }: CustomerListPanelProps) {
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200/85 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden">
@@ -35,7 +28,6 @@ export function CustomerListPanel({
               <th className="px-6 py-4">No. Telepon / WhatsApp</th>
               <th className="px-6 py-4">Alamat Email</th>
               <th className="px-6 py-4 text-center">Poin Loyalitas</th>
-              <th className="px-6 py-4 text-right">Saldo Hutang</th>
               <th className="px-6 py-4">Tanggal Bergabung</th>
               <th className="px-6 py-4 w-36 text-center">Aksi</th>
             </tr>
@@ -79,27 +71,11 @@ export function CustomerListPanel({
                       {cust.points} Pts
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-right">
-                    <span className={`font-extrabold ${getCustomerDebtClass(cust.debtBalance)}`}>
-                      {formatCustomerDebt(cust.debtBalance)}
-                    </span>
-                  </td>
                   <td className="px-6 py-4 text-slate-500 dark:text-slate-400">
                     {formatCustomerJoinDate(cust.createdAt)}
                   </td>
                   <td className="px-6 py-4 text-center">
                     <div className="flex items-center justify-center gap-1.5">
-                      {hasCustomerDebt(cust.debtBalance) && (
-                        <button
-                          type="button"
-                          onClick={() => onRepay(cust)}
-                          className="cursor-pointer px-2.5 py-1 text-[10px] font-extrabold bg-rose-50 hover:bg-rose-105 text-rose-700 hover:text-rose-800 dark:bg-rose-950/30 dark:hover:bg-rose-900/40 dark:text-rose-350 dark:hover:text-rose-200 rounded-lg transition-colors flex items-center gap-1"
-                          title="Bayar Cicilan Hutang"
-                        >
-                          <DollarSign className="h-3 w-3" />
-                          Bayar
-                        </button>
-                      )}
                       <button
                         type="button"
                         onClick={() => onEdit(cust)}
