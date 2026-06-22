@@ -20,3 +20,5 @@ export { CreateTransferModal } from './CreateTransferModal';
 export type { CreateTransferModalProps } from './CreateTransferModal';
 export { ConfirmModal } from './ConfirmModal';
 export type { ConfirmModalProps } from './ConfirmModal';
+export { InventoryOverviewStats } from './InventoryOverviewStats';
+export type { InventoryOverviewStatsProps } from './InventoryOverviewStats';

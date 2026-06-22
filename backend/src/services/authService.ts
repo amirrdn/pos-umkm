@@ -68,6 +68,10 @@ export class AuthService {
       throw new LoginError('ACCOUNT_DISABLED', LOGIN_ERROR_MESSAGES.ACCOUNT_DISABLED);
     }
 
+    if (!user.password) {
+      throw new LoginError('INVALID_CREDENTIALS', LOGIN_ERROR_MESSAGES.INVALID_CREDENTIALS);
+    }
+
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
       throw new LoginError('INVALID_CREDENTIALS', LOGIN_ERROR_MESSAGES.INVALID_CREDENTIALS);

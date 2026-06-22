@@ -4,7 +4,6 @@ import {
   deleteCustomer,
   getAllCustomers,
   getCustomerById,
-  payDebt,
   updateCustomer,
 } from '../controllers/customerController';
 import { authMiddleware } from '../middlewares/authMiddleware';
@@ -21,6 +20,4 @@ router.get('/:id', requirePermission('view:customers'), getCustomerById);
 router.post('/', requirePermission('create:customers'), createCustomer);
 router.put('/:id', requirePermission('update:customers'), updateCustomer);
 router.delete('/:id', requirePermission('delete:customers'), deleteCustomer);
-router.post('/:id/pay-debt', requirePermission('update:customers'), payDebt);
-
 export default router;

@@ -25,7 +25,16 @@ export function InventoryContent({ inventory }: InventoryContentProps) {
     requireStockApproval,
     settingsLoading,
     handleToggleSettings,
-    products,
+    filteredProducts,
+    searchQuery,
+    setSearchQuery,
+    selectedCategoryName,
+    setSelectedCategoryName,
+    selectedStockFilter,
+    setSelectedStockFilter,
+    categories,
+    summaryStats,
+    resetFilters,
     loading,
     canMutate,
     isBelowMinStock,
@@ -48,8 +57,10 @@ export function InventoryContent({ inventory }: InventoryContentProps) {
     setError,
   } = inventory;
 
+  const isFiltered = searchQuery !== '' || selectedCategoryName !== '' || selectedStockFilter !== 'all';
+
   return (
-    <main className="flex-1 p-6 max-w-7xl mx-auto w-full">
+    <main className="flex-1 p-3 sm:p-4 md:p-6 max-w-7xl mx-auto w-full overflow-y-auto lg:overflow-hidden flex flex-col gap-4 min-h-0">
       <InventoryAlerts
         error={error}
         successMsg={successMsg}
@@ -74,12 +85,22 @@ export function InventoryContent({ inventory }: InventoryContentProps) {
 
       {activeTab === 'inventory' && (
         <InventoryOverviewPanel
-          products={products}
+          products={filteredProducts}
           loading={loading}
           canMutate={canMutate}
           isBelowMinStock={isBelowMinStock}
           onOpenLedger={openLedgerModal}
           onOpenMutation={openMutationModal}
+          summaryStats={summaryStats}
+          searchQuery={searchQuery}
+          onSearchQueryChange={setSearchQuery}
+          selectedCategoryName={selectedCategoryName}
+          onCategoryChange={setSelectedCategoryName}
+          categories={categories}
+          selectedStockFilter={selectedStockFilter}
+          onStockFilterChange={setSelectedStockFilter}
+          resetFilters={resetFilters}
+          isFiltered={isFiltered}
         />
       )}
 

@@ -4,9 +4,10 @@ import type { UseTransactionHistoryReturn } from '../../hooks/useTransactionHist
 
 export interface TransactionModalsProps {
   transactionHistory: UseTransactionHistoryReturn;
+  accent?: 'indigo' | 'emerald';
 }
 
-export function TransactionModals({ transactionHistory }: TransactionModalsProps) {
+export function TransactionModals({ transactionHistory, accent = 'indigo' }: TransactionModalsProps) {
   const {
     selectedTransaction,
     setSelectedTransaction,
@@ -24,6 +25,7 @@ export function TransactionModals({ transactionHistory }: TransactionModalsProps
         onClose={() => setSelectedTransaction(null)}
         onPrint={() => handlePrint()}
         onSendWhatsApp={handleSendWhatsApp}
+        accent={accent}
       />
     </>
   );

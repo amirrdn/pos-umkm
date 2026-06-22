@@ -61,3 +61,8 @@ export async function registerStaffApi(payload: {
   const response = await apiClient.post<ApiSuccessResponse<unknown>>('/api/auth/register-staff', payload);
   return response.data;
 }
+
+export async function googleLoginApi(payload: { idToken: string; role?: 'owner' | 'staff' }): Promise<ApiSuccessResponse<LoginResult>> {
+  const response = await apiClient.post<ApiSuccessResponse<LoginResult>>('/api/auth/google', payload);
+  return response.data;
+}

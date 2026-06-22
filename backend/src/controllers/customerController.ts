@@ -151,38 +151,3 @@ export async function deleteCustomer(req: Request, res: Response) {
   }
 }
 
-export async function payDebt(req: Request, res: Response) {
-  try {
-    const tenantId = req.tenantId!;
-    const customerId = req.params.id;
-    const { amount, paymentMethod, note } = req.body;
-
-    if (amount === undefined || typeof amount !== 'number') {
-      return res.status(400).json({
-        success: false,
-        message: 'Jumlah pembayaran tidak valid.',
-      });
-    }
-
-    if (!paymentMethod || typeof paymentMethod !== 'string') {
-      return res.status(400).json({
-        success: false,
-        message: 'Metode pembayaran wajib dipilih.',
-      });
-    }
-
-    const result = await customerService.payDebt(tenantId, customerId, amount, paymentMethod, note);
-
-    return res.status(200).json({
-      success: true,
-      message: 'Pembayaran hutang berhasil dicatat.',
-      data: result,
-    });
-  } catch (error: unknown) {
-    console.error('PayDebt Controller Error:', error);
-    return res.status(400).json({
-      success: false,
-      message: getErrorMessage(error, 'Gagal memproses pembayaran hutang.'),
-    });
-  }
-}

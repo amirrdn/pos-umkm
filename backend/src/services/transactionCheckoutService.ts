@@ -25,7 +25,6 @@ const checkoutTransactionInclude = {
       name: true,
       phone: true,
       points: true,
-      debtBalance: true,
     },
   },
   outlet: true,
@@ -66,23 +65,7 @@ export async function processCheckout(command: CheckoutCommand): Promise<Checkou
     );
   }
 
-  if (command.paymentMethod === 'DEBT') {
-    if (!command.customerId) {
-      throw new CheckoutError(
-        'Pelanggan wajib dipilih untuk metode pembayaran HUTANG.',
-        'CUSTOMER_REQUIRED_FOR_DEBT',
-        400
-      );
-    }
 
-    try {
-      await SubscriptionService.assertDebtPaymentAllowed(command.tenantId, subscriptionAccess);
-    } catch (error: unknown) {
-      const message =
-        error instanceof Error ? error.message : 'Paket langganan tidak mendukung pembayaran hutang.';
-      throw new CheckoutError(message, 'TIER_INSUFFICIENT', 403);
-    }
-  }
 
   const invoiceNumber = generateCheckoutInvoiceNumber();
 
@@ -264,13 +247,7 @@ async function executeCheckoutTransaction(
     applyTax,
   });
 
-  if (paymentMethod === 'DEBT' && !customerId) {
-    throw new CheckoutError(
-      'Pelanggan wajib dipilih untuk metode pembayaran HUTANG.',
-      'CUSTOMER_REQUIRED_FOR_DEBT',
-      400
-    );
-  }
+
 
   if (customerId) {
     const customer = await tx.customer.findFirst({
@@ -286,9 +263,7 @@ async function executeCheckoutTransaction(
     if (earnedPoints > 0) {
       updateData.points = { increment: earnedPoints };
     }
-    if (paymentMethod === 'DEBT') {
-      updateData.debtBalance = { increment: grandTotal };
-    }
+
 
     if (Object.keys(updateData).length > 0) {
       await tx.customer.update({

@@ -39,7 +39,7 @@ interface ProductApiImage {
 export interface PosReceiptTransaction extends TransactionData {
   cashierName?: string;
   tenantName?: string;
-  customer?: (NonNullable<TransactionData['customer']> & { debtBalance?: number; phone?: string | null }) | null;
+  customer?: (NonNullable<TransactionData['customer']> & { phone?: string | null }) | null;
 }
 
 function toReceiptTransaction(
@@ -47,7 +47,7 @@ function toReceiptTransaction(
   extras: { paymentMethod: string; cashierName?: string; tenantName?: string }
 ): PosReceiptTransaction {
   const customer = tx.customer as
-    | (NonNullable<PosTransactionStatus['customer']> & { debtBalance?: number; phone?: string | null })
+    | (NonNullable<PosTransactionStatus['customer']> & { phone?: string | null })
     | null
     | undefined;
 
@@ -69,7 +69,6 @@ function toReceiptTransaction(
           id: customer.id,
           name: customer.name,
           points: customer.points ?? 0,
-          debtBalance: customer.debtBalance,
           phone: customer.phone ?? null,
         }
       : null,
@@ -117,7 +116,6 @@ export function usePos({ printRef }: UsePosOptions) {
   const platformAdmin = isPlatformAdmin(userRoles);
   const managesSubscription = canManageSubscription(userRoles);
   const subscriptionBypass = platformAdmin || subscription?.platformAdminBypass === true;
-  const debtFeatureEnabled = subscriptionBypass || (subscription?.features.maxDebtLimit ?? 0) > 0;
 
   const {
     activeShift,
@@ -493,11 +491,9 @@ export function usePos({ printRef }: UsePosOptions) {
     const cashierName = transaction.cashierName || 'Kasir';
     const totalTagihan = Number(transaction.grandTotal).toLocaleString('id-ID');
 
-    let paymentDetail = `Metode: ${transaction.paymentMethod === 'CASH' ? 'TUNAI' : transaction.paymentMethod === 'DEBT' ? 'HUTANG' : 'QRIS'}`;
+    let paymentDetail = `Metode: ${transaction.paymentMethod === 'CASH' ? 'TUNAI' : 'QRIS'}`;
     if (transaction.paymentMethod === 'CASH') {
       paymentDetail += `\nBayar: Rp ${activeCashReceived.toLocaleString('id-ID')}\nKembali: Rp ${activeChange.toLocaleString('id-ID')}`;
-    } else if (transaction.paymentMethod === 'DEBT') {
-      paymentDetail += `\nSisa Hutang: Rp ${Number(transaction.customer?.debtBalance || 0).toLocaleString('id-ID')}`;
     }
 
     let customerDetail = '';
@@ -691,7 +687,6 @@ Terima kasih atas kunjungan Anda!`;
     platformAdmin,
     managesSubscription,
     subscriptionBypass,
-    debtFeatureEnabled,
     activeShift,
     isShiftLoading,
     hasCheckedActiveShift,

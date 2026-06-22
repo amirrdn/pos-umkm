@@ -142,7 +142,7 @@ export default function UserDocumentation() {
             Platform mendukung berbagai metode checkout pembayaran yang dapat disesuaikan dengan preferensi pelanggan Anda:
           </p>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="p-4 rounded-xl border border-slate-800 bg-slate-900/10 space-y-2">
               <span className="text-lg">💰</span>
               <h4 className="text-xs font-bold text-white">Tunai (Cash)</h4>
@@ -159,13 +159,6 @@ export default function UserDocumentation() {
               </p>
             </div>
 
-            <div className="p-4 rounded-xl border border-slate-800 bg-slate-900/10 space-y-2">
-              <span className="text-lg">🤝</span>
-              <h4 className="text-xs font-bold text-amber-400">Hutang (Credit)</h4>
-              <p className="text-[11px] text-slate-400 leading-relaxed">
-                Pembayaran tunda untuk pelanggan terdaftar. Transaksi langsung menambah saldo piutang berjalan di akun pelanggan dan pemilik dapat memantau serta mencatat pelunasannya di dasbor.
-              </p>
-            </div>
           </div>
         </div>
       )

@@ -81,7 +81,6 @@ model Tenant {
   stockLedgers  StockLedger[]
   customers     Customer[]
   stockRequests StockRequest[]
-  debtPayments  DebtPayment[]
   outlets       Outlet[]
   outletStocks  OutletStock[]
   stockTransfers StockTransfer[]
@@ -99,7 +98,8 @@ model User {
   tenantId  String?
   name      String
   email     String    @unique
-  password  String
+  password  String?
+  authProvider String @default("LOCAL")
   isActive  Boolean   @default(true)
   approvalStatus String @default("APPROVED") // PENDING, APPROVED, REJECTED
   emailVerifiedAt DateTime?
@@ -361,12 +361,10 @@ model Customer {
   phone       String?
   email       String?
   points      Int      @default(0)
-  debtBalance Decimal  @db.Decimal(12, 2) @default(0)
   createdAt   DateTime @default(now())
 
   tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   transactions Transaction[]
-  debtPayments DebtPayment[]
 
   @@unique([tenantId, phone])
   @@map("customers")
@@ -403,21 +401,7 @@ model StockRequest {
   @@map("stock_requests")
 }
 
-// 14. DebtPayment (Pencatatan pembayaran hutang pelanggan)
-model DebtPayment {
-  id            String   @id @default(uuid())
-  tenantId      String
-  customerId    String
-  amount        Decimal  @db.Decimal(12, 2)
-  paymentMethod String   @default("CASH")
-  note          String?
-  createdAt     DateTime @default(now())
 
-  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
-
-  @@map("debt_payments")
-}
 
 enum OutletType {
   MAIN

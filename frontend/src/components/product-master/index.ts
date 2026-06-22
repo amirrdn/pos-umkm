@@ -2,6 +2,8 @@ export { ProductToast } from './ProductToast';
 export type { ProductToastProps } from './ProductToast';
 export { ProductListPanel } from './ProductListPanel';
 export type { ProductListPanelProps } from './ProductListPanel';
+export { ProductOverviewStats } from './ProductOverviewStats';
+export type { ProductOverviewStatsProps } from './ProductOverviewStats';
 export { ProductGeneralFormTab } from './ProductGeneralFormTab';
 export type { ProductGeneralFormTabProps } from './ProductGeneralFormTab';
 export { ProductOutletsFormTab } from './ProductOutletsFormTab';

@@ -10,7 +10,6 @@ export interface Customer {
   phone: string | null;
   email: string | null;
   points: number;
-  debtBalance: number;
   createdAt: string;
 }
 
@@ -22,7 +21,6 @@ interface CustomerState {
   createCustomer: (data: { name: string; phone?: string | null; email?: string | null }) => Promise<{ success: boolean; data?: Customer; message?: string }>;
   updateCustomer: (id: string, data: { name?: string; phone?: string | null; email?: string | null }) => Promise<{ success: boolean; data?: Customer; message?: string }>;
   deleteCustomer: (id: string) => Promise<{ success: boolean; message?: string }>;
-  payDebt: (id: string, amount: number, paymentMethod: string, note?: string) => Promise<{ success: boolean; message?: string }>;
 }
 
 export const useCustomerStore = create<CustomerState>((set) => ({
@@ -83,29 +81,6 @@ export const useCustomerStore = create<CustomerState>((set) => ({
       await apiClient.delete(`/api/customers/${id}`);
       set((state) => ({
         customers: state.customers.filter((c) => c.id !== id),
-        loading: false,
-      }));
-      return { success: true };
-    } catch (err: unknown) {
-      console.error(err);
-      const message = getErrorMessage(err);
-      set({ error: message, loading: false });
-      return { success: false, message };
-    }
-  },
-
-  payDebt: async (id, amount, paymentMethod, note) => {
-    set({ loading: true, error: null });
-    try {
-      const response = await apiClient.post<ApiSuccessResponse<{ customer: Customer }>>(
-        `/api/customers/${id}/pay-debt`,
-        { amount, paymentMethod, note }
-      );
-      const updatedCustomer = response.data.data.customer;
-      set((state) => ({
-        customers: state.customers.map((c) =>
-          c.id === id ? { ...c, debtBalance: Number(updatedCustomer.debtBalance) } : c
-        ),
         loading: false,
       }));
       return { success: true };

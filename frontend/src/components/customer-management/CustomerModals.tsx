@@ -1,6 +1,5 @@
 import { CustomerToast } from './CustomerToast';
 import { CustomerFormModal } from './CustomerFormModal';
-import { CustomerRepayModal } from './CustomerRepayModal';
 import type { UseCustomerManagementReturn } from '../../hooks/useCustomerManagement';
 
 export interface CustomerModalsProps {
@@ -14,7 +13,6 @@ export function CustomerModals({ customerManagement }: CustomerModalsProps) {
     <>
       {notification && <CustomerToast notification={notification} />}
       <CustomerFormModal customerManagement={customerManagement} />
-      <CustomerRepayModal customerManagement={customerManagement} />
     </>
   );
 }

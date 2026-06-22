@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
 import {
@@ -59,6 +59,8 @@ export function useProductMaster() {
   const [overridePrices, setOverridePrices] = useState<Record<string, number | undefined>>({});
   const [minStocks, setMinStocks] = useState<Record<string, number>>({});
   const [filterOutletId, setFilterOutletId] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategoryId, setSelectedCategoryId] = useState('');
 
   const showToast = (type: ProductNotification['type'], message: string) => {
     setNotification({ type, message });
@@ -314,6 +316,54 @@ export function useProductMaster() {
     navigate('/admin/inventory');
   };
 
+  const filteredProducts = useMemo(() => {
+    return products.filter((prod) => {
+      const query = searchQuery.toLowerCase().trim();
+      const matchQuery =
+        !query ||
+        prod.name.toLowerCase().includes(query) ||
+        prod.sku.toLowerCase().includes(query);
+
+      if (!matchQuery) return false;
+
+      if (selectedCategoryId && prod.categoryId !== selectedCategoryId) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [products, searchQuery, selectedCategoryId]);
+
+  const summaryStats = useMemo(() => {
+    const totalProducts = products.length;
+    let lowStockCount = 0;
+    let outOfStockCount = 0;
+    
+    const uniqueCategoryIds = new Set(products.map((p) => p.categoryId));
+    const totalCategoriesCount = uniqueCategoryIds.size || categories.length;
+
+    products.forEach((prod) => {
+      if (prod.stock === 0) {
+        outOfStockCount += 1;
+      } else if (prod.stock <= 10) {
+        lowStockCount += 1;
+      }
+    });
+
+    return {
+      totalProducts,
+      lowStockCount,
+      outOfStockCount,
+      totalCategoriesCount,
+    };
+  }, [products, categories]);
+
+  const resetFilters = useCallback(() => {
+    setSearchQuery('');
+    setSelectedCategoryId('');
+    setFilterOutletId('');
+  }, []);
+
   return {
     user,
     handleLogout,
@@ -351,6 +401,13 @@ export function useProductMaster() {
     minStocks,
     setMinStocks,
     filterOutletId,
+    searchQuery,
+    setSearchQuery,
+    selectedCategoryId,
+    setSelectedCategoryId,
+    filteredProducts,
+    summaryStats,
+    resetFilters,
     fetchProducts,
     fetchNextSku,
     handleOpenCreate,

@@ -173,32 +173,30 @@ export function AppShellHeader({
               </p>
             </div>
           </div>
-
-          {effectiveShowOutletSwitcher && (
-            <>
-              <div className="hidden xl:block h-9 w-px bg-slate-200 dark:bg-slate-700 shrink-0" />
-              <div className="hidden xl:flex items-center gap-2 min-w-0">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 shrink-0">
-                  Outlet
-                </span>
-                <OutletSwitcher
-                  allowAllOutlets={outletSwitcherAllowAll}
-                  operationalOnly={switcherOperationalOnly}
-                  size="md"
-                  className="min-w-0 max-w-[200px]"
-                />
-              </div>
-            </>
-          )}
-
-          {platformAdmin && (
-            <div className="hidden xl:flex items-center gap-2 px-3 py-2 rounded-xl bg-violet-50 dark:bg-violet-950/30 border border-violet-200/80 dark:border-violet-800/50 shrink-0">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-violet-700 dark:text-violet-300">
-                Admin Platform
-              </span>
-            </div>
-          )}
         </div>
+
+        {effectiveShowOutletSwitcher && (
+          <div className="hidden xl:flex items-center gap-2 min-w-0 shrink-0">
+            <div className="h-9 w-px bg-slate-200 dark:bg-slate-700" />
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+              Outlet
+            </span>
+            <OutletSwitcher
+              allowAllOutlets={outletSwitcherAllowAll}
+              operationalOnly={switcherOperationalOnly}
+              size="md"
+              className="min-w-0 max-w-[200px]"
+            />
+          </div>
+        )}
+
+        {platformAdmin && (
+          <div className="hidden xl:flex items-center gap-2 px-3 py-2 rounded-xl bg-violet-50 dark:bg-violet-950/30 border border-violet-200/80 dark:border-violet-800/50 shrink-0">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-violet-700 dark:text-violet-300">
+              Admin Platform
+            </span>
+          </div>
+        )}
 
         <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2 shrink-0">
           {trailingActions && (

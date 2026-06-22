@@ -31,7 +31,6 @@ import { getJwtSecret } from './lib/jwtConfig';
 
 dotenv.config();
 
-// Fail fast jika JWT_SECRET tidak dikonfigurasi
 getJwtSecret();
 
 const app = express();
@@ -74,6 +73,7 @@ app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/register', authLimiter);
 app.use('/api/auth/register-staff', authLimiter);
 app.use('/api/auth/resend-verification', authLimiter);
+app.use('/api/auth/google', authLimiter);
 
 // ==========================================
 // DAFTAR ROUTE APLIKASI

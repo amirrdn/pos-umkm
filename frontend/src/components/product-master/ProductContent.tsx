@@ -7,7 +7,7 @@ export interface ProductContentProps {
 
 export function ProductContent({ productMaster }: ProductContentProps) {
   const {
-    products,
+    filteredProducts,
     loading,
     filterOutletId,
     outlets,
@@ -16,11 +16,20 @@ export function ProductContent({ productMaster }: ProductContentProps) {
     fetchProducts,
     handleOpenEdit,
     handleDelete,
+    searchQuery,
+    setSearchQuery,
+    selectedCategoryId,
+    setSelectedCategoryId,
+    categories,
+    resetFilters,
+    summaryStats,
   } = productMaster;
+
+  const isFiltered = searchQuery !== '' || selectedCategoryId !== '' || filterOutletId !== '';
 
   return (
     <ProductListPanel
-      products={products}
+      products={filteredProducts}
       loading={loading}
       filterOutletId={filterOutletId}
       outlets={outlets}
@@ -29,6 +38,14 @@ export function ProductContent({ productMaster }: ProductContentProps) {
       onRefresh={() => fetchProducts(filterOutletId)}
       onEdit={handleOpenEdit}
       onDelete={handleDelete}
+      summaryStats={summaryStats}
+      searchQuery={searchQuery}
+      onSearchQueryChange={setSearchQuery}
+      selectedCategoryId={selectedCategoryId}
+      onCategoryChange={setSelectedCategoryId}
+      categories={categories}
+      resetFilters={resetFilters}
+      isFiltered={isFiltered}
     />
   );
 }

@@ -5,6 +5,7 @@ import { isApiError } from '../api/types';
 import { useAuthStore } from '../store/useAuthStore';
 import { useThemeStore } from '../store/useThemeStore';
 import { Lock, Mail, RefreshCw, ShoppingBag, AlertCircle, Sun, Moon, Clock3 } from 'lucide-react';
+import { GoogleAuthButton } from './GoogleAuthButton';
 
 export const LoginView: React.FC = () => {
   const navigate = useNavigate();
@@ -21,16 +22,16 @@ export const LoginView: React.FC = () => {
 
   const handleResendVerification = async () => {
     if (!email) {
-      setResendMsg('Isi email terlebih dahulu.');
+      setResendMsg('Ketik email kamu dulu ya di kolom bawah.');
       return;
     }
     setResendLoading(true);
     setResendMsg(null);
     try {
       const data = await resendVerificationApi(email);
-      setResendMsg(data.message || 'Email verifikasi telah dikirim ulang.');
+      setResendMsg(data.message || 'Sip, email konfirmasi sudah dikirim ulang!');
     } catch (err: unknown) {
-      setResendMsg(err instanceof Error ? err.message : 'Gagal mengirim ulang email verifikasi.');
+      setResendMsg(err instanceof Error ? err.message : 'Duh, gagal ngirim ulang email. Coba lagi nanti ya.');
     } finally {
       setResendLoading(false);
     }
@@ -42,8 +43,9 @@ export const LoginView: React.FC = () => {
     setErrorMsg(null);
     setErrorCode(null);
     setResendMsg(null);
+
     if (!email || !password) {
-      setErrorMsg('Email dan password wajib diisi.');
+      setErrorMsg('Ups, email dan password harus diisi ya.');
       setLoading(false);
       return;
     }
@@ -57,63 +59,57 @@ export const LoginView: React.FC = () => {
       if (isApiError(err) && err.code) {
         setErrorCode(err.code as LoginErrorCode);
       }
-      setErrorMsg(err instanceof Error ? err.message : 'Koneksi ke server gagal. Pastikan backend aktif.');
+      setErrorMsg(err instanceof Error ? err.message : 'Gagal nyambung ke sistem. Coba lagi sebentar ya.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="h-screen w-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center font-sans overflow-hidden transition-colors duration-150 relative">
-
-      {/* Theme Toggle Button */}
-      <div className="absolute top-6 right-6 z-20">
+    <div className="min-h-screen w-full bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center p-4">
+      <div className="absolute top-6 right-6">
         <button
           onClick={toggleTheme}
           type="button"
-          className="cursor-pointer p-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-650 dark:text-slate-355 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-850 transition-all duration-150 active:scale-95 shadow-sm"
-          title={theme === 'light' ? 'Mode Gelap' : 'Mode Terang'}
+          className="p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 shadow-sm transition-colors"
+          title={theme === 'light' ? 'Ganti Mode Gelap' : 'Ganti Mode Terang'}
         >
           {theme === 'light' ? (
-            <Moon className="h-4.5 w-4.5 text-slate-600" />
+            <Moon className="h-5 w-5 text-slate-600" />
           ) : (
-            <Sun className="h-4.5 w-4.5 text-amber-400" />
+            <Sun className="h-5 w-5 text-amber-400" />
           )}
         </button>
       </div>
 
-      {/* Background Decorator Elements */}
-      <div className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] rounded-full bg-indigo-100/40 dark:bg-indigo-950/10 blur-3xl z-0 transition-colors duration-150"></div>
-      <div className="absolute bottom-[-20%] right-[-10%] w-[600px] h-[600px] rounded-full bg-emerald-100/40 dark:bg-emerald-950/10 blur-3xl z-0 transition-colors duration-150"></div>
-
-      {/* LOGIN CARD */}
-      <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-xl dark:shadow-2xl p-8 relative z-10 mx-4 transition-colors duration-150">
-
-        {/* LOGO & TITLE */}
-        <div className="flex flex-col items-center mb-8">
-          <div className="bg-indigo-600 p-3.5 rounded-2xl text-white shadow-lg shadow-indigo-200 dark:shadow-none mb-4">
-            <ShoppingBag className="h-7 w-7" />
+      <div className="w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-lg p-6 md:p-8">
+        <div className="flex flex-col items-center mb-6 text-center">
+          <div className="bg-indigo-600 p-4 rounded-2xl text-white shadow-md mb-4">
+            <ShoppingBag className="h-8 w-8" />
           </div>
-          <h1 className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tight leading-tight transition-colors duration-150">Selamat Datang</h1>
-          <p className="text-slate-400 dark:text-slate-500 text-xs mt-1.5 font-medium transition-colors duration-150">Sistem POS & Kasir Pintar</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-slate-800 dark:text-white">
+            Masuk ke Kasir
+          </h1>
+          <p className="text-sm md:text-base text-slate-500 dark:text-slate-400 mt-2">
+            Pakai email yang kamu daftarkan ya
+          </p>
         </div>
 
-        {/* ERROR / INFO ALERTS */}
         {errorCode === 'EMAIL_NOT_VERIFIED' && errorMsg && (
-          <div className="bg-amber-50 dark:bg-amber-950/15 border border-amber-200 dark:border-amber-800/40 rounded-2xl p-4 mb-6">
-            <div className="flex gap-3 text-amber-900 dark:text-amber-200">
-              <Mail className="h-5 w-5 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
-              <div className="space-y-2 text-xs leading-relaxed">
-                <p className="font-black text-sm">Email belum diverifikasi</p>
-                <p className="font-medium opacity-90">{errorMsg}</p>
+          <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded-xl p-4 mb-6 text-amber-900 dark:text-amber-200">
+            <div className="flex gap-3">
+              <Mail className="h-6 w-6 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+              <div className="space-y-2">
+                <p className="font-bold text-base">Email belum dikonfirmasi</p>
+                <p className="text-sm">{errorMsg}</p>
                 <button
                   type="button"
                   onClick={handleResendVerification}
                   disabled={resendLoading}
-                  className="cursor-pointer inline-flex items-center gap-1.5 text-indigo-600 dark:text-indigo-400 font-bold hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="inline-flex items-center gap-2 text-sm text-indigo-600 dark:text-indigo-400 font-bold hover:underline disabled:opacity-60"
                 >
-                  <RefreshCw className={`h-3.5 w-3.5 ${resendLoading ? 'animate-spin' : ''}`} />
-                  {resendLoading ? 'Mengirim ulang...' : 'Kirim ulang email verifikasi'}
+                  <RefreshCw className={`h-4 w-4 ${resendLoading ? 'animate-spin' : ''}`} />
+                  {resendLoading ? 'Mengirim ulang...' : 'Kirim ulang email konfirmasi'}
                 </button>
               </div>
             </div>
@@ -121,108 +117,108 @@ export const LoginView: React.FC = () => {
         )}
 
         {errorCode === 'APPROVAL_PENDING' && errorMsg && (
-          <div className="bg-sky-50 dark:bg-sky-950/15 border border-sky-200 dark:border-sky-800/40 rounded-2xl p-4 mb-6">
-            <div className="flex gap-3 text-sky-900 dark:text-sky-200">
-              <Clock3 className="h-5 w-5 shrink-0 mt-0.5 text-sky-600 dark:text-sky-400" />
-              <div className="space-y-1 text-xs leading-relaxed">
-                <p className="font-black text-sm">Menunggu persetujuan admin</p>
-                <p className="font-medium opacity-90">{errorMsg}</p>
+          <div className="bg-sky-50 dark:bg-sky-900/20 border border-sky-200 dark:border-sky-800/50 rounded-xl p-4 mb-6 text-sky-900 dark:text-sky-200">
+            <div className="flex gap-3">
+              <Clock3 className="h-6 w-6 shrink-0 mt-0.5 text-sky-600 dark:text-sky-400" />
+              <div>
+                <p className="font-bold text-base mb-1">Menunggu Persetujuan</p>
+                <p className="text-sm">{errorMsg}</p>
               </div>
             </div>
           </div>
         )}
 
         {errorMsg && errorCode !== 'EMAIL_NOT_VERIFIED' && errorCode !== 'APPROVAL_PENDING' && (
-          <div className="bg-rose-50 dark:bg-rose-950/10 border border-rose-200 dark:border-rose-900/30 rounded-2xl p-4 flex gap-3 text-rose-800 dark:text-rose-300 text-xs font-semibold mb-6 transition-colors duration-150">
-            <AlertCircle className="h-5 w-5 text-rose-600 shrink-0" />
-            <div className="leading-relaxed space-y-1">
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 rounded-xl p-4 flex gap-3 text-red-800 dark:text-red-200 mb-6">
+            <AlertCircle className="h-6 w-6 text-red-600 shrink-0" />
+            <div>
               {errorCode === 'INVALID_CREDENTIALS' && (
-                <p className="font-black text-sm text-rose-900 dark:text-rose-200">Login gagal</p>
+                <p className="font-bold text-base mb-1 text-red-900 dark:text-red-100">Ups, Gagal Masuk</p>
               )}
-              <span>{errorMsg}</span>
+              <p className="text-sm">{errorMsg}</p>
             </div>
           </div>
         )}
 
         {resendMsg && (
-          <div className="bg-emerald-50 dark:bg-emerald-950/10 border border-emerald-200 dark:border-emerald-900/30 rounded-2xl p-4 text-emerald-800 dark:text-emerald-300 text-xs font-semibold mb-6">
+          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800/50 rounded-xl p-4 text-green-800 dark:text-green-200 text-sm font-medium mb-6">
             {resendMsg}
           </div>
         )}
 
-        {/* LOGIN FORM */}
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <GoogleAuthButton mode="login" />
 
-          {/* Input Email */}
+        <div className="flex items-center gap-3 my-6">
+          <div className="flex-1 h-px bg-slate-200 dark:bg-slate-700"></div>
+          <span className="text-sm text-slate-500 font-medium">atau pakai email</span>
+          <div className="flex-1 h-px bg-slate-200 dark:bg-slate-700"></div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-5">
           <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wide transition-colors duration-150">Alamat Email</label>
+            <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+              Alamat Email
+            </label>
             <div className="relative">
-              <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-slate-550" />
+              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
               <input
                 type="email"
-                placeholder="operator@toko.com"
+                placeholder="email@contoh.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 disabled={loading}
-                className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white dark:focus:bg-slate-950 transition-all text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-600"
-                required
+                className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-white placeholder-slate-400 disabled:opacity-60"
               />
             </div>
           </div>
 
-          {/* Input Password */}
           <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wide transition-colors duration-150">Kata Sandi</label>
+            <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+              Password
+            </label>
             <div className="relative">
-              <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-slate-550" />
+              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
               <input
                 type="password"
-                placeholder="••••••••"
+                placeholder="Masukkan password kamu"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 disabled={loading}
-                className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white dark:focus:bg-slate-950 transition-all text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-600"
-                required
+                className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-white placeholder-slate-400 disabled:opacity-60"
               />
             </div>
           </div>
 
-          {/* Tombol Login */}
           <button
             type="submit"
             disabled={loading}
-            className={`cursor-pointer w-full py-4 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2 shadow-lg shadow-indigo-100 dark:shadow-indigo-950/30 transition-all ${loading
-                ? 'bg-indigo-400 cursor-wait shadow-none'
-                : 'bg-indigo-600 hover:bg-indigo-700 active:scale-99'
-              } mt-6 disabled:cursor-not-allowed`}
+            className="w-full py-4 mt-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-base shadow-md transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {loading ? (
               <>
-                <RefreshCw className="h-4 w-4 animate-spin" />
-                Memverifikasi...
+                <RefreshCw className="h-5 w-5 animate-spin" />
+                Masuk...
               </>
             ) : (
-              'Masuk ke Sistem Kasir'
+              'Masuk ke Kasir'
             )}
           </button>
         </form>
 
-        {/* Link ke Dokumentasi & Landing Page */}
-        <div className="mt-8 flex justify-between items-center text-xs text-slate-400 dark:text-slate-500 border-t border-slate-100 dark:border-slate-850 pt-5 transition-colors duration-150">
+        <div className="mt-8 flex justify-between items-center text-sm text-slate-500 dark:text-slate-400 border-t border-slate-200 dark:border-slate-800 pt-6">
           <button
             onClick={() => navigate('/')}
-            className="cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 font-semibold transition-all"
+            className="font-bold hover:text-indigo-600 dark:hover:text-indigo-400 hover:underline"
           >
-            ← Kembali ke Awal
+            ← Beranda
           </button>
           <button
-            onClick={() => navigate('/docs')}
-            className="cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 font-semibold transition-all"
+            onClick={() => navigate('/register')}
+            className="font-bold text-indigo-600 dark:text-indigo-400 hover:underline"
           >
-            Buka Dokumentasi →
+            Daftar Toko Baru
           </button>
         </div>
-
       </div>
     </div>
   );
