@@ -11,6 +11,8 @@ interface CloseShiftModalProps {
   onClose: (cashActual: number) => Promise<void>;
   onCancel: () => void;
   isLoading: boolean;
+  cartItemCount?: number;
+  hasPendingQris?: boolean;
 }
 
 // ==========================================
@@ -45,6 +47,8 @@ export const CloseShiftModal: React.FC<CloseShiftModalProps> = ({
   onClose,
   onCancel,
   isLoading,
+  cartItemCount = 0,
+  hasPendingQris = false,
 }) => {
   const [cashActual, setCashActual] = useState<string>('');
   const [error, setError] = useState<string>('');
@@ -108,6 +112,26 @@ export const CloseShiftModal: React.FC<CloseShiftModalProps> = ({
 
         {/* Konten scroll */}
         <div className="flex-1 overflow-y-auto p-6 space-y-5">
+          {(cartItemCount > 0 || hasPendingQris) && (
+            <div className="space-y-2">
+              {cartItemCount > 0 && (
+                <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl px-4 py-3">
+                  <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                  <p className="text-xs font-medium">
+                    Keranjang masih berisi {cartItemCount} item. Selesaikan atau kosongkan sebelum menutup shift.
+                  </p>
+                </div>
+              )}
+              {hasPendingQris && (
+                <div className="flex items-start gap-2.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl px-4 py-3">
+                  <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                  <p className="text-xs font-medium">
+                    Masih ada pembayaran QRIS yang menunggu. Batalkan atau selesaikan terlebih dahulu.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Ringkasan Kas Shift */}
           <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 space-y-3">
