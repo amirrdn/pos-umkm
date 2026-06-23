@@ -2,8 +2,10 @@ import { useEffect } from 'react';
 import { applyPageSeo, resetPageSeo, type PageSeoConfig } from '../utils/pageSeo';
 
 export function usePageSeo(config: PageSeoConfig) {
+  const { title, description, keywords, noIndex, ogType, path } = config;
+
   useEffect(() => {
-    applyPageSeo(config);
+    applyPageSeo({ title, description, keywords, noIndex, ogType, path });
     return () => resetPageSeo();
-  }, [config.description, config.keywords, config.noIndex, config.ogType, config.path, config.title]);
+  }, [title, description, keywords, noIndex, ogType, path]);
 }
