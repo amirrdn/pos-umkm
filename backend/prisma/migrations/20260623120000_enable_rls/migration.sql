@@ -25,13 +25,13 @@ BEGIN
     EXECUTE format('DROP POLICY IF EXISTS tenant_isolation_policy ON %I', tenant_table);
     EXECUTE format(
       'CREATE POLICY tenant_isolation_policy ON %I AS PERMISSIVE FOR ALL USING (
-        current_setting(''app.current_tenant_id'', true) IS NULL
-        OR current_setting(''app.current_tenant_id'', true) = ''''
-        OR "tenantId" = NULLIF(current_setting(''app.current_tenant_id'', true), '''')
+        (select current_setting(''app.current_tenant_id'', true)) IS NULL
+        OR (select current_setting(''app.current_tenant_id'', true)) = ''''
+        OR "tenantId" = NULLIF((select current_setting(''app.current_tenant_id'', true)), '''')
       ) WITH CHECK (
-        current_setting(''app.current_tenant_id'', true) IS NULL
-        OR current_setting(''app.current_tenant_id'', true) = ''''
-        OR "tenantId" = NULLIF(current_setting(''app.current_tenant_id'', true), '''')
+        (select current_setting(''app.current_tenant_id'', true)) IS NULL
+        OR (select current_setting(''app.current_tenant_id'', true)) = ''''
+        OR "tenantId" = NULLIF((select current_setting(''app.current_tenant_id'', true)), '''')
       )',
       tenant_table
     );
