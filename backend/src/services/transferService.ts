@@ -31,7 +31,6 @@ export async function createTransfer(tenantId: string, userId: string, input: Cr
     if (!tenant) {
       throw new Error('Tenant tidak ditemukan.');
     }
-
     const [fromOutlet, toOutlet] = await Promise.all([
       tx.outlet.findFirst({ where: { id: fromOutletId, tenantId, deletedAt: null, isActive: true } }),
       tx.outlet.findFirst({ where: { id: toOutletId, tenantId, deletedAt: null, isActive: true } })

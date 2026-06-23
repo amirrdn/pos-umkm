@@ -31,9 +31,25 @@ const tenantScopedPrisma = basePrisma.$extends({
           Prisma.dmmf.datamodel.models.find((entry: Prisma.DMMF.Model) => entry.name === model)?.fields ?? [];
         const isTenantScopedModel = modelFields.some((field: Prisma.DMMF.Field) => field.name === 'tenantId');
 
+        const queryArgs = args as Record<string, unknown>;
+        const where = queryArgs.where as Record<string, unknown> | undefined;
+
+        if (model === 'Tenant') {
+          const tenantId =
+            activeTenantId ?? (typeof where?.id === 'string' ? where.id : undefined);
+
+          if (tenantId) {
+            const [, result] = await basePrisma.$transaction([
+              basePrisma.$executeRawUnsafe(`SELECT set_config('app.current_tenant_id', $1, true)`, tenantId),
+              query(args),
+            ]);
+            return result;
+          }
+
+          return query(args);
+        }
+
         if (isTenantScopedModel) {
-          const queryArgs = args as Record<string, unknown>;
-          const where = queryArgs.where as Record<string, unknown> | undefined;
           const dataObj = queryArgs.data as
             | Record<string, unknown>
             | Record<string, unknown>[]
@@ -47,35 +63,47 @@ const tenantScopedPrisma = basePrisma.$extends({
             hasExplicitTenantData = dataObj.tenantId !== undefined;
           }
 
-          if (!activeTenantId && !hasExplicitTenantFilter && !hasExplicitTenantData) {
+          const effectiveTenantId =
+            activeTenantId ??
+            (typeof where?.tenantId === 'string' ? where.tenantId : undefined) ??
+            (hasExplicitTenantData && dataObj && !Array.isArray(dataObj) && !('data' in dataObj)
+              ? (dataObj.tenantId as string | undefined)
+              : undefined);
+
+          if (!effectiveTenantId && !hasExplicitTenantFilter && !hasExplicitTenantData) {
             throw new Error(`Akses Ditolak: Konteks tenant tidak terdefinisi untuk model ${model}`);
           }
 
-          if (activeTenantId) {
-            if (where) {
-              queryArgs.where = { ...where, tenantId: activeTenantId };
-            } else {
-              queryArgs.where = { tenantId: activeTenantId };
-            }
-
-            if (operation === 'create' && dataObj && !Array.isArray(dataObj) && !('data' in dataObj)) {
-              dataObj.tenantId = activeTenantId;
-            } else if (operation === 'createMany' && dataObj) {
-              if (Array.isArray(dataObj)) {
-                dataObj.forEach((item) => {
-                  item.tenantId = activeTenantId;
-                });
-              } else if ('data' in dataObj && Array.isArray(dataObj.data)) {
-                dataObj.data.forEach((item) => {
-                  item.tenantId = activeTenantId;
-                });
+          if (effectiveTenantId) {
+            if (activeTenantId) {
+              if (where) {
+                queryArgs.where = { ...where, tenantId: activeTenantId };
+              } else {
+                queryArgs.where = { tenantId: activeTenantId };
               }
-            } else if (operation === 'upsert' && createObj) {
-              createObj.tenantId = activeTenantId;
+
+              if (operation === 'create' && dataObj && !Array.isArray(dataObj) && !('data' in dataObj)) {
+                dataObj.tenantId = activeTenantId;
+              } else if (operation === 'createMany' && dataObj) {
+                if (Array.isArray(dataObj)) {
+                  dataObj.forEach((item) => {
+                    item.tenantId = activeTenantId;
+                  });
+                } else if ('data' in dataObj && Array.isArray(dataObj.data)) {
+                  dataObj.data.forEach((item) => {
+                    item.tenantId = activeTenantId;
+                  });
+                }
+              } else if (operation === 'upsert' && createObj) {
+                createObj.tenantId = activeTenantId;
+              }
             }
 
             const [, result] = await basePrisma.$transaction([
-              basePrisma.$executeRawUnsafe(`SELECT set_config('app.current_tenant_id', $1, true)`, activeTenantId),
+              basePrisma.$executeRawUnsafe(
+                `SELECT set_config('app.current_tenant_id', $1, true)`,
+                effectiveTenantId
+              ),
               query(args),
             ]);
             return result;
