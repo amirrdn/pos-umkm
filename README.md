@@ -1,5 +1,7 @@
 # SaaSPOS UMKM - Platform Kasir Multi-Tenant & Inventaris
 
+[![CI Quality Gate](https://github.com/amirrdn/pos-umkm/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/amirrdn/pos-umkm/actions/workflows/ci.yml)
+
 [![SaaS POS](https://img.shields.io/badge/SaaS-POS_UMKM-6366f1?style=for-the-badge&logo=react)](https://github.com/amirrdn/pos-umkm)
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Prisma](https://img.shields.io/badge/Prisma-2D3748?style=flat-square&logo=prisma&logoColor=white)](https://www.prisma.io/)
