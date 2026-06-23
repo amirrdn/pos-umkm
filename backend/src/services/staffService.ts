@@ -69,7 +69,7 @@ async function loadStaffRelations(
   const load = async (client: PrismaTx) => {
     const userIds = users.map((user) => user.id);
 
-    const [assignments, outletLinks] = await Promise.all([
+    const [assignments, outletLinks, tenantRoles, tenantOutlets] = await Promise.all([
       client.userRole.findMany({
         where: { userId: { in: userIds } },
         select: { userId: true, roleId: true },
@@ -78,28 +78,18 @@ async function loadStaffRelations(
         where: { userId: { in: userIds } },
         select: { userId: true, outletId: true },
       }),
-    ]);
-
-    const roleIds = [...new Set(assignments.map((assignment) => assignment.roleId))];
-    const outletIds = [...new Set(outletLinks.map((link) => link.outletId))];
-
-    const [tenantRoles, outlets] = await Promise.all([
-      roleIds.length > 0
-        ? client.role.findMany({
-            where: { id: { in: roleIds }, tenantId },
-            select: { id: true, name: true, description: true },
-          })
-        : Promise.resolve([]),
-      outletIds.length > 0
-        ? client.outlet.findMany({
-            where: { id: { in: outletIds }, tenantId, deletedAt: null },
-            select: { id: true, name: true },
-          })
-        : Promise.resolve([]),
+      client.role.findMany({
+        where: { tenantId },
+        select: { id: true, name: true, description: true },
+      }),
+      client.outlet.findMany({
+        where: { tenantId, deletedAt: null },
+        select: { id: true, name: true },
+      }),
     ]);
 
     const roleMap = new Map(tenantRoles.map((role) => [role.id, role]));
-    const outletMap = new Map(outlets.map((outlet) => [outlet.id, outlet]));
+    const outletMap = new Map(tenantOutlets.map((outlet) => [outlet.id, outlet]));
 
     return users
       .map((user) => {
@@ -108,9 +98,8 @@ async function loadStaffRelations(
           .map((assignment) => ({ role: roleMap.get(assignment.roleId)! }));
 
         const userOutlets = outletLinks
-          .filter((link) => link.userId === user.id)
-          .map((link) => ({ outlet: outletMap.get(link.outletId)! }))
-          .filter((entry): entry is { outlet: { id: string; name: string } } => entry.outlet != null);
+          .filter((link) => link.userId === user.id && outletMap.has(link.outletId))
+          .map((link) => ({ outlet: outletMap.get(link.outletId)! }));
 
         return { ...user, userRoles, userOutlets };
       })
@@ -124,31 +113,15 @@ async function loadStaffRelations(
   return prisma.$executeRawWithTenant(tenantId, load);
 }
 
-async function getTenantStaffUserIds(tenantId: string): Promise<string[]> {
-  return prisma.$executeRawWithTenant(tenantId, async (tx) => {
-    const assignments = await tx.userRole.findMany({
-      where: { role: { tenantId } },
-      select: { userId: true },
-      distinct: ['userId'],
-    });
-    return assignments.map((assignment) => assignment.userId);
-  });
-}
-
-function buildStaffTenantWhere(tenantId: string, tenantStaffUserIds?: string[]): Prisma.UserWhereInput {
+function buildStaffTenantWhere(tenantId: string): Prisma.UserWhereInput {
   return {
     tenantId,
     deletedAt: null,
-    ...(tenantStaffUserIds ? { id: { in: tenantStaffUserIds } } : {}),
   };
 }
 
-function buildStaffListWhere(
-  tenantId: string,
-  filters?: StaffListFilters,
-  tenantStaffUserIds?: string[]
-): Prisma.UserWhereInput {
-  const where = buildStaffTenantWhere(tenantId, tenantStaffUserIds);
+function buildStaffListWhere(tenantId: string, filters?: StaffListFilters): Prisma.UserWhereInput {
+  const where = buildStaffTenantWhere(tenantId);
 
   if (filters?.approvalStatus) {
     where.approvalStatus = filters.approvalStatus;
@@ -176,37 +149,32 @@ function buildStaffListWhere(
 }
 
 export async function getStaffSummary(tenantId: string): Promise<StaffOverviewMetrics> {
-  const tenantStaffUserIds = await getTenantStaffUserIds(tenantId);
-  const baseWhere = buildStaffTenantWhere(tenantId, tenantStaffUserIds);
+  return prisma.$executeRawWithTenant(tenantId, async (tx) => {
+    const users = await tx.user.findMany({
+      where: buildStaffTenantWhere(tenantId),
+      select: staffUserBaseSelect,
+    });
+    const staff = await loadStaffRelations(tenantId, users, tx);
+    const approved = staff.filter((member) => member.approvalStatus === 'APPROVED');
 
-  const [activeStaffCount, inactiveStaffCount, pendingApprovalCount] = await Promise.all([
-    prisma.user.count({
-      where: { ...baseWhere, approvalStatus: 'APPROVED', isActive: true },
-    }),
-    prisma.user.count({
-      where: { ...baseWhere, approvalStatus: 'APPROVED', isActive: false },
-    }),
-    prisma.user.count({
-      where: { ...baseWhere, approvalStatus: 'PENDING' },
-    }),
-  ]);
-
-  return {
-    activeStaffCount,
-    inactiveStaffCount,
-    pendingApprovalCount,
-  };
+    return {
+      activeStaffCount: approved.filter((member) => member.isActive).length,
+      inactiveStaffCount: approved.filter((member) => !member.isActive).length,
+      pendingApprovalCount: staff.filter((member) => member.approvalStatus === 'PENDING').length,
+    };
+  });
 }
 
 export async function getStaffList(tenantId: string, filters?: StaffListFilters) {
-  const tenantStaffUserIds = await getTenantStaffUserIds(tenantId);
-  const users = await prisma.user.findMany({
-    where: buildStaffListWhere(tenantId, filters, tenantStaffUserIds),
-    orderBy: { createdAt: 'asc' },
-    select: staffUserBaseSelect,
-  });
+  return prisma.$executeRawWithTenant(tenantId, async (tx) => {
+    const users = await tx.user.findMany({
+      where: buildStaffListWhere(tenantId, filters),
+      orderBy: { createdAt: 'asc' },
+      select: staffUserBaseSelect,
+    });
 
-  return loadStaffRelations(tenantId, users);
+    return loadStaffRelations(tenantId, users, tx);
+  });
 }
 
 export interface StaffDetailStats {
@@ -240,48 +208,51 @@ export interface StaffDetail {
 }
 
 export async function getStaffDetail(staffId: string, tenantId: string): Promise<StaffDetail> {
-  const tenantStaffUserIds = await getTenantStaffUserIds(tenantId);
-  const user = await prisma.user.findFirst({
-    where: { id: staffId, ...buildStaffTenantWhere(tenantId, tenantStaffUserIds) },
-    select: {
-      ...staffUserBaseSelect,
-      updatedAt: true,
-      emailVerifiedAt: true,
-    },
+  return prisma.$executeRawWithTenant(tenantId, async (tx) => {
+    const user = await tx.user.findFirst({
+      where: { id: staffId, ...buildStaffTenantWhere(tenantId) },
+      select: {
+        ...staffUserBaseSelect,
+        updatedAt: true,
+        emailVerifiedAt: true,
+      },
+    });
+
+    if (!user) {
+      throw new Error('Karyawan tidak ditemukan.');
+    }
+
+    const [staffWithRelations] = await loadStaffRelations(tenantId, [user], tx);
+    if (!staffWithRelations) {
+      throw new Error('Karyawan tidak ditemukan.');
+    }
+
+    const [totalShifts, openShifts] = await Promise.all([
+      tx.shift.count({ where: { userId: staffId, tenantId } }),
+      tx.shift.count({ where: { userId: staffId, tenantId, status: 'OPEN' } }),
+    ]);
+
+    return {
+      ...staffWithRelations,
+      updatedAt: user.updatedAt,
+      emailVerifiedAt: user.emailVerifiedAt,
+      stats: { totalShifts, openShifts },
+    };
   });
-
-  if (!user) {
-    throw new Error('Karyawan tidak ditemukan.');
-  }
-
-  const [staffWithRelations] = await loadStaffRelations(tenantId, [user]);
-  if (!staffWithRelations) {
-    throw new Error('Karyawan tidak ditemukan.');
-  }
-
-  const [totalShifts, openShifts] = await Promise.all([
-    prisma.shift.count({ where: { userId: staffId, tenantId } }),
-    prisma.shift.count({ where: { userId: staffId, tenantId, status: 'OPEN' } }),
-  ]);
-
-  return {
-    ...staffWithRelations,
-    updatedAt: user.updatedAt,
-    emailVerifiedAt: user.emailVerifiedAt,
-    stats: { totalShifts, openShifts },
-  };
 }
 
 export async function bulkApproveStaff(staffIds: string[], tenantId: string) {
   const uniqueIds = [...new Set(staffIds)];
 
-  const pendingStaff = await prisma.user.findMany({
-    where: {
-      id: { in: uniqueIds },
-      ...buildStaffTenantWhere(tenantId, await getTenantStaffUserIds(tenantId)),
-      approvalStatus: 'PENDING',
-    },
-    select: staffUserBaseSelect,
+  const pendingStaff = await prisma.$executeRawWithTenant(tenantId, async (tx) => {
+    return tx.user.findMany({
+      where: {
+        id: { in: uniqueIds },
+        ...buildStaffTenantWhere(tenantId),
+        approvalStatus: 'PENDING',
+      },
+      select: staffUserBaseSelect,
+    });
   });
 
   if (pendingStaff.length === 0) {
