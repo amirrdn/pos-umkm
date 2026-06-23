@@ -1,3 +1,4 @@
+import { logError } from '../lib/logger';
 import { Request, Response } from 'express';
 import { resolveAnalyticsOutletId } from '../domain/analytics';
 import { AnalyticsService } from '../services/analyticsService';
@@ -16,7 +17,7 @@ export async function getSummary(req: Request, res: Response) {
       data: summary,
     });
   } catch (error: unknown) {
-    console.error('GetSummary Controller Error:', error);
+    logError('GetSummary Controller Error:', error);
     return res.status(500).json({
       success: false,
       message: 'Terjadi kesalahan internal server saat mengambil rangkuman analitik.',
@@ -36,7 +37,7 @@ export async function getBestSellers(req: Request, res: Response) {
       data: bestSellers,
     });
   } catch (error: unknown) {
-    console.error('GetBestSellers Controller Error:', error);
+    logError('GetBestSellers Controller Error:', error);
     return res.status(500).json({
       success: false,
       message: 'Terjadi kesalahan internal server saat mengambil data produk terlaris.',
@@ -56,7 +57,7 @@ export async function getTrend(req: Request, res: Response) {
       data: trend,
     });
   } catch (error: unknown) {
-    console.error('GetTrend Controller Error:', error);
+    logError('GetTrend Controller Error:', error);
     return res.status(500).json({
       success: false,
       message: 'Terjadi kesalahan internal server saat mengambil data tren analitik.',
@@ -76,7 +77,7 @@ export async function getCashierReports(req: Request, res: Response) {
       data: reports,
     });
   } catch (error: unknown) {
-    console.error('GetCashierReports Error:', error);
+    logError('GetCashierReports Error:', error);
     return res.status(500).json({
       success: false,
       message: 'Terjadi kesalahan saat mengambil laporan kasir.',
@@ -96,7 +97,7 @@ export async function getShiftReports(req: Request, res: Response) {
       data: reports,
     });
   } catch (error: unknown) {
-    console.error('GetShiftReports Error:', error);
+    logError('GetShiftReports Error:', error);
     return res.status(500).json({
       success: false,
       message: 'Terjadi kesalahan saat mengambil laporan shift.',
@@ -115,7 +116,7 @@ export async function getBreakdown(req: Request, res: Response) {
       data,
     });
   } catch (error: unknown) {
-    console.error('GetBreakdown Error:', error);
+    logError('GetBreakdown Error:', error);
     return res.status(500).json({
       success: false,
       message: 'Terjadi kesalahan saat mengambil breakdown outlet.',

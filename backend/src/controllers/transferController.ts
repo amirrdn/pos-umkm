@@ -1,3 +1,4 @@
+import { logError } from '../lib/logger';
 import { Request, Response } from 'express';
 import { createTransferSchema } from '../schemas/transferSchema';
 import * as transferService from '../services/transferService';
@@ -33,7 +34,7 @@ export async function createTransfer(req: Request, res: Response): Promise<Respo
       data
     });
   } catch (error: unknown) {
-    console.error('[TransferController.createTransfer]', error);
+    logError('[TransferController.createTransfer]', error);
     return res.status(400).json({
       success: false,
       message: getErrorMessage(error, 'Terjadi kesalahan saat membuat transfer stok.'),
@@ -59,7 +60,7 @@ export async function listTransfers(req: Request, res: Response): Promise<Respon
       data
     });
   } catch (error: unknown) {
-    console.error('[TransferController.listTransfers]', error);
+    logError('[TransferController.listTransfers]', error);
     return res.status(500).json({
       success: false,
       message: 'Terjadi kesalahan saat mengambil daftar transfer stok.'
@@ -81,7 +82,7 @@ export async function approveTransfer(req: Request, res: Response): Promise<Resp
       data
     });
   } catch (error: unknown) {
-    console.error('[TransferController.approveTransfer]', error);
+    logError('[TransferController.approveTransfer]', error);
     return res.status(400).json({
       success: false,
       message: getErrorMessage(error, 'Terjadi kesalahan saat menyetujui transfer stok.'),
@@ -103,7 +104,7 @@ export async function completeTransfer(req: Request, res: Response): Promise<Res
       data
     });
   } catch (error: unknown) {
-    console.error('[TransferController.completeTransfer]', error);
+    logError('[TransferController.completeTransfer]', error);
     return res.status(400).json({
       success: false,
       message: getErrorMessage(error, 'Terjadi kesalahan saat menyelesaikan transfer stok.'),
@@ -125,7 +126,7 @@ export async function cancelTransfer(req: Request, res: Response): Promise<Respo
       data
     });
   } catch (error: unknown) {
-    console.error('[TransferController.cancelTransfer]', error);
+    logError('[TransferController.cancelTransfer]', error);
     return res.status(400).json({
       success: false,
       message: getErrorMessage(error, 'Terjadi kesalahan saat membatalkan transfer stok.'),

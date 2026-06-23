@@ -257,8 +257,8 @@ export async function getStaffDetail(staffId: string, tenantId: string): Promise
 export async function bulkApproveStaff(staffIds: string[], tenantId: string) {
   const uniqueIds = [...new Set(staffIds)];
 
-  const pendingStaff = await prisma.$executeRawWithTenant(tenantId, async (tx) => {
-    return tx.user.findMany({
+  return prisma.$executeRawWithTenant(tenantId, async (tx) => {
+    const pendingStaff = await tx.user.findMany({
       where: {
         id: { in: uniqueIds },
         ...buildStaffTenantWhere(tenantId),
@@ -266,32 +266,33 @@ export async function bulkApproveStaff(staffIds: string[], tenantId: string) {
       },
       select: staffUserBaseSelect,
     });
+
+    if (pendingStaff.length === 0) {
+      throw new Error('Tidak ada permintaan staf yang valid untuk disetujui.');
+    }
+
+    const pendingIds = pendingStaff.map((staff) => staff.id);
+
+    await tx.user.updateMany({
+      where: { id: { in: pendingIds }, tenantId, approvalStatus: 'PENDING' },
+      data: { approvalStatus: 'APPROVED' },
+    });
+
+    const approvedStaff = await loadStaffRelations(
+      tenantId,
+      pendingStaff.map((staff) => ({
+        ...staff,
+        approvalStatus: 'APPROVED',
+      })),
+      tx
+    );
+
+    return {
+      approvedCount: approvedStaff.length,
+      skippedCount: uniqueIds.length - approvedStaff.length,
+      staff: approvedStaff,
+    };
   });
-
-  if (pendingStaff.length === 0) {
-    throw new Error('Tidak ada permintaan staf yang valid untuk disetujui.');
-  }
-
-  const pendingIds = pendingStaff.map((staff) => staff.id);
-
-  await prisma.user.updateMany({
-    where: { id: { in: pendingIds }, tenantId, approvalStatus: 'PENDING' },
-    data: { approvalStatus: 'APPROVED' },
-  });
-
-  const approvedStaff = await loadStaffRelations(
-    tenantId,
-    pendingStaff.map((staff) => ({
-      ...staff,
-      approvalStatus: 'APPROVED',
-    }))
-  );
-
-  return {
-    approvedCount: approvedStaff.length,
-    skippedCount: uniqueIds.length - approvedStaff.length,
-    staff: approvedStaff,
-  };
 }
 
 /**
@@ -308,17 +309,17 @@ export async function createStaff({ tenantId, name, email, password, roleId, out
     throw new Error('Alamat email tersebut sudah digunakan oleh pengguna lain.');
   }
 
-  const role = await prisma.role.findFirst({
-    where: { id: roleId, tenantId },
-  });
+  return prisma.$executeRawWithTenant(tenantId, async (tx) => {
+    const role = await tx.role.findFirst({
+      where: { id: roleId, tenantId },
+    });
 
-  if (!role) {
-    throw new Error('Role tidak ditemukan atau bukan milik tenant Anda.');
-  }
+    if (!role) {
+      throw new Error('Role tidak ditemukan atau bukan milik tenant Anda.');
+    }
 
-  const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-  return prisma.$transaction(async (tx) => {
     const user = await tx.user.create({
       data: {
         tenantId,
@@ -337,7 +338,7 @@ export async function createStaff({ tenantId, name, email, password, roleId, out
 
     if (outletIds && outletIds.length > 0) {
       await tx.userOutlet.createMany({
-        data: outletIds.map(oid => ({ userId: user.id, outletId: oid }))
+        data: outletIds.map((oid) => ({ userId: user.id, outletId: oid })),
       });
     }
 
@@ -347,7 +348,7 @@ export async function createStaff({ tenantId, name, email, password, roleId, out
       email: user.email,
       isActive: user.isActive,
       approvalStatus: user.approvalStatus,
-      role: role.name
+      role: role.name,
     };
   });
 }
@@ -357,15 +358,15 @@ export async function createStaff({ tenantId, name, email, password, roleId, out
  * Jika roleId berubah, hapus semua user role lama dan assign yang baru.
  */
 export async function updateStaff(staffId: string, tenantId: string, data: UpdateStaffInput) {
-  const user = await prisma.user.findFirst({
-    where: { id: staffId, tenantId, deletedAt: null },
-  });
+  return prisma.$executeRawWithTenant(tenantId, async (tx) => {
+    const user = await tx.user.findFirst({
+      where: { id: staffId, ...buildStaffTenantWhere(tenantId) },
+    });
 
-  if (!user) {
-    throw new Error('Karyawan tidak ditemukan.');
-  }
+    if (!user) {
+      throw new Error('Karyawan tidak ditemukan.');
+    }
 
-  return prisma.$transaction(async (tx) => {
     if (data.name !== undefined || data.isActive !== undefined) {
       await tx.user.update({
         where: { id: staffId },
@@ -377,11 +378,10 @@ export async function updateStaff(staffId: string, tenantId: string, data: Updat
     }
 
     if (data.outletIds !== undefined) {
-      // Re-assign user outlets
       await tx.userOutlet.deleteMany({ where: { userId: staffId } });
       if (data.outletIds.length > 0) {
         await tx.userOutlet.createMany({
-          data: data.outletIds.map(oid => ({ userId: staffId, outletId: oid }))
+          data: data.outletIds.map((oid) => ({ userId: staffId, outletId: oid })),
         });
       }
     }
@@ -399,8 +399,8 @@ export async function updateStaff(staffId: string, tenantId: string, data: Updat
       await tx.userRole.create({ data: { userId: staffId, roleId: data.roleId } });
     }
 
-    const updated = await tx.user.findUnique({
-      where: { id: staffId },
+    const updated = await tx.user.findFirst({
+      where: { id: staffId, ...buildStaffTenantWhere(tenantId) },
       select: staffUserBaseSelect,
     });
 
@@ -422,20 +422,22 @@ export async function deleteStaff(staffId: string, tenantId: string, requesterId
     throw new Error('Anda tidak bisa menghapus akun Anda sendiri.');
   }
 
-  const user = await prisma.user.findFirst({
-    where: { id: staffId, tenantId, deletedAt: null },
+  return prisma.$executeRawWithTenant(tenantId, async (tx) => {
+    const user = await tx.user.findFirst({
+      where: { id: staffId, ...buildStaffTenantWhere(tenantId) },
+    });
+
+    if (!user) {
+      throw new Error('Karyawan tidak ditemukan.');
+    }
+
+    await tx.user.update({
+      where: { id: staffId },
+      data: { deletedAt: new Date(), isActive: false },
+    });
+
+    return { message: `Akun karyawan [${user.name}] berhasil dihapus.` };
   });
-
-  if (!user) {
-    throw new Error('Karyawan tidak ditemukan.');
-  }
-
-  await prisma.user.update({
-    where: { id: staffId },
-    data: { deletedAt: new Date(), isActive: false },
-  });
-
-  return { message: `Akun karyawan [${user.name}] berhasil dihapus.` };
 }
 
 /**
@@ -454,18 +456,20 @@ export async function getRoles(tenantId: string) {
  * Menerima pendaftaran staf baru.
  */
 export async function approveStaff(staffId: string, tenantId: string) {
-  const user = await prisma.user.findFirst({
-    where: { id: staffId, tenantId, deletedAt: null },
-  });
+  return prisma.$executeRawWithTenant(tenantId, async (tx) => {
+    const user = await tx.user.findFirst({
+      where: { id: staffId, ...buildStaffTenantWhere(tenantId) },
+    });
 
-  if (!user) {
-    throw new Error('Karyawan tidak ditemukan.');
-  }
+    if (!user) {
+      throw new Error('Karyawan tidak ditemukan.');
+    }
 
-  return prisma.user.update({
-    where: { id: staffId },
-    data: { approvalStatus: 'APPROVED' },
-    select: { id: true, name: true, email: true, approvalStatus: true }
+    return tx.user.update({
+      where: { id: staffId },
+      data: { approvalStatus: 'APPROVED' },
+      select: { id: true, name: true, email: true, approvalStatus: true },
+    });
   });
 }
 
@@ -473,17 +477,19 @@ export async function approveStaff(staffId: string, tenantId: string) {
  * Menolak pendaftaran staf baru (bisa menghapus akun).
  */
 export async function rejectStaff(staffId: string, tenantId: string) {
-  const user = await prisma.user.findFirst({
-    where: { id: staffId, tenantId, deletedAt: null },
-  });
+  return prisma.$executeRawWithTenant(tenantId, async (tx) => {
+    const user = await tx.user.findFirst({
+      where: { id: staffId, ...buildStaffTenantWhere(tenantId) },
+    });
 
-  if (!user) {
-    throw new Error('Karyawan tidak ditemukan.');
-  }
+    if (!user) {
+      throw new Error('Karyawan tidak ditemukan.');
+    }
 
-  return prisma.user.update({
-    where: { id: staffId },
-    data: { approvalStatus: 'REJECTED', deletedAt: new Date(), isActive: false },
-    select: { id: true, name: true, email: true, approvalStatus: true }
+    return tx.user.update({
+      where: { id: staffId },
+      data: { approvalStatus: 'REJECTED', deletedAt: new Date(), isActive: false },
+      select: { id: true, name: true, email: true, approvalStatus: true },
+    });
   });
 }

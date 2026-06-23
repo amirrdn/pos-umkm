@@ -14,12 +14,13 @@ import { authMiddleware } from '../middlewares/authMiddleware';
 import { tenantMiddleware } from '../middlewares/tenantMiddleware';
 import { requirePermission } from '../middlewares/roleMiddleware';
 import { uploadSingleImage } from '../middlewares/uploadMiddleware';
+import { logWarn } from '../lib/logger';
 
 const router = Router();
 
 const extendTimeout = (req: Request, res: Response, next: NextFunction) => {
   req.setTimeout(300000, () => {
-    console.error('Request timeout reached for product submission');
+    logWarn('productRoutes', 'Request timeout untuk product submission');
     if (!res.headersSent) {
       res.status(408).json({
         success: false,

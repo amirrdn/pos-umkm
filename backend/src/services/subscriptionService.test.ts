@@ -238,6 +238,22 @@ describe('SubscriptionService', () => {
       expect(canCreate).toBe(true);
     });
 
+    it('uses subscription snapshot without querying tenant again', async () => {
+      mockPrisma.transaction.count.mockResolvedValue(149);
+
+      const canCreate = await SubscriptionService.checkTransactionLimit(tenantId, {
+        subscriptionSnapshot: {
+          subscriptionTier: SubscriptionTier.FREE,
+          subscriptionStatus: SubscriptionStatus.ACTIVE,
+          subscriptionExpiresAt: null,
+          lastBillingAt: null,
+        },
+      });
+
+      expect(canCreate).toBe(true);
+      expect(mockPrisma.tenant.findUnique).not.toHaveBeenCalled();
+    });
+
     it('returns false if transaction limit is reached', async () => {
       mockPrisma.transaction.count.mockResolvedValue(150);
       const canCreate = await SubscriptionService.checkTransactionLimit(tenantId);

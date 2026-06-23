@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { OutletType } from '@prisma/client';
 import { prisma } from '../lib/prisma';
+import { logError } from '../lib/logger';
 
 export interface ActiveOutletContext {
   id: string;
@@ -49,7 +50,7 @@ export async function attachActiveOutlet(
     req.activeOutlet = outlet;
     return next();
   } catch (error) {
-    console.error('[attachActiveOutlet]', error);
+    logError('attachActiveOutlet', error);
     return res.status(500).json({
       success: false,
       message: 'Terjadi kesalahan saat memvalidasi outlet aktif.',

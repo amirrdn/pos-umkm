@@ -41,6 +41,8 @@ export const TIER_LIMITS = {
 export interface SubscriptionAccessOptions {
   /** Admin platform — akses penuh tanpa batas kuota/fitur premium */
   bypassLimits?: boolean;
+  /** Snapshot dari tenantMiddleware — hindari re-query tenants di dalam pinned RLS tx */
+  subscriptionSnapshot?: TenantSubscriptionSnapshot;
 }
 
 const PLATFORM_ADMIN_EFFECTIVE_LIMITS = TIER_LIMITS[SubscriptionTier.ENTERPRISE];
@@ -74,6 +76,7 @@ export class SubscriptionService {
   ) {
     const tenant =
       subscriptionSnapshot ??
+      options?.subscriptionSnapshot ??
       (await prisma.tenant.findUnique({
         where: { id: tenantId },
         select: {
@@ -138,7 +141,7 @@ export class SubscriptionService {
     options?: SubscriptionAccessOptions
   ): Promise<boolean> {
     if (options?.bypassLimits) return true;
-    const details = await this.getSubscriptionDetails(tenantId);
+    const details = await this.getSubscriptionDetails(tenantId, options);
     return !details.usage.products.isFull;
   }
 
@@ -147,7 +150,7 @@ export class SubscriptionService {
     options?: SubscriptionAccessOptions
   ): Promise<boolean> {
     if (options?.bypassLimits) return true;
-    const details = await this.getSubscriptionDetails(tenantId);
+    const details = await this.getSubscriptionDetails(tenantId, options);
     return !details.usage.outlets.isFull;
   }
 
@@ -156,7 +159,7 @@ export class SubscriptionService {
     options?: SubscriptionAccessOptions
   ): Promise<boolean> {
     if (options?.bypassLimits) return true;
-    const details = await this.getSubscriptionDetails(tenantId);
+    const details = await this.getSubscriptionDetails(tenantId, options);
     return !details.usage.staff.isFull;
   }
 
@@ -165,7 +168,7 @@ export class SubscriptionService {
     options?: SubscriptionAccessOptions
   ): Promise<boolean> {
     if (options?.bypassLimits) return true;
-    const details = await this.getSubscriptionDetails(tenantId);
+    const details = await this.getSubscriptionDetails(tenantId, options);
     return !details.usage.transactions.isFull;
   }
 
@@ -174,7 +177,7 @@ export class SubscriptionService {
     options?: SubscriptionAccessOptions
   ): Promise<void> {
     if (options?.bypassLimits) return;
-    const details = await this.getSubscriptionDetails(tenantId);
+    const details = await this.getSubscriptionDetails(tenantId, options);
     if (details.features.maxDebtLimit === 0) {
       throw new Error(
         'Fitur hutang pelanggan tidak tersedia pada paket Anda. Silakan upgrade ke paket Tumbuh atau Enterprise.'

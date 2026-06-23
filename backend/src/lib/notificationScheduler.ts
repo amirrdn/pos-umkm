@@ -1,5 +1,6 @@
 import cron from 'node-cron';
 import { runDailyDraftTransferDigest } from '../domain/notification';
+import { logError, logEvent, logInfo } from './logger';
 
 /** Jadwalkan digest email transfer DRAFT — default 09:00 setiap hari (TZ server). */
 export function startNotificationSchedulers(): void {
@@ -7,25 +8,22 @@ export function startNotificationSchedulers(): void {
   const enabled = process.env.DIGEST_EMAIL_ENABLED !== 'false';
 
   if (!enabled) {
-    console.info('[notifications] Email digest disabled (DIGEST_EMAIL_ENABLED=false)');
+    logInfo('notifications', 'Email digest disabled (DIGEST_EMAIL_ENABLED=false)');
     return;
   }
 
   cron.schedule(cronExpr, () => {
     void runDailyDraftTransferDigest()
       .then((result: { tenantsNotified: number; totalDrafts: number }) => {
-        console.info(
-          JSON.stringify({
-            level: 'info',
-            event: 'draft_transfer_digest_completed',
-            ...result,
-          })
-        );
+        logEvent('notifications', 'draft_transfer_digest_completed', {
+          tenantsNotified: result.tenantsNotified,
+          totalDrafts: result.totalDrafts,
+        });
       })
       .catch((err: unknown) => {
-        console.error('[notifications] digest failed', err);
+        logError('notifications.digest', err);
       });
   });
 
-  console.info(`[notifications] Email digest scheduled: ${cronExpr}`);
+  logInfo('notifications', `Email digest scheduled: ${cronExpr}`);
 }

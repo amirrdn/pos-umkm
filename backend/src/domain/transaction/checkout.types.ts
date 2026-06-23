@@ -1,4 +1,5 @@
 import type { CheckoutInput } from '../../schemas/transactionSchema';
+import type { TenantSubscriptionSnapshot } from '../../lib/tenantTypes';
 
 export interface CheckoutItemInput {
   productId: string;
@@ -17,6 +18,7 @@ export interface CheckoutCommand extends CheckoutInput {
   userId: string;
   outletId: string | null;
   bypassSubscriptionLimits: boolean;
+  tenantSubscription: TenantSubscriptionSnapshot;
 }
 
 export interface ResolvedCheckoutLineItem {

@@ -1,3 +1,4 @@
+import { logWarn } from '../lib/logger';
 import { prisma } from '../lib/prisma';
 import { MidtransService } from './midtransService';
 import { processSubscriptionMidtransWebhook } from './subscriptionMidtransWebhookService';
@@ -31,7 +32,7 @@ export async function processMidtransPosWebhook(
   const { order_id, status_code, gross_amount, signature_key, transaction_status } = payload;
 
   if (!order_id || !status_code || !gross_amount || !signature_key) {
-    console.warn('⚠️ Webhook Payload Tidak Lengkap:', payload);
+    logWarn('midtransWebhook', 'Payload webhook tidak lengkap');
     return { httpStatus: 400, message: 'Payload webhook tidak lengkap.' };
   }
 
@@ -43,7 +44,7 @@ export async function processMidtransPosWebhook(
   );
 
   if (!isSignatureValid) {
-    console.warn(`🚨 Signature Key Webhook TIDAK VALID untuk order: ${order_id}`);
+    logWarn('midtransWebhook', `Signature tidak valid untuk order: ${order_id}`);
     return { httpStatus: 403, message: 'Verifikasi tanda tangan digital gagal.' };
   }
 

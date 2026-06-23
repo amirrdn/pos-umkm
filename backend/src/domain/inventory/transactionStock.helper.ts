@@ -1,4 +1,5 @@
 import type { PrismaTx } from '../../lib/prisma';
+import { logEvent } from '../../lib/logger';
 import { decrementOutletStock, incrementOutletStock } from './stock.repository';
 
 interface TransactionItemRow {
@@ -34,14 +35,10 @@ export async function buildQrisSaleLedgerEntries(
   }>
 > {
   if (!transaction.outletId) {
-    console.warn(
-      JSON.stringify({
-        level: 'warn',
-        event: 'transaction_missing_outlet_id',
-        transactionId: transaction.id,
-        message: 'Ledger SALE dilewati — transaksi legacy tanpa outletId.',
-      })
-    );
+    logEvent('transactionStock', 'transaction_missing_outlet_id', {
+      transactionId: transaction.id,
+      message: 'Ledger SALE dilewati — transaksi legacy tanpa outletId.',
+    });
     return [];
   }
 
@@ -79,14 +76,10 @@ export async function restoreStockForVoidedTransaction(
   transaction: TransactionStockContext
 ): Promise<void> {
   if (!transaction.outletId) {
-    console.warn(
-      JSON.stringify({
-        level: 'warn',
-        event: 'transaction_missing_outlet_id',
-        transactionId: transaction.id,
-        message: 'Restore stok dilewati — transaksi legacy tanpa outletId.',
-      })
-    );
+    logEvent('transactionStock', 'transaction_missing_outlet_id', {
+      transactionId: transaction.id,
+      message: 'Restore stok dilewati — transaksi legacy tanpa outletId.',
+    });
     return;
   }
 

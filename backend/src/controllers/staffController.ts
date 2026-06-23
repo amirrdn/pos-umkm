@@ -1,3 +1,4 @@
+import { logError } from '../lib/logger';
 import { Request, Response } from 'express';
 import { createStaffSchema, bulkApproveStaffSchema, listStaffQuerySchema, updateStaffSchema } from '../schemas/staffSchema';
 import * as staffService from '../services/staffService';
@@ -27,7 +28,7 @@ export async function listStaff(req: Request, res: Response): Promise<Response> 
 
     return res.status(200).json({ success: true, data: staff, summary });
   } catch (error: unknown) {
-    console.error('[StaffController.listStaff]', error);
+    logError('[StaffController.listStaff]', error);
     return res.status(500).json({ success: false, message: 'Terjadi kesalahan saat mengambil daftar karyawan.' });
   }
 }
@@ -42,7 +43,7 @@ export async function listRoles(req: Request, res: Response): Promise<Response> 
     const roles = await staffService.getRoles(tenantId);
     return res.status(200).json({ success: true, data: roles });
   } catch (error: unknown) {
-    console.error('[StaffController.listRoles]', error);
+    logError('[StaffController.listRoles]', error);
     return res.status(500).json({ success: false, message: 'Terjadi kesalahan saat mengambil data role.' });
   }
 }
@@ -76,7 +77,7 @@ export async function createStaff(req: Request, res: Response): Promise<Response
     if (message.includes('email')) {
       return res.status(409).json({ success: false, message });
     }
-    console.error('[StaffController.createStaff]', error);
+    logError('[StaffController.createStaff]', error);
     return res.status(500).json({ success: false, message: 'Terjadi kesalahan saat menambahkan karyawan.' });
   }
 }
@@ -109,7 +110,7 @@ export async function bulkApproveStaff(req: Request, res: Response): Promise<Res
     if (message.includes('tidak ada') || message.includes('valid')) {
       return res.status(400).json({ success: false, message });
     }
-    console.error('[StaffController.bulkApproveStaff]', error);
+    logError('[StaffController.bulkApproveStaff]', error);
     return res.status(500).json({ success: false, message: 'Terjadi kesalahan saat menyetujui staf secara massal.' });
   }
 }
@@ -130,7 +131,7 @@ export async function getStaffDetail(req: Request, res: Response): Promise<Respo
     if (message.includes('tidak ditemukan')) {
       return res.status(404).json({ success: false, message });
     }
-    console.error('[StaffController.getStaffDetail]', error);
+    logError('[StaffController.getStaffDetail]', error);
     return res.status(500).json({ success: false, message: 'Terjadi kesalahan saat mengambil detail karyawan.' });
   }
 }
@@ -164,7 +165,7 @@ export async function updateStaff(req: Request, res: Response): Promise<Response
     if (message.includes('tidak ditemukan')) {
       return res.status(404).json({ success: false, message });
     }
-    console.error('[StaffController.updateStaff]', error);
+    logError('[StaffController.updateStaff]', error);
     return res.status(500).json({ success: false, message: 'Terjadi kesalahan saat memperbarui karyawan.' });
   }
 }
@@ -187,7 +188,7 @@ export async function deleteStaff(req: Request, res: Response): Promise<Response
     if (message.includes('sendiri') || message.includes('tidak ditemukan')) {
       return res.status(400).json({ success: false, message });
     }
-    console.error('[StaffController.deleteStaff]', error);
+    logError('[StaffController.deleteStaff]', error);
     return res.status(500).json({ success: false, message: 'Terjadi kesalahan saat menghapus karyawan.' });
   }
 }
@@ -208,7 +209,7 @@ export async function approveStaff(req: Request, res: Response): Promise<Respons
     if (message.includes('tidak ditemukan')) {
       return res.status(404).json({ success: false, message });
     }
-    console.error('[StaffController.approveStaff]', error);
+    logError('[StaffController.approveStaff]', error);
     return res.status(500).json({ success: false, message: 'Terjadi kesalahan saat menyetujui karyawan.' });
   }
 }
@@ -229,7 +230,7 @@ export async function rejectStaff(req: Request, res: Response): Promise<Response
     if (message.includes('tidak ditemukan')) {
       return res.status(404).json({ success: false, message });
     }
-    console.error('[StaffController.rejectStaff]', error);
+    logError('[StaffController.rejectStaff]', error);
     return res.status(500).json({ success: false, message: 'Terjadi kesalahan saat menolak karyawan.' });
   }
 }

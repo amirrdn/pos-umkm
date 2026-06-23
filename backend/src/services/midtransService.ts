@@ -1,3 +1,4 @@
+import { logError } from '../lib/logger';
 import crypto from 'crypto';
 import {
   getMidtransCoreApiBaseUrl,
@@ -84,7 +85,7 @@ export class MidtransService {
         qrString: data.qr_string ?? '',
       };
     } catch (error: unknown) {
-      console.error('Midtrans Charge Error:', error);
+      logError('Midtrans Charge Error:', error);
       const message = error instanceof Error ? error.message : 'Unknown error';
       throw new Error(`Integrasi Midtrans Gagal: ${message}`);
     }
@@ -120,7 +121,7 @@ export class MidtransService {
         redirectUrl: data.redirect_url,
       };
     } catch (error: unknown) {
-      console.error('Midtrans Snap Error:', error);
+      logError('Midtrans Snap Error:', error);
       const message = error instanceof Error ? error.message : 'Unknown error';
       throw new Error(`Integrasi Midtrans Snap Gagal: ${message}`);
     }

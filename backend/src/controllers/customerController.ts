@@ -1,3 +1,4 @@
+import { logError } from '../lib/logger';
 import { Request, Response } from 'express';
 import { CustomerService } from '../services/customerService';
 import { createCustomerSchema, updateCustomerSchema } from '../schemas/customerSchema';
@@ -17,7 +18,7 @@ export async function getAllCustomers(req: Request, res: Response) {
       data: customers,
     });
   } catch (error: unknown) {
-    console.error('GetAllCustomers Controller Error:', error);
+    logError('GetAllCustomers Controller Error:', error);
     return res.status(500).json({
       success: false,
       message: 'Terjadi kesalahan internal server saat mengambil daftar pelanggan.',
@@ -37,7 +38,7 @@ export async function getCustomerById(req: Request, res: Response) {
       data: customer,
     });
   } catch (error: unknown) {
-    console.error('GetCustomerById Controller Error:', error);
+    logError('GetCustomerById Controller Error:', error);
     return res.status(404).json({
       success: false,
       message: getErrorMessage(error, 'Pelanggan tidak ditemukan.'),
@@ -66,7 +67,7 @@ export async function createCustomer(req: Request, res: Response) {
       data: customer,
     });
   } catch (error: unknown) {
-    console.error('CreateCustomer Controller Error:', error);
+    logError('CreateCustomer Controller Error:', error);
 
     const message = getErrorMessage(error);
     if (message.includes('telepon') || message.includes('terdaftar')) {
@@ -105,7 +106,7 @@ export async function updateCustomer(req: Request, res: Response) {
       data: customer,
     });
   } catch (error: unknown) {
-    console.error('UpdateCustomer Controller Error:', error);
+    logError('UpdateCustomer Controller Error:', error);
 
     const message = getErrorMessage(error);
     if (message.includes('tidak ditemukan') || message.includes('telepon') || message.includes('digunakan')) {
@@ -134,7 +135,7 @@ export async function deleteCustomer(req: Request, res: Response) {
       message: 'Pelanggan berhasil dihapus dari database.',
     });
   } catch (error: unknown) {
-    console.error('DeleteCustomer Controller Error:', error);
+    logError('DeleteCustomer Controller Error:', error);
 
     const message = getErrorMessage(error);
     if (message.includes('tidak ditemukan') || message.includes('hak akses')) {

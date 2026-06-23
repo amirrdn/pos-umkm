@@ -1,3 +1,4 @@
+import { logError } from '../lib/logger';
 import { Request, Response } from 'express';
 import { PlatformTenantService } from '../services/platformTenantService';
 import { getErrorMessage } from '../lib/errors';
@@ -27,7 +28,7 @@ export async function listTenants(_req: Request, res: Response) {
       data: tenants,
     });
   } catch (error: unknown) {
-    console.error('Platform listTenants Error:', error);
+    logError('Platform listTenants Error:', error);
     return res.status(500).json({
       success: false,
       message: 'Terjadi kesalahan saat mengambil daftar tenant.',
@@ -44,7 +45,7 @@ export async function getOverview(_req: Request, res: Response) {
       data: overview,
     });
   } catch (error: unknown) {
-    console.error('Platform getOverview Error:', error);
+    logError('Platform getOverview Error:', error);
     return res.status(500).json({
       success: false,
       message: 'Terjadi kesalahan saat mengambil ringkasan platform.',
@@ -61,7 +62,7 @@ export async function getTenantById(req: Request, res: Response) {
       data: tenant,
     });
   } catch (error: unknown) {
-    console.error('Platform getTenantById Error:', error);
+    logError('Platform getTenantById Error:', error);
     return res.status(404).json({
       success: false,
       message: getErrorMessage(error, 'Tenant tidak ditemukan.'),
@@ -93,7 +94,7 @@ export async function updateTenantStatus(req: Request, res: Response) {
       data: result,
     });
   } catch (error: unknown) {
-    console.error('Platform updateTenantStatus Error:', error);
+    logError('Platform updateTenantStatus Error:', error);
     return res.status(400).json({
       success: false,
       message: getErrorMessage(error, 'Gagal memperbarui status tenant.'),
@@ -138,7 +139,7 @@ export async function overrideSubscription(req: Request, res: Response) {
       data: result,
     });
   } catch (error: unknown) {
-    console.error('Platform overrideSubscription Error:', error);
+    logError('Platform overrideSubscription Error:', error);
     return res.status(400).json({
       success: false,
       message: getErrorMessage(error, 'Gagal meng-override langganan tenant.'),
@@ -166,7 +167,7 @@ export async function createTenant(req: Request, res: Response) {
       data: result,
     });
   } catch (error: unknown) {
-    console.error('Platform createTenant Error:', error);
+    logError('Platform createTenant Error:', error);
     const message = getErrorMessage(error);
     if (message.includes('sudah digunakan')) {
       return res.status(400).json({ success: false, message });
@@ -198,7 +199,7 @@ export async function updateTenant(req: Request, res: Response) {
       data: result,
     });
   } catch (error: unknown) {
-    console.error('Platform updateTenant Error:', error);
+    logError('Platform updateTenant Error:', error);
     return res.status(400).json({
       success: false,
       message: getErrorMessage(error, 'Gagal memperbarui tenant.'),
@@ -217,7 +218,7 @@ export async function deleteTenant(req: Request, res: Response) {
       data: result,
     });
   } catch (error: unknown) {
-    console.error('Platform deleteTenant Error:', error);
+    logError('Platform deleteTenant Error:', error);
     return res.status(400).json({
       success: false,
       message: getErrorMessage(error, 'Gagal menghapus tenant.'),

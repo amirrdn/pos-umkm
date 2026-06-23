@@ -1,3 +1,4 @@
+import { logError } from '../lib/logger';
 import { Request, Response } from 'express';
 import { stockMutationSchema } from '../schemas/stockLedgerSchema';
 import * as stockLedgerService from '../services/stockLedgerService';
@@ -17,7 +18,7 @@ export async function getInventorySummary(req: Request, res: Response): Promise<
     const data = await stockLedgerService.getInventorySummary(tenantId, req.outletId);
     return res.status(200).json({ success: true, data });
   } catch (error: unknown) {
-    console.error('[StockLedgerController.getInventorySummary]', error);
+    logError('[StockLedgerController.getInventorySummary]', error);
     return res.status(500).json({ success: false, message: 'Terjadi kesalahan saat mengambil ringkasan inventaris.' });
   }
 }
@@ -38,7 +39,7 @@ export async function getLowStockAlert(req: Request, res: Response): Promise<Res
     const data = await stockLedgerService.getLowStockItems(tenantId, outletId);
     return res.status(200).json({ success: true, data });
   } catch (error: unknown) {
-    console.error('[StockLedgerController.getLowStockAlert]', error);
+    logError('[StockLedgerController.getLowStockAlert]', error);
     return res.status(500).json({
       success: false,
       message: 'Terjadi kesalahan saat mengambil daftar stok rendah.',
@@ -62,7 +63,7 @@ export async function getStockLedger(req: Request, res: Response): Promise<Respo
     if (message.includes('tidak ditemukan')) {
       return res.status(404).json({ success: false, message });
     }
-    console.error('[StockLedgerController.getStockLedger]', error);
+    logError('[StockLedgerController.getStockLedger]', error);
     return res.status(500).json({ success: false, message: 'Terjadi kesalahan saat mengambil kartu stok.' });
   }
 }
@@ -117,7 +118,7 @@ export async function createStockMutation(req: Request, res: Response): Promise<
     if (message.includes('tidak ditemukan') || message.includes('tidak mencukupi')) {
       return res.status(400).json({ success: false, message });
     }
-    console.error('[StockLedgerController.createStockMutation]', error);
+    logError('[StockLedgerController.createStockMutation]', error);
     return res.status(500).json({ success: false, message: 'Terjadi kesalahan saat melakukan mutasi stok.' });
   }
 }
@@ -132,7 +133,7 @@ export async function getStockRequests(req: Request, res: Response): Promise<Res
     const data = await stockLedgerService.listStockRequests(tenantId, req.outletId);
     return res.status(200).json({ success: true, data });
   } catch (error: unknown) {
-    console.error('[StockLedgerController.getStockRequests]', error);
+    logError('[StockLedgerController.getStockRequests]', error);
     return res.status(500).json({ success: false, message: 'Terjadi kesalahan saat mengambil daftar permintaan persetujuan stok.' });
   }
 }
@@ -155,7 +156,7 @@ export async function approveRequest(req: Request, res: Response): Promise<Respo
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Terjadi kesalahan internal server.';
-    console.error('[StockLedgerController.approveRequest]', error);
+    logError('[StockLedgerController.approveRequest]', error);
     return res.status(400).json({ success: false, message });
   }
 }
@@ -178,7 +179,7 @@ export async function rejectRequest(req: Request, res: Response): Promise<Respon
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Terjadi kesalahan internal server.';
-    console.error('[StockLedgerController.rejectRequest]', error);
+    logError('[StockLedgerController.rejectRequest]', error);
     return res.status(400).json({ success: false, message });
   }
 }
@@ -203,7 +204,7 @@ export async function updateSettings(req: Request, res: Response): Promise<Respo
       data
     });
   } catch (error: unknown) {
-    console.error('[StockLedgerController.updateSettings]', error);
+    logError('[StockLedgerController.updateSettings]', error);
     return res.status(500).json({ success: false, message: 'Terjadi kesalahan saat memperbarui pengaturan.' });
   }
 }
@@ -223,7 +224,7 @@ export async function getSettings(req: Request, res: Response): Promise<Response
       data: { requireStockApproval: tenant.requireStockApproval },
     });
   } catch (error: unknown) {
-    console.error('[StockLedgerController.getSettings]', error);
+    logError('[StockLedgerController.getSettings]', error);
     return res.status(500).json({ success: false, message: 'Terjadi kesalahan saat mengambil pengaturan.' });
   }
 }

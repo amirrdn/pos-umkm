@@ -1,3 +1,4 @@
+import { logError } from '../lib/logger';
 import { Request, Response } from 'express';
 import { PlatformAnalyticsService } from '../services/platformAnalyticsService';
 import { getErrorMessage } from '../lib/errors';
@@ -16,7 +17,7 @@ export async function getStaffList(req: Request, res: Response) {
       meta: result.meta,
     });
   } catch (error: unknown) {
-    console.error('Platform getStaffList Error:', error);
+    logError('Platform getStaffList Error:', error);
     return res.status(500).json({
       success: false,
       message: getErrorMessage(error, 'Gagal memuat daftar staf.'),
@@ -34,7 +35,7 @@ export async function getPlatformRevenue(_req: Request, res: Response) {
       data: result,
     });
   } catch (error: unknown) {
-    console.error('Platform getPlatformRevenue Error:', error);
+    logError('Platform getPlatformRevenue Error:', error);
     return res.status(500).json({
       success: false,
       message: getErrorMessage(error, 'Gagal memuat data pendapatan.'),
@@ -52,7 +53,7 @@ export async function getTopProducts(_req: Request, res: Response) {
       data: result,
     });
   } catch (error: unknown) {
-    console.error('Platform getTopProducts Error:', error);
+    logError('Platform getTopProducts Error:', error);
     return res.status(500).json({
       success: false,
       message: getErrorMessage(error, 'Gagal memuat produk paling laku.'),

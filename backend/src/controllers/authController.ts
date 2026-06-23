@@ -1,3 +1,4 @@
+import { logError } from '../lib/logger';
 import { Request, Response } from 'express';
 import { AuthService } from '../services/authService';
 import {
@@ -66,7 +67,7 @@ export async function login(req: Request, res: Response) {
 
     return sendAuthenticatedSession(res, result.token, result.user);
   } catch (error: unknown) {
-    console.error('Login Controller Error:', error);
+    logError('Login Controller Error:', error);
 
     if (error instanceof LoginError) {
       const status =
@@ -109,7 +110,7 @@ export async function register(req: Request, res: Response) {
       data: result,
     });
   } catch (error: unknown) {
-    console.error('Register Controller Error:', error);
+    logError('Register Controller Error:', error);
 
     if (error instanceof EmailAlreadyRegisteredError) {
       return res.status(error.code === 'EMAIL_NOT_VERIFIED_RESENT' ? 409 : 400).json({
@@ -161,7 +162,7 @@ export async function registerStaff(req: Request, res: Response) {
       data: result,
     });
   } catch (error: unknown) {
-    console.error('Register Staff Controller Error:', error);
+    logError('Register Staff Controller Error:', error);
 
     if (error instanceof EmailAlreadyRegisteredError) {
       return res.status(error.code === 'EMAIL_NOT_VERIFIED_RESENT' ? 409 : 400).json({
@@ -203,7 +204,7 @@ export async function getTenants(_req: Request, res: Response) {
     });
     return res.status(200).json({ success: true, data: tenants });
   } catch (error: unknown) {
-    console.error(error);
+    logError('getTenants', error);
     return res.status(500).json({ success: false, message: 'Gagal mengambil data toko.' });
   }
 }
@@ -218,7 +219,7 @@ export async function getTenantOutlets(req: Request, res: Response) {
     });
     return res.status(200).json({ success: true, data: outlets });
   } catch (error: unknown) {
-    console.error(error);
+    logError('getTenantOutlets', error);
     return res.status(500).json({ success: false, message: 'Gagal mengambil data outlet.' });
   }
 }
@@ -242,7 +243,7 @@ export async function verifyEmail(req: Request, res: Response) {
       data: result,
     });
   } catch (error: unknown) {
-    console.error('Verify Email Error:', error);
+    logError('Verify Email Error:', error);
     return res.status(400).json({
       success: false,
       message: getErrorMessage(error, 'Verifikasi email gagal.'),
@@ -268,7 +269,7 @@ export async function resendVerification(req: Request, res: Response) {
       message: 'Jika email terdaftar dan belum diverifikasi, tautan verifikasi telah dikirim.',
     });
   } catch (error: unknown) {
-    console.error('Resend Verification Error:', error);
+    logError('Resend Verification Error:', error);
     return res.status(400).json({
       success: false,
       message: getErrorMessage(error, 'Gagal mengirim ulang email verifikasi.'),
@@ -292,7 +293,7 @@ export async function googleLogin(req: Request, res: Response) {
 
     return sendAuthenticatedSession(res, result.token, result.user);
   } catch (error: unknown) {
-    console.error('Google Login Controller Error:', error);
+    logError('Google Login Controller Error:', error);
     const message = getErrorMessage(error);
 
     if (message.includes('menunggu persetujuan') || message.includes('ditolak') || message.includes('dinonaktifkan')) {

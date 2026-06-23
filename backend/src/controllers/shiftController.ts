@@ -1,3 +1,4 @@
+import { logError } from '../lib/logger';
 import { Request, Response } from 'express';
 import { openShiftSchema, closeShiftSchema } from '../schemas/shiftSchema';
 import * as shiftService from '../services/shiftService';
@@ -48,7 +49,7 @@ export async function openShift(req: Request, res: Response): Promise<Response> 
       return res.status(409).json({ success: false, message });
     }
 
-    console.error('[ShiftController.openShift]', error);
+    logError('[ShiftController.openShift]', error);
     return res.status(500).json({ success: false, message: 'Terjadi kesalahan saat membuka shift.' });
   }
 }
@@ -70,7 +71,7 @@ export async function getActiveShift(req: Request, res: Response): Promise<Respo
       data: shift,
     });
   } catch (error: unknown) {
-    console.error('[ShiftController.getActiveShift]', error);
+    logError('[ShiftController.getActiveShift]', error);
     return res.status(500).json({ success: false, message: 'Terjadi kesalahan saat mengambil data shift aktif.' });
   }
 }
@@ -109,7 +110,7 @@ export async function closeShift(req: Request, res: Response): Promise<Response>
       return res.status(404).json({ success: false, message });
     }
 
-    console.error('[ShiftController.closeShift]', error);
+    logError('[ShiftController.closeShift]', error);
     return res.status(500).json({ success: false, message: 'Terjadi kesalahan saat menutup shift.' });
   }
 }
@@ -130,7 +131,7 @@ export async function getShiftHistory(req: Request, res: Response): Promise<Resp
       data: shifts,
     });
   } catch (error: unknown) {
-    console.error('[ShiftController.getShiftHistory]', error);
+    logError('[ShiftController.getShiftHistory]', error);
     return res.status(500).json({ success: false, message: 'Terjadi kesalahan saat mengambil riwayat shift.' });
   }
 }

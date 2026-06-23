@@ -1,8 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { SubscriptionStatus, SubscriptionTier } from '@prisma/client';
 import { CheckoutError } from '../domain/transaction';
 import { productId, tenantId, userId } from '../test/helpers/http';
 
 const outletId = 'outlet-uuid-001';
+
+const activeTenantSubscription = {
+  subscriptionTier: SubscriptionTier.GROWTH,
+  subscriptionStatus: SubscriptionStatus.ACTIVE,
+  subscriptionExpiresAt: null,
+  lastBillingAt: null,
+};
 
 const { mockTx, mockPrisma, mockSubscriptionService, mockMidtransService } = vi.hoisted(() => {
   const tx = {
@@ -154,6 +162,7 @@ describe('processCheckout', () => {
         userId,
         outletId,
         bypassSubscriptionLimits: false,
+        tenantSubscription: activeTenantSubscription,
       })
     ).rejects.toMatchObject({
       code: 'LIMIT_EXCEEDED',
@@ -172,6 +181,7 @@ describe('processCheckout', () => {
         userId,
         outletId: null,
         bypassSubscriptionLimits: false,
+        tenantSubscription: activeTenantSubscription,
       })
     ).rejects.toMatchObject({
       code: 'OUTLET_REQUIRED',
@@ -194,6 +204,7 @@ describe('processCheckout', () => {
         userId,
         outletId,
         bypassSubscriptionLimits: false,
+        tenantSubscription: activeTenantSubscription,
       })
     ).rejects.toMatchObject({
       code: 'STOCK_INSUFFICIENT',
@@ -209,6 +220,7 @@ describe('processCheckout', () => {
       userId,
       outletId,
       bypassSubscriptionLimits: false,
+      tenantSubscription: activeTenantSubscription,
     });
 
     expect(result.transaction.id).toBe('txn-1');
@@ -238,6 +250,7 @@ describe('processCheckout', () => {
         userId,
         outletId,
         bypassSubscriptionLimits: false,
+        tenantSubscription: activeTenantSubscription,
       })
     ).rejects.toMatchObject({
       code: 'QRIS_CHARGE_FAILED',

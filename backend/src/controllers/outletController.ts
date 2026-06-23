@@ -1,3 +1,4 @@
+import { logError } from '../lib/logger';
 import { Request, Response } from 'express';
 import { OutletService } from '../services/outletService';
 import { createBranchSchema, updateOutletSchema } from '../schemas/outletSchema';
@@ -18,7 +19,7 @@ export async function getAllOutlets(req: Request, res: Response) {
       data: outlets,
     });
   } catch (error: unknown) {
-    console.error('GetAllOutlets Controller Error:', error);
+    logError('GetAllOutlets Controller Error:', error);
     return res.status(500).json({
       success: false,
       message: 'Terjadi kesalahan internal server saat mengambil daftar outlet.',
@@ -38,7 +39,7 @@ export async function getOutletById(req: Request, res: Response) {
       data: outlet,
     });
   } catch (error: unknown) {
-    console.error('GetOutletById Controller Error:', error);
+    logError('GetOutletById Controller Error:', error);
     return res.status(404).json({
       success: false,
       message: getErrorMessage(error, 'Outlet tidak ditemukan.'),
@@ -57,7 +58,7 @@ export async function getOutletHierarchy(req: Request, res: Response) {
       data: hierarchy,
     });
   } catch (error: unknown) {
-    console.error('GetOutletHierarchy Controller Error:', error);
+    logError('GetOutletHierarchy Controller Error:', error);
     return res.status(500).json({
       success: false,
       message: 'Terjadi kesalahan internal server saat mengambil hierarki outlet.',
@@ -76,7 +77,7 @@ export async function getMainOutlet(req: Request, res: Response) {
       data: outlet,
     });
   } catch (error: unknown) {
-    console.error('GetMainOutlet Controller Error:', error);
+    logError('GetMainOutlet Controller Error:', error);
     return res.status(404).json({
       success: false,
       message: getErrorMessage(error, 'Outlet utama tidak ditemukan.'),
@@ -117,7 +118,7 @@ export async function createBranch(req: Request, res: Response) {
       data: outlet,
     });
   } catch (error: unknown) {
-    console.error('CreateBranch Controller Error:', error);
+    logError('CreateBranch Controller Error:', error);
     return res.status(400).json({
       success: false,
       message: getErrorMessage(error, 'Terjadi kesalahan internal server saat membuat cabang.'),
@@ -146,7 +147,7 @@ export async function updateMainOutlet(req: Request, res: Response) {
       data: outlet,
     });
   } catch (error: unknown) {
-    console.error('UpdateMainOutlet Controller Error:', error);
+    logError('UpdateMainOutlet Controller Error:', error);
     return res.status(400).json({
       success: false,
       message: getErrorMessage(error, 'Gagal memperbarui data outlet utama.'),
@@ -176,7 +177,7 @@ export async function updateOutlet(req: Request, res: Response) {
       data: outlet,
     });
   } catch (error: unknown) {
-    console.error('UpdateOutlet Controller Error:', error);
+    logError('UpdateOutlet Controller Error:', error);
     return res.status(400).json({
       success: false,
       message: getErrorMessage(error, 'Gagal memperbarui data outlet.'),
@@ -196,7 +197,7 @@ export async function deleteOutlet(req: Request, res: Response) {
       message: 'Outlet berhasil dihapus secara halus.',
     });
   } catch (error: unknown) {
-    console.error('DeleteOutlet Controller Error:', error);
+    logError('DeleteOutlet Controller Error:', error);
     return res.status(400).json({
       success: false,
       message: getErrorMessage(error, 'Gagal menghapus data outlet.'),

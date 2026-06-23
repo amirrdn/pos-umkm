@@ -1,3 +1,4 @@
+import { logError } from '../lib/logger';
 import { Request, Response } from 'express';
 import {
   getDraftTransferSnapshot,
@@ -41,7 +42,7 @@ export async function notificationStream(req: Request, res: Response): Promise<v
         })}\n\n`
       );
     } catch (err) {
-      console.error('[notificationStream] push error', err);
+      logError('[notificationStream] push error', err);
     }
   };
 
@@ -75,7 +76,7 @@ export async function runDigestNow(req: Request, res: Response): Promise<Respons
       data: result,
     });
   } catch (error: unknown) {
-    console.error('[runDigestNow]', error);
+    logError('[runDigestNow]', error);
     return res.status(500).json({
       success: false,
       message: 'Gagal menjalankan digest email.',
@@ -93,7 +94,7 @@ export async function getDraftCount(req: Request, res: Response): Promise<Respon
     const snapshot = await getDraftTransferSnapshot(tenantId);
     return res.status(200).json({ success: true, data: { count: snapshot.count } });
   } catch (error: unknown) {
-    console.error('[getDraftCount]', error);
+    logError('[getDraftCount]', error);
     return res.status(500).json({
       success: false,
       message: 'Gagal mengambil jumlah transfer DRAFT.',

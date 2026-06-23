@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import { prisma } from '../../lib/prisma';
 import { runInSystemContext } from '../../lib/tenantContext';
 import { getEmailProvider, sendMail } from '../../lib/mail';
+import { logInfo } from '../../lib/logger';
 
 const TOKEN_BYTES = 32;
 const TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24 jam
@@ -129,14 +130,7 @@ export async function sendAccountVerificationEmail(input: {
     });
 
     if (!sent) {
-      console.info(
-        JSON.stringify({
-          level: 'info',
-          event: 'email_verification_dev_link',
-          email: input.email,
-          verifyUrl,
-        })
-      );
+      logInfo('emailVerification', 'Mail tidak terkonfigurasi — email verifikasi tidak terkirim');
     }
 
     return sent;

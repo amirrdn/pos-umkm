@@ -10,6 +10,7 @@ import { authMiddleware } from './middlewares/authMiddleware';
 import { tenantMiddleware } from './middlewares/tenantMiddleware';
 import { requireRole } from './middlewares/roleMiddleware';
 import { startNotificationSchedulers } from './lib/notificationScheduler';
+import { logInfo } from './lib/logger';
 import authRoutes from './routes/authRoutes';
 import productRoutes from './routes/productRoutes';
 import transactionRoutes from './routes/transactionRoutes';
@@ -141,9 +142,7 @@ app.use(errorHandler);
 
 const server = app.listen(PORT, () => {
   startNotificationSchedulers();
-  console.log(`====================================================`);
-  console.log(`🚀 Server POS Multi-Tenant berjalan di port: ${PORT}`);
-  console.log(`====================================================`);
+  logInfo('server', `Server berjalan di port ${PORT}`);
 });
 
 server.timeout = 300000;

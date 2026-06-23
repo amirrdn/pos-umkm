@@ -1,4 +1,5 @@
 import { prisma } from '../lib/prisma';
+import { logWarn } from '../lib/logger';
 import { incrementOutletStock } from '../domain/inventory/stock.repository';
 import { MidtransService } from './midtransService';
 
@@ -101,9 +102,9 @@ export async function syncPendingQrisFromMidtrans(params: {
     return 'PENDING';
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unknown error';
-    console.warn(
-      `[Status Polling] ⚠️ Gagal sinkronisasi status dari Midtrans untuk ${invoiceNumber}:`,
-      message
+    logWarn(
+      'qrisStatusPolling',
+      `Gagal sinkronisasi status Midtrans untuk ${invoiceNumber}: ${message}`
     );
     return 'PENDING';
   }

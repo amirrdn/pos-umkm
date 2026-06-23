@@ -1,7 +1,8 @@
-import { Request, Response } from 'express';
+import { logError } from '../lib/logger';
 import { CategoryService } from '../services/categoryService';
 import { createCategorySchema, updateCategorySchema } from '../schemas/categorySchema';
 import { getErrorMessage } from '../lib/errors';
+import { Request, Response } from 'express';
 
 const categoryService = new CategoryService();
 
@@ -14,7 +15,7 @@ export async function getAllCategories(req: Request, res: Response) {
       data: categories,
     });
   } catch (error: unknown) {
-    console.error('GetAllCategories error:', error);
+    logError('GetAllCategories error:', error);
     return res.status(500).json({
       success: false,
       message: 'Gagal mengambil daftar kategori.',
@@ -41,7 +42,7 @@ export async function createCategory(req: Request, res: Response) {
       data: category,
     });
   } catch (error: unknown) {
-    console.error('CreateCategory error:', error);
+    logError('CreateCategory error:', error);
     return res.status(400).json({
       success: false,
       message: getErrorMessage(error, 'Gagal membuat kategori.'),
@@ -70,7 +71,7 @@ export async function updateCategory(req: Request, res: Response) {
       data: category,
     });
   } catch (error: unknown) {
-    console.error('UpdateCategory error:', error);
+    logError('UpdateCategory error:', error);
     return res.status(400).json({
       success: false,
       message: getErrorMessage(error, 'Gagal memperbarui kategori.'),
@@ -89,7 +90,7 @@ export async function deleteCategory(req: Request, res: Response) {
       message: 'Kategori berhasil dihapus.',
     });
   } catch (error: unknown) {
-    console.error('DeleteCategory error:', error);
+    logError('DeleteCategory error:', error);
     return res.status(400).json({
       success: false,
       message: getErrorMessage(error, 'Gagal menghapus kategori.'),
@@ -108,7 +109,7 @@ export async function getNextSku(req: Request, res: Response) {
       data: { nextSku },
     });
   } catch (error: unknown) {
-    console.error('GetNextSku error:', error);
+    logError('GetNextSku error:', error);
     return res.status(400).json({
       success: false,
       message: getErrorMessage(error, 'Gagal membuat SKU otomatis.'),

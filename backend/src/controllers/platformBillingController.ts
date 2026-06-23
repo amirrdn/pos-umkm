@@ -1,3 +1,4 @@
+import { logError } from '../lib/logger';
 import { Request, Response } from 'express';
 import { PlatformBillingService } from '../services/platformBillingService';
 import { getErrorMessage } from '../lib/errors';
@@ -11,7 +12,7 @@ export async function getBillingMetrics(_req: Request, res: Response) {
       data: result,
     });
   } catch (error: unknown) {
-    console.error('Platform getBillingMetrics Error:', error);
+    logError('Platform getBillingMetrics Error:', error);
     return res.status(500).json({
       success: false,
       message: getErrorMessage(error, 'Gagal memuat metrik billing.'),
@@ -33,7 +34,7 @@ export async function listInvoices(req: Request, res: Response) {
       meta: result.meta,
     });
   } catch (error: unknown) {
-    console.error('Platform listInvoices Error:', error);
+    logError('Platform listInvoices Error:', error);
     return res.status(500).json({
       success: false,
       message: getErrorMessage(error, 'Gagal memuat daftar invoice.'),
@@ -55,7 +56,7 @@ export async function getMidtransDetail(req: Request, res: Response) {
       data: result,
     });
   } catch (error: unknown) {
-    console.error('Platform getMidtransDetail Error:', error);
+    logError('Platform getMidtransDetail Error:', error);
     return res.status(500).json({
       success: false,
       message: getErrorMessage(error, 'Gagal mengambil detail transaksi Midtrans.'),

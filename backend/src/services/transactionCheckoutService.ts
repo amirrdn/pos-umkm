@@ -12,6 +12,7 @@ import { MidtransService } from './midtransService';
 import { SubscriptionService, TIER_LIMITS } from './subscriptionService';
 import { isSubscriptionExpired } from '../lib/subscription';
 import { decrementOutletStockBulk } from '../domain/inventory/stock.repository';
+import { logError } from '../lib/logger';
 
 const checkoutTransactionInclude = {
   items: {
@@ -51,7 +52,10 @@ interface PreparedCheckoutItem {
  * Orchestrates POS checkout: subscription guards, ACID transaction, optional QRIS finalize.
  */
 export async function processCheckout(command: CheckoutCommand): Promise<CheckoutProcessResult> {
-  const subscriptionAccess = { bypassLimits: command.bypassSubscriptionLimits };
+  const subscriptionAccess = {
+    bypassLimits: command.bypassSubscriptionLimits,
+    subscriptionSnapshot: command.tenantSubscription,
+  };
 
   const canCreateTransaction = await SubscriptionService.checkTransactionLimit(
     command.tenantId,
@@ -117,14 +121,7 @@ async function executeCheckoutTransaction(
     );
   }
 
-  const tenant = await tx.tenant.findUnique({
-    where: { id: tenantId },
-    select: { subscriptionTier: true, subscriptionStatus: true, subscriptionExpiresAt: true }
-  });
-
-  if (!tenant) {
-    throw new CheckoutError('Tenant tidak ditemukan.', 'INTERNAL_ERROR', 404);
-  }
+  const tenant = command.tenantSubscription;
 
   if (isSubscriptionExpired(tenant) && !command.bypassSubscriptionLimits) {
     throw new CheckoutError(
@@ -352,12 +349,12 @@ async function finalizeQrisCheckout(
       qrString: chargeRes.qrString || undefined,
     };
   } catch (midtransError: unknown) {
-    console.error('Midtrans API Charge Error:', midtransError);
+    logError('finalizeQrisCheckout.midtrans', midtransError);
 
     try {
       await prisma.transaction.delete({ where: { id: transaction.id } });
     } catch (cleanupError) {
-      console.error('Gagal menghapus transaksi QRIS gagal:', cleanupError);
+      logError('finalizeQrisCheckout.cleanup', cleanupError);
     }
 
     const message = midtransError instanceof Error ? midtransError.message : 'Unknown error';

@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
 import { Resend } from 'resend';
+import { logError, logEvent } from './logger';
 
 export type EmailProvider = 'gmail' | 'resend' | 'none';
 
@@ -125,15 +126,10 @@ export async function sendMail(message: MailMessage): Promise<boolean> {
   const provider = getEmailProvider();
 
   if (!isMailConfigured()) {
-    console.info(
-      JSON.stringify({
-        level: 'info',
-        event: 'mail_skipped_unconfigured',
-        provider,
-        subject: message.subject,
-        recipients: message.to.length,
-      })
-    );
+    logEvent('mail', 'mail_skipped_unconfigured', {
+      provider,
+      recipients: message.to.length,
+    });
     return false;
   }
 
@@ -145,15 +141,7 @@ export async function sendMail(message: MailMessage): Promise<boolean> {
     }
     return true;
   } catch (error) {
-    console.error(
-      JSON.stringify({
-        level: 'error',
-        event: 'mail_send_failed',
-        provider,
-        subject: message.subject,
-        error: error instanceof Error ? error.message : String(error),
-      })
-    );
+    logError('mail.send', error);
     throw error;
   }
 }

@@ -26,12 +26,25 @@ export async function checkout(req: Request, res: Response) {
     }
 
     const { paymentMethod } = validation.data;
+    if (!req.tenant) {
+      return res.status(400).json({
+        success: false,
+        message: 'Akses Ditolak: Konteks tenant tidak ditemukan.',
+      });
+    }
+
     const result = await processCheckout({
       ...validation.data,
       tenantId: req.tenantId!,
       userId: req.user!.id,
       outletId: req.outletId ?? null,
       bypassSubscriptionLimits: req.isPlatformAdmin === true,
+      tenantSubscription: {
+        subscriptionTier: req.tenant.subscriptionTier,
+        subscriptionStatus: req.tenant.subscriptionStatus,
+        subscriptionExpiresAt: req.tenant.subscriptionExpiresAt,
+        lastBillingAt: req.tenant.lastBillingAt,
+      },
     });
 
     return res.status(200).json({
@@ -46,7 +59,7 @@ export async function checkout(req: Request, res: Response) {
       },
     });
   } catch (error: unknown) {
-    console.error('Checkout Error:', error);
+    logError('checkout', error);
 
     if (isCheckoutError(error)) {
       const body: Record<string, unknown> = {

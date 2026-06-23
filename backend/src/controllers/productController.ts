@@ -1,3 +1,4 @@
+import { logError } from '../lib/logger';
 import { Request, Response } from 'express';
 import { ProductService } from '../services/productService';
 import { createProductSchema, updateProductSchema, setPriceOverrideSchema } from '../schemas/productSchema';
@@ -27,7 +28,7 @@ export async function getAllProducts(req: Request, res: Response) {
       data: products,
     });
   } catch (error: unknown) {
-    console.error('GetAllProducts Controller Error:', error);
+    logError('GetAllProducts Controller Error:', error);
     return res.status(500).json({
       success: false,
       message: 'Terjadi kesalahan internal server saat mengambil daftar produk.',
@@ -68,7 +69,7 @@ export async function createProduct(req: Request, res: Response) {
       data: product,
     });
   } catch (error: unknown) {
-    console.error('CreateProduct Controller Error:', error);
+    logError('CreateProduct Controller Error:', error);
 
     const message = getErrorMessage(error);
     if (message.includes('Kategori') || message.includes('SKU')) {
@@ -107,7 +108,7 @@ export async function updateProduct(req: Request, res: Response) {
       data: updatedProduct,
     });
   } catch (error: unknown) {
-    console.error('UpdateProduct Controller Error:', error);
+    logError('UpdateProduct Controller Error:', error);
 
     const message = getErrorMessage(error);
     if (message.includes('tidak ditemukan') || message.includes('Kategori') || message.includes('SKU')) {
@@ -136,7 +137,7 @@ export async function deleteProduct(req: Request, res: Response) {
       message: 'Produk berhasil dihapus.',
     });
   } catch (error: unknown) {
-    console.error('DeleteProduct Controller Error:', error);
+    logError('DeleteProduct Controller Error:', error);
 
     const message = getErrorMessage(error);
     if (message.includes('tidak ditemukan')) {
@@ -169,7 +170,7 @@ export async function uploadImage(req: Request, res: Response) {
       url: fileUrl,
     });
   } catch (error: unknown) {
-    console.error('UploadImage Controller Error:', error);
+    logError('UploadImage Controller Error:', error);
     return res.status(500).json({
       success: false,
       message: 'Terjadi kesalahan internal server saat mengunggah gambar.',
@@ -201,7 +202,7 @@ export async function setPriceOverride(req: Request, res: Response) {
       data: override,
     });
   } catch (error: unknown) {
-    console.error('[ProductController.setPriceOverride]', error);
+    logError('[ProductController.setPriceOverride]', error);
     return res.status(400).json({
       success: false,
       message: getErrorMessage(error, 'Terjadi kesalahan saat mengatur harga khusus cabang.'),
@@ -232,7 +233,7 @@ export async function deletePriceOverride(req: Request, res: Response) {
       message: 'Harga khusus cabang berhasil dihapus.',
     });
   } catch (error: unknown) {
-    console.error('[ProductController.deletePriceOverride]', error);
+    logError('[ProductController.deletePriceOverride]', error);
     return res.status(400).json({
       success: false,
       message: getErrorMessage(error, 'Terjadi kesalahan saat menghapus harga khusus cabang.'),
@@ -269,7 +270,7 @@ export async function setMinStock(req: Request, res: Response) {
       data: stock,
     });
   } catch (error: unknown) {
-    console.error('[ProductController.setMinStock]', error);
+    logError('[ProductController.setMinStock]', error);
     return res.status(400).json({
       success: false,
       message: getErrorMessage(error, 'Terjadi kesalahan saat mengatur limit stok minimum cabang.'),
@@ -289,7 +290,7 @@ export async function getOutletSettingsForProduct(req: Request, res: Response) {
       data,
     });
   } catch (error: unknown) {
-    console.error('[ProductController.getOutletSettingsForProduct]', error);
+    logError('[ProductController.getOutletSettingsForProduct]', error);
     return res.status(500).json({
       success: false,
       message: 'Terjadi kesalahan saat mengambil pengaturan cabang produk.',

@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { isPlatformAdmin } from '../lib/roles';
+import { logError } from '../lib/logger';
 
 /**
  * Middleware untuk memvalidasi apakah pengguna yang terautentikasi memiliki permission tertentu.
@@ -37,7 +38,7 @@ export function requirePermission(requiredPermission: string) {
 
       return next();
     } catch (error) {
-      console.error('Error pada Role/Permission Middleware:', error);
+      logError('roleMiddleware', error);
       return res.status(500).json({
         success: false,
         message: 'Terjadi kesalahan internal server saat memproses otorisasi.'
