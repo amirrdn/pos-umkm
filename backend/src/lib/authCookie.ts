@@ -22,11 +22,21 @@ function resolveAuthCookieMaxAgeMs(): number {
   return value * unitToMs[unit as keyof typeof unitToMs];
 }
 
+function resolveAuthCookieSameSite(): CookieOptions['sameSite'] {
+  const configured = process.env.COOKIE_SAME_SITE?.toLowerCase();
+  if (configured === 'lax' || configured === 'strict' || configured === 'none') {
+    return configured;
+  }
+  // Frontend Vercel + API Render = cross-site; Strict memblokir cookie pada XHR berikutnya
+  return process.env.NODE_ENV === 'production' ? 'none' : 'strict';
+}
+
 export function getAuthCookieOptions(): CookieOptions {
+  const secure = process.env.NODE_ENV === 'production';
   return {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
+    secure,
+    sameSite: resolveAuthCookieSameSite(),
     path: '/',
     maxAge: resolveAuthCookieMaxAgeMs(),
   };
@@ -37,10 +47,11 @@ export function setAuthCookie(res: Response, token: string): void {
 }
 
 export function clearAuthCookie(res: Response): void {
+  const options = getAuthCookieOptions();
   res.clearCookie(AUTH_COOKIE_NAME, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
+    secure: options.secure,
+    sameSite: options.sameSite,
     path: '/',
   });
 }
