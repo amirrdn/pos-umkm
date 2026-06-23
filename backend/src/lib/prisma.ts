@@ -83,8 +83,10 @@ async function runWithTenantRlsSession(
       `SELECT set_config('app.current_tenant_id', $1, true)`,
       tenantId
     );
-    const delegate = (tx as unknown as Record<string, PrismaModelDelegate>)[clientKey];
-    return delegate[operation](args);
+    return tenantRlsTxStorage.run(tx as object, () => {
+      const delegate = (tx as unknown as Record<string, PrismaModelDelegate>)[clientKey];
+      return delegate[operation](args);
+    });
   });
 }
 
@@ -204,7 +206,7 @@ async function executeRawWithTenant<T>(
 
   return tenantScopedPrisma.$transaction(async (transaction) => {
     await transaction.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
-    return callback(transaction);
+    return tenantRlsTxStorage.run(transaction as object, () => callback(transaction));
   }, options);
 }
 

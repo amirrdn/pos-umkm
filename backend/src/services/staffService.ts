@@ -1,6 +1,6 @@
 import { Prisma } from '@prisma/client';
 import bcrypt from 'bcrypt';
-import { prisma } from '../lib/prisma';
+import { prisma, PrismaTx } from '../lib/prisma';
 
 export interface CreateStaffInput {
   tenantId: string;
@@ -30,38 +30,125 @@ export interface StaffOverviewMetrics {
   pendingApprovalCount: number;
 }
 
-const staffUserSelect = {
+const staffUserBaseSelect = {
   id: true,
   name: true,
   email: true,
   isActive: true,
   approvalStatus: true,
   createdAt: true,
-  userOutlets: {
-    include: {
-      outlet: {
-        select: { id: true, name: true },
-      },
-    },
-  },
-  userRoles: {
-    include: {
-      role: {
-        select: { id: true, name: true, description: true },
-      },
-    },
-  },
 } satisfies Prisma.UserSelect;
 
-function buildStaffTenantWhere(tenantId: string): Prisma.UserWhereInput {
+type StaffUserBase = Prisma.UserGetPayload<{ select: typeof staffUserBaseSelect }>;
+
+type StaffUserWithRelations = StaffUserBase & {
+  userOutlets: {
+    outlet: {
+      id: string;
+      name: string;
+    };
+  }[];
+  userRoles: {
+    role: {
+      id: string;
+      name: string;
+      description: string | null;
+    };
+  }[];
+};
+
+async function loadStaffRelations(
+  tenantId: string,
+  users: StaffUserBase[],
+  tx?: PrismaTx
+): Promise<StaffUserWithRelations[]> {
+  if (users.length === 0) {
+    return [];
+  }
+
+  const load = async (client: PrismaTx) => {
+    const userIds = users.map((user) => user.id);
+
+    const [assignments, outletLinks] = await Promise.all([
+      client.userRole.findMany({
+        where: { userId: { in: userIds } },
+        select: { userId: true, roleId: true },
+      }),
+      client.userOutlet.findMany({
+        where: { userId: { in: userIds } },
+        select: { userId: true, outletId: true },
+      }),
+    ]);
+
+    const roleIds = [...new Set(assignments.map((assignment) => assignment.roleId))];
+    const outletIds = [...new Set(outletLinks.map((link) => link.outletId))];
+
+    const [tenantRoles, outlets] = await Promise.all([
+      roleIds.length > 0
+        ? client.role.findMany({
+            where: { id: { in: roleIds }, tenantId },
+            select: { id: true, name: true, description: true },
+          })
+        : Promise.resolve([]),
+      outletIds.length > 0
+        ? client.outlet.findMany({
+            where: { id: { in: outletIds }, tenantId, deletedAt: null },
+            select: { id: true, name: true },
+          })
+        : Promise.resolve([]),
+    ]);
+
+    const roleMap = new Map(tenantRoles.map((role) => [role.id, role]));
+    const outletMap = new Map(outlets.map((outlet) => [outlet.id, outlet]));
+
+    return users
+      .map((user) => {
+        const userRoles = assignments
+          .filter((assignment) => assignment.userId === user.id && roleMap.has(assignment.roleId))
+          .map((assignment) => ({ role: roleMap.get(assignment.roleId)! }));
+
+        const userOutlets = outletLinks
+          .filter((link) => link.userId === user.id)
+          .map((link) => ({ outlet: outletMap.get(link.outletId)! }))
+          .filter((entry): entry is { outlet: { id: string; name: string } } => entry.outlet != null);
+
+        return { ...user, userRoles, userOutlets };
+      })
+      .filter((user) => user.userRoles.length > 0);
+  };
+
+  if (tx) {
+    return load(tx);
+  }
+
+  return prisma.$executeRawWithTenant(tenantId, load);
+}
+
+async function getTenantStaffUserIds(tenantId: string): Promise<string[]> {
+  return prisma.$executeRawWithTenant(tenantId, async (tx) => {
+    const assignments = await tx.userRole.findMany({
+      where: { role: { tenantId } },
+      select: { userId: true },
+      distinct: ['userId'],
+    });
+    return assignments.map((assignment) => assignment.userId);
+  });
+}
+
+function buildStaffTenantWhere(tenantId: string, tenantStaffUserIds?: string[]): Prisma.UserWhereInput {
   return {
     tenantId,
     deletedAt: null,
+    ...(tenantStaffUserIds ? { id: { in: tenantStaffUserIds } } : {}),
   };
 }
 
-function buildStaffListWhere(tenantId: string, filters?: StaffListFilters): Prisma.UserWhereInput {
-  const where = buildStaffTenantWhere(tenantId);
+function buildStaffListWhere(
+  tenantId: string,
+  filters?: StaffListFilters,
+  tenantStaffUserIds?: string[]
+): Prisma.UserWhereInput {
+  const where = buildStaffTenantWhere(tenantId, tenantStaffUserIds);
 
   if (filters?.approvalStatus) {
     where.approvalStatus = filters.approvalStatus;
@@ -89,7 +176,8 @@ function buildStaffListWhere(tenantId: string, filters?: StaffListFilters): Pris
 }
 
 export async function getStaffSummary(tenantId: string): Promise<StaffOverviewMetrics> {
-  const baseWhere = buildStaffTenantWhere(tenantId);
+  const tenantStaffUserIds = await getTenantStaffUserIds(tenantId);
+  const baseWhere = buildStaffTenantWhere(tenantId, tenantStaffUserIds);
 
   const [activeStaffCount, inactiveStaffCount, pendingApprovalCount] = await Promise.all([
     prisma.user.count({
@@ -111,11 +199,14 @@ export async function getStaffSummary(tenantId: string): Promise<StaffOverviewMe
 }
 
 export async function getStaffList(tenantId: string, filters?: StaffListFilters) {
-  return prisma.user.findMany({
-    where: buildStaffListWhere(tenantId, filters),
+  const tenantStaffUserIds = await getTenantStaffUserIds(tenantId);
+  const users = await prisma.user.findMany({
+    where: buildStaffListWhere(tenantId, filters, tenantStaffUserIds),
     orderBy: { createdAt: 'asc' },
-    select: staffUserSelect,
+    select: staffUserBaseSelect,
   });
+
+  return loadStaffRelations(tenantId, users);
 }
 
 export interface StaffDetailStats {
@@ -149,10 +240,11 @@ export interface StaffDetail {
 }
 
 export async function getStaffDetail(staffId: string, tenantId: string): Promise<StaffDetail> {
+  const tenantStaffUserIds = await getTenantStaffUserIds(tenantId);
   const user = await prisma.user.findFirst({
-    where: { id: staffId, ...buildStaffTenantWhere(tenantId) },
+    where: { id: staffId, ...buildStaffTenantWhere(tenantId, tenantStaffUserIds) },
     select: {
-      ...staffUserSelect,
+      ...staffUserBaseSelect,
       updatedAt: true,
       emailVerifiedAt: true,
     },
@@ -162,13 +254,20 @@ export async function getStaffDetail(staffId: string, tenantId: string): Promise
     throw new Error('Karyawan tidak ditemukan.');
   }
 
+  const [staffWithRelations] = await loadStaffRelations(tenantId, [user]);
+  if (!staffWithRelations) {
+    throw new Error('Karyawan tidak ditemukan.');
+  }
+
   const [totalShifts, openShifts] = await Promise.all([
     prisma.shift.count({ where: { userId: staffId, tenantId } }),
     prisma.shift.count({ where: { userId: staffId, tenantId, status: 'OPEN' } }),
   ]);
 
   return {
-    ...user,
+    ...staffWithRelations,
+    updatedAt: user.updatedAt,
+    emailVerifiedAt: user.emailVerifiedAt,
     stats: { totalShifts, openShifts },
   };
 }
@@ -179,10 +278,10 @@ export async function bulkApproveStaff(staffIds: string[], tenantId: string) {
   const pendingStaff = await prisma.user.findMany({
     where: {
       id: { in: uniqueIds },
-      ...buildStaffTenantWhere(tenantId),
+      ...buildStaffTenantWhere(tenantId, await getTenantStaffUserIds(tenantId)),
       approvalStatus: 'PENDING',
     },
-    select: staffUserSelect,
+    select: staffUserBaseSelect,
   });
 
   if (pendingStaff.length === 0) {
@@ -196,10 +295,13 @@ export async function bulkApproveStaff(staffIds: string[], tenantId: string) {
     data: { approvalStatus: 'APPROVED' },
   });
 
-  const approvedStaff = pendingStaff.map((staff) => ({
-    ...staff,
-    approvalStatus: 'APPROVED',
-  }));
+  const approvedStaff = await loadStaffRelations(
+    tenantId,
+    pendingStaff.map((staff) => ({
+      ...staff,
+      approvalStatus: 'APPROVED',
+    }))
+  );
 
   return {
     approvedCount: approvedStaff.length,
@@ -312,26 +414,18 @@ export async function updateStaff(staffId: string, tenantId: string, data: Updat
       await tx.userRole.deleteMany({ where: { userId: staffId } });
       await tx.userRole.create({ data: { userId: staffId, roleId: data.roleId } });
     }
-    return tx.user.findUnique({
+
+    const updated = await tx.user.findUnique({
       where: { id: staffId },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        isActive: true,
-        approvalStatus: true,
-        userOutlets: {
-          include: {
-            outlet: { select: { id: true, name: true } }
-          }
-        },
-        userRoles: {
-          include: {
-            role: { select: { id: true, name: true } },
-          },
-        },
-      },
+      select: staffUserBaseSelect,
     });
+
+    if (!updated) {
+      throw new Error('Karyawan tidak ditemukan.');
+    }
+
+    const [staffWithRelations] = await loadStaffRelations(tenantId, [updated], tx);
+    return staffWithRelations ?? updated;
   });
 }
 
