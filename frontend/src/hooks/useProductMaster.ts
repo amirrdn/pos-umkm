@@ -27,7 +27,7 @@ import type {
 
 export function useProductMaster() {
   const navigate = useNavigate();
-  const token = useAuthStore((state) => state.token);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
 
@@ -132,7 +132,7 @@ export function useProductMaster() {
   };
 
   useEffect(() => {
-    if (!token) return;
+    if (!isAuthenticated) return;
 
     let cancelled = false;
 
@@ -145,10 +145,10 @@ export function useProductMaster() {
     return () => {
       cancelled = true;
     };
-  }, [token, fetchCategories, fetchOutlets]);
+  }, [isAuthenticated, fetchCategories, fetchOutlets]);
 
   useEffect(() => {
-    if (!token) return;
+    if (!isAuthenticated) return;
 
     let cancelled = false;
 
@@ -161,7 +161,7 @@ export function useProductMaster() {
     return () => {
       cancelled = true;
     };
-  }, [token, filterOutletId, fetchProducts]);
+  }, [isAuthenticated, filterOutletId, fetchProducts]);
 
   const handleOpenCreate = () => {
     setModalMode('create');

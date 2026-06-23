@@ -29,26 +29,28 @@ export function PlatformTenantModal({ isOpen, onClose, tenantIdToEdit }: Platfor
 
   useEffect(() => {
     if (isOpen) {
-      if (isEditMode && existingTenant) {
-        setFormData({
-          tenantName: existingTenant.name,
-          ownerName: '',
-          email: existingTenant.email,
-          password: '',
-          phone: existingTenant.phone || '',
-          taxRate: '11',
-        });
-      } else {
-        setFormData({
-          tenantName: '',
-          ownerName: '',
-          email: '',
-          password: '',
-          phone: '',
-          taxRate: '11',
-        });
-      }
-      setErrorMsg('');
+      Promise.resolve().then(() => {
+        if (isEditMode && existingTenant) {
+          setFormData({
+            tenantName: existingTenant.name,
+            ownerName: '',
+            email: existingTenant.email,
+            password: '',
+            phone: existingTenant.phone || '',
+            taxRate: '11',
+          });
+        } else {
+          setFormData({
+            tenantName: '',
+            ownerName: '',
+            email: '',
+            password: '',
+            phone: '',
+            taxRate: '11',
+          });
+        }
+        setErrorMsg('');
+      });
     }
   }, [isOpen, isEditMode, existingTenant]);
 
@@ -79,8 +81,8 @@ export function PlatformTenantModal({ isOpen, onClose, tenantIdToEdit }: Platfor
         });
       }
       onClose();
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Terjadi kesalahan.');
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : 'Terjadi kesalahan.');
     } finally {
       setIsSubmitting(false);
     }

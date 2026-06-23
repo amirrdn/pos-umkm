@@ -2,6 +2,11 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { apiClient } from '../api/apiClient';
 import { useAuthStore } from './useAuthStore';
+import {
+  fetchActiveTenantInspectionApi,
+  startTenantInspectionApi,
+  stopTenantInspectionApi,
+} from '../api/platformAuditApi';
 
 export interface PlatformTenantSummary {
   id: string;
@@ -38,6 +43,45 @@ export interface PlatformOverview {
   tierCounts: Array<{ subscriptionTier: string; _count: number }>;
 }
 
+export interface PlatformStaffSummary {
+  id: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  approvalStatus: string;
+  createdAt: string;
+  tenantName: string;
+  roles: string[];
+  isActive: boolean;
+}
+
+export interface PlatformRevenueMetric {
+  date: string;
+  revenue: number;
+}
+
+export interface PlatformTopProductMetric {
+  productName: string;
+  tenantName: string;
+  quantitySold: number;
+  revenueGenerated: number;
+}
+
+export interface CreateTenantPayload {
+  tenantName: string;
+  ownerName: string;
+  email: string;
+  password?: string;
+  phone: string;
+  taxRate: number;
+}
+
+export interface UpdateTenantPayload {
+  name: string;
+  phone: string;
+  taxRate: number;
+}
+
 function toTenantMeta(tenant: PlatformTenantSummary): PlatformTenantMeta {
   return {
     id: tenant.id,
@@ -54,21 +98,22 @@ interface PlatformState {
   overview: PlatformOverview | null;
   activeTenantId: string | null;
   activeTenantMeta: PlatformTenantMeta | null;
-  staffList: any[];
-  revenueData: any[];
-  topProducts: any[];
+  staffList: PlatformStaffSummary[];
+  revenueData: PlatformRevenueMetric[];
+  topProducts: PlatformTopProductMetric[];
   loading: boolean;
   error: string | null;
 
-  setActiveTenant: (tenant: PlatformTenantSummary | string | null) => void;
+  setActiveTenant: (tenant: PlatformTenantSummary | string | null) => Promise<void>;
+  syncActiveInspection: () => Promise<void>;
   ensureActiveTenant: () => Promise<void>;
   fetchTenants: () => Promise<void>;
   fetchOverview: () => Promise<void>;
   fetchStaffList: (page?: number, limit?: number) => Promise<void>;
   fetchRevenueData: () => Promise<void>;
   fetchTopProducts: () => Promise<void>;
-  createTenant: (payload: any) => Promise<void>;
-  updateTenant: (id: string, payload: any) => Promise<void>;
+  createTenant: (payload: CreateTenantPayload) => Promise<void>;
+  updateTenant: (id: string, payload: UpdateTenantPayload) => Promise<void>;
   deleteTenant: (id: string) => Promise<void>;
 }
 
@@ -85,25 +130,73 @@ export const usePlatformStore = create<PlatformState>()(
       loading: false,
       error: null,
 
-      setActiveTenant: (tenant) => {
+      setActiveTenant: async (tenant) => {
         if (tenant === null) {
           set({ activeTenantId: null, activeTenantMeta: null });
+          try {
+            await stopTenantInspectionApi();
+          } catch {
+            // ignore network errors during local clear
+          }
           return;
         }
 
-        if (typeof tenant === 'string') {
-          const found = get().tenants.find((item) => item.id === tenant);
+        const tenantId = typeof tenant === 'string' ? tenant : tenant.id;
+
+        if (tenantId === get().activeTenantId) {
+          return;
+        }
+
+        try {
+          set({ error: null });
+          const inspection = await startTenantInspectionApi(tenantId);
+          const found =
+            typeof tenant === 'string'
+              ? get().tenants.find((item) => item.id === tenant)
+              : tenant;
+
           set({
-            activeTenantId: tenant,
-            activeTenantMeta: found ? toTenantMeta(found) : get().activeTenantMeta,
+            activeTenantId: tenantId,
+            activeTenantMeta: found
+              ? toTenantMeta(found)
+              : {
+                  id: inspection.data.tenantId,
+                  name: inspection.data.tenantName,
+                  slug: inspection.data.tenantId,
+                  subscriptionTier: '-',
+                  subscriptionStatus: '-',
+                },
           });
-          return;
+        } catch (err) {
+          const message = err instanceof Error ? err.message : 'Gagal memulai inspeksi tenant.';
+          set({ error: message });
+          throw err;
         }
+      },
 
-        set({
-          activeTenantId: tenant.id,
-          activeTenantMeta: toTenantMeta(tenant),
-        });
+      syncActiveInspection: async () => {
+        try {
+          const inspection = await fetchActiveTenantInspectionApi();
+          if (!inspection) {
+            return;
+          }
+
+          const found = get().tenants.find((tenant) => tenant.id === inspection.tenantId);
+          set({
+            activeTenantId: inspection.tenantId,
+            activeTenantMeta: found
+              ? toTenantMeta(found)
+              : {
+                  id: inspection.tenantId,
+                  name: inspection.tenantName,
+                  slug: inspection.tenantId,
+                  subscriptionTier: '-',
+                  subscriptionStatus: '-',
+                },
+          });
+        } catch {
+          // ignore sync errors on boot
+        }
       },
 
       ensureActiveTenant: async () => {
@@ -164,7 +257,7 @@ export const usePlatformStore = create<PlatformState>()(
       fetchStaffList: async (page = 1, limit = 50) => {
         set({ loading: true, error: null });
         try {
-          const response = await apiClient.get<{ data: any[] }>(`/api/platform/staff?page=${page}&limit=${limit}`);
+          const response = await apiClient.get<{ data: PlatformStaffSummary[] }>(`/api/platform/staff?page=${page}&limit=${limit}`);
           set({ staffList: response.data.data || [], loading: false });
         } catch (err) {
           const message = err instanceof Error ? err.message : 'Gagal memuat daftar staf.';
@@ -175,7 +268,7 @@ export const usePlatformStore = create<PlatformState>()(
       fetchRevenueData: async () => {
         set({ loading: true, error: null });
         try {
-          const response = await apiClient.get<{ data: any[] }>('/api/platform/analytics/revenue');
+          const response = await apiClient.get<{ data: PlatformRevenueMetric[] }>('/api/platform/analytics/revenue');
           set({ revenueData: response.data.data || [], loading: false });
         } catch (err) {
           const message = err instanceof Error ? err.message : 'Gagal memuat data pendapatan.';
@@ -186,7 +279,7 @@ export const usePlatformStore = create<PlatformState>()(
       fetchTopProducts: async () => {
         set({ loading: true, error: null });
         try {
-          const response = await apiClient.get<{ data: any[] }>('/api/platform/analytics/top-products');
+          const response = await apiClient.get<{ data: PlatformTopProductMetric[] }>('/api/platform/analytics/top-products');
           set({ topProducts: response.data.data || [], loading: false });
         } catch (err) {
           const message = err instanceof Error ? err.message : 'Gagal memuat daftar produk terlaris.';
@@ -194,7 +287,7 @@ export const usePlatformStore = create<PlatformState>()(
         }
       },
 
-      createTenant: async (payload) => {
+      createTenant: async (payload: CreateTenantPayload) => {
         set({ loading: true, error: null });
         try {
           await apiClient.post('/api/platform/tenants', payload);
@@ -206,7 +299,7 @@ export const usePlatformStore = create<PlatformState>()(
         }
       },
 
-      updateTenant: async (id, payload) => {
+      updateTenant: async (id: string, payload: UpdateTenantPayload) => {
         set({ loading: true, error: null });
         try {
           await apiClient.put(`/api/platform/tenants/${id}`, payload);

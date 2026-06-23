@@ -12,12 +12,14 @@ import {
   X,
   BarChart2,
   Users,
+  ScrollText,
 } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { useThemeStore } from '../store/useThemeStore';
 import { usePlatformStore } from '../store/usePlatformStore';
 import { getRoleDisplayLabel } from '../utils/roles';
 import { TenantSwitcher } from '../components/platform/TenantSwitcher';
+import { PlatformImpersonationBanner } from '../components/platform/PlatformImpersonationBanner';
 
 const NAV_ITEMS = [
   { path: '/platform', label: 'Dashboard', icon: LayoutDashboard, exact: true },
@@ -25,6 +27,7 @@ const NAV_ITEMS = [
   { path: '/platform/tenants', label: 'Tenant', icon: Building2, exact: false },
   { path: '/platform/staff', label: 'Staff', icon: Users, exact: false },
   { path: '/platform/billing', label: 'Billing', icon: CreditCard, exact: false },
+  { path: '/platform/audit', label: 'Audit', icon: ScrollText, exact: false },
 ] as const;
 
 export function PlatformConsoleLayout() {
@@ -34,6 +37,7 @@ export function PlatformConsoleLayout() {
   const { theme, toggleTheme } = useThemeStore();
   const activeTenantMeta = usePlatformStore((state) => state.activeTenantMeta);
   const ensureActiveTenant = usePlatformStore((state) => state.ensureActiveTenant);
+  const syncActiveInspection = usePlatformStore((state) => state.syncActiveInspection);
   const [menuOpenForPath, setMenuOpenForPath] = useState<string | null>(null);
   const mobileMenuOpen = menuOpenForPath === location.pathname;
   const setMobileMenuOpen = useCallback((open: boolean) => {
@@ -41,8 +45,12 @@ export function PlatformConsoleLayout() {
   }, [location.pathname]);
 
   useEffect(() => {
-    ensureActiveTenant();
-  }, [ensureActiveTenant]);
+    const bootstrap = async () => {
+      await syncActiveInspection();
+      await ensureActiveTenant();
+    };
+    void bootstrap();
+  }, [ensureActiveTenant, syncActiveInspection]);
 
   useEffect(() => {
     if (!mobileMenuOpen) return;
@@ -262,6 +270,8 @@ export function PlatformConsoleLayout() {
             </div>
           </div>
         </header>
+
+        <PlatformImpersonationBanner />
 
         <div className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 pb-[calc(4.5rem+env(safe-area-inset-bottom))] lg:pb-6">
           <Outlet />

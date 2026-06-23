@@ -7,7 +7,7 @@ import {
   toCheckoutError,
 } from '../domain/transaction';
 import type { CheckoutCommand } from '../domain/transaction';
-import { prisma } from '../lib/prisma';
+import { prisma, type PrismaTx } from '../lib/prisma';
 import { MidtransService } from './midtransService';
 import { SubscriptionService, TIER_LIMITS } from './subscriptionService';
 import { isSubscriptionExpired } from '../lib/subscription';
@@ -71,7 +71,8 @@ export async function processCheckout(command: CheckoutCommand): Promise<Checkou
 
   let result: CheckoutTransactionRecord;
   try {
-    result = await prisma.$transaction(
+    result = await prisma.$executeRawWithTenant(
+      command.tenantId,
       (tx) => executeCheckoutTransaction(tx, command, invoiceNumber),
       { maxWait: 15000, timeout: 30000 }
     );
@@ -91,7 +92,7 @@ export async function processCheckout(command: CheckoutCommand): Promise<Checkou
 }
 
 async function executeCheckoutTransaction(
-  tx: Prisma.TransactionClient,
+  tx: PrismaTx,
   command: CheckoutCommand,
   invoiceNumber: string
 ): Promise<CheckoutTransactionRecord> {
@@ -134,7 +135,7 @@ async function executeCheckoutTransaction(
   }
 
   if (paymentMethod === 'QRIS' && !command.bypassSubscriptionLimits) {
-    const limits = TIER_LIMITS[tenant.subscriptionTier];
+    const limits = TIER_LIMITS[tenant.subscriptionTier as keyof typeof TIER_LIMITS];
     if (!limits || !limits.hasQris) {
       throw new CheckoutError(
         'Metode pembayaran QRIS tidak tersedia untuk tingkat paket Anda. Silakan lakukan upgrade.',
@@ -220,9 +221,10 @@ async function executeCheckoutTransaction(
           outletId,
           note: 'Penjualan - Invoice',
         });
-      } catch (err: any) {
+      } catch (err: unknown) {
+        const errMsg = err instanceof Error ? err.message : String(err);
         throw new CheckoutError(
-          err.message || `Stok tidak mencukupi untuk ${product.name}.`,
+          errMsg || `Stok tidak mencukupi untuk ${product.name}.`,
           'STOCK_INSUFFICIENT',
           400
         );

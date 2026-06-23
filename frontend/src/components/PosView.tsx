@@ -25,21 +25,29 @@ export const PosView: React.FC = () => {
   const printComponentRef = useRef<HTMLDivElement>(null);
   const pos = usePos({ printRef: printComponentRef });
 
+  const {
+    focusSearchInput,
+    setShowCartPanel,
+    handleCheckout,
+    incrementLastCartItem,
+    decrementLastCartItem,
+  } = pos;
+
   const keyboardHandlers = useMemo(
     () => ({
-      onFocusSearch: pos.focusSearchInput,
-      onCloseCart: () => pos.setShowCartPanel(false),
-      onOpenCart: () => pos.setShowCartPanel(true),
-      onCheckout: () => void pos.handleCheckout(),
-      onIncrementLastItem: pos.incrementLastCartItem,
-      onDecrementLastItem: pos.decrementLastCartItem,
+      onFocusSearch: focusSearchInput,
+      onCloseCart: () => setShowCartPanel(false),
+      onOpenCart: () => setShowCartPanel(true),
+      onCheckout: () => void handleCheckout(),
+      onIncrementLastItem: incrementLastCartItem,
+      onDecrementLastItem: decrementLastCartItem,
     }),
     [
-      pos.focusSearchInput,
-      pos.setShowCartPanel,
-      pos.handleCheckout,
-      pos.incrementLastCartItem,
-      pos.decrementLastCartItem,
+      focusSearchInput,
+      setShowCartPanel,
+      handleCheckout,
+      incrementLastCartItem,
+      decrementLastCartItem,
     ]
   );
 
@@ -175,7 +183,6 @@ export const PosView: React.FC = () => {
           setCustomerQuery={pos.setCustomerQuery}
           searchResults={pos.searchResults}
           setSearchResults={pos.setSearchResults}
-          handleCustomerSearch={pos.handleCustomerSearch}
           setShowAddCustomerModal={pos.setShowAddCustomerModal}
           discountType={pos.discountType}
           discountValue={pos.discountValue}

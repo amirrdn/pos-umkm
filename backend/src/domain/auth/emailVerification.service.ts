@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { prisma } from '../../lib/prisma';
+import { runInSystemContext } from '../../lib/tenantContext';
 import { getEmailProvider, sendMail } from '../../lib/mail';
 
 const TOKEN_BYTES = 32;
@@ -49,6 +50,7 @@ function buildVerificationUrl(token: string): string {
 }
 
 export async function issueEmailVerificationToken(userId: string): Promise<string> {
+  return runInSystemContext('auth', async () => {
   const token = crypto.randomBytes(TOKEN_BYTES).toString('hex');
   const expiresAt = new Date(Date.now() + TOKEN_TTL_MS);
 
@@ -61,6 +63,7 @@ export async function issueEmailVerificationToken(userId: string): Promise<strin
   });
 
   return token;
+  });
 }
 
 export async function deliverRegistrationVerificationEmail(input: {
@@ -145,6 +148,7 @@ export async function sendAccountVerificationEmail(input: {
 }
 
 export async function verifyEmailToken(token: string): Promise<{ email: string; name: string }> {
+  return runInSystemContext('auth', async () => {
   const user = await prisma.user.findFirst({
     where: {
       emailVerificationToken: token,
@@ -174,9 +178,11 @@ export async function verifyEmailToken(token: string): Promise<{ email: string; 
   });
 
   return { email: user.email, name: user.name };
+  });
 }
 
 export async function resendVerificationEmail(email: string): Promise<void> {
+  return runInSystemContext('auth', async () => {
   const normalized = normalizeAuthEmail(email);
   const user = await prisma.user.findFirst({
     where: { email: { equals: normalized, mode: 'insensitive' }, deletedAt: null },
@@ -193,6 +199,7 @@ export async function resendVerificationEmail(email: string): Promise<void> {
 
   const token = await issueEmailVerificationToken(user.id);
   await sendAccountVerificationEmail({ email: user.email, name: user.name, token });
+  });
 }
 
 /** Jika email sudah terdaftar tapi belum diverifikasi, kirim ulang tautan aktivasi. */

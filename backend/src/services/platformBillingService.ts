@@ -1,4 +1,5 @@
 import { prisma } from '../lib/prisma';
+import { runInSystemContext } from '../lib/tenantContext';
 import { MidtransService } from './midtransService';
 
 export class PlatformBillingService {
@@ -7,6 +8,7 @@ export class PlatformBillingService {
    * Menggunakan aggregasi Prisma untuk optimasi query.
    */
   static async getMetrics() {
+    return runInSystemContext('platform', async () => {
     const now = new Date();
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
@@ -40,12 +42,14 @@ export class PlatformBillingService {
       activeTenants,
       churnRate: Number(churnRate.toFixed(2)),
     };
+    });
   }
 
   /**
    * Mengambil daftar invoice lintas-tenant beserta paginasi.
    */
   static async getInvoices(page: number = 1, limit: number = 20) {
+    return runInSystemContext('platform', async () => {
     const skip = (page - 1) * limit;
 
     const [total, data] = await Promise.all([
@@ -75,12 +79,14 @@ export class PlatformBillingService {
         totalPages: Math.ceil(total / limit),
       },
     };
+    });
   }
 
   /**
    * Mengambil detail transaksi secara langsung dari Midtrans API
    */
   static async getMidtransInvoiceDetail(invoiceNumber: string) {
+    return runInSystemContext('platform', async () => {
     // Validasi apakah invoice ini terdaftar di sistem kita
     const invoice = await prisma.subscriptionInvoice.findUnique({
       where: { invoiceNumber },
@@ -91,5 +97,6 @@ export class PlatformBillingService {
     }
 
     return MidtransService.getFullTransactionStatus(invoiceNumber);
+    });
   }
 }

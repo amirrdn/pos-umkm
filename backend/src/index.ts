@@ -26,6 +26,7 @@ import subscriptionRoutes from './routes/subscriptionRoutes';
 import platformRoutes from './routes/platformRoutes';
 import { checkSubscriptionStatus } from './middlewares/subscriptionGuard';
 import { errorHandler } from './middlewares/errorHandler';
+import { apiRateLimiter } from './middlewares/apiRateLimiter';
 import { getJwtSecret } from './lib/jwtConfig';
 
 
@@ -74,6 +75,8 @@ app.use('/api/auth/register', authLimiter);
 app.use('/api/auth/register-staff', authLimiter);
 app.use('/api/auth/resend-verification', authLimiter);
 app.use('/api/auth/google', authLimiter);
+
+app.use('/api', apiRateLimiter);
 
 // ==========================================
 // DAFTAR ROUTE APLIKASI

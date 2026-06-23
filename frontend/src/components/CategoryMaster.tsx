@@ -24,7 +24,7 @@ import {
 
 export const CategoryMaster: React.FC = () => {
   const navigate = useNavigate();
-  const token = useAuthStore((state) => state.token);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
 
@@ -67,7 +67,7 @@ export const CategoryMaster: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (!token) return;
+    if (!isAuthenticated) return;
 
     let cancelled = false;
 
@@ -80,7 +80,7 @@ export const CategoryMaster: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [token, fetchCategories]);
+  }, [isAuthenticated, fetchCategories]);
 
   const handleOpenCreate = () => {
     setModalMode('create');

@@ -7,18 +7,13 @@ import { ApiError } from './types';
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
-  timeout: API_TIMEOUT_MS, // Updated to 5 minutes to accommodate free tier latency
+  timeout: API_TIMEOUT_MS,
+  withCredentials: true,
 });
 
-// Request Interceptor: Automatically inject auth token and tenant headers
 apiClient.interceptors.request.use((config) => {
-  const { token, user, activeOutletId } = useAuthStore.getState();
+  const { user, activeOutletId } = useAuthStore.getState();
 
-  if (token && config.headers) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-
-  // Resolve tenant ID context
   let tenantId = user?.tenantId ?? '';
   if (user && isPlatformAdmin(user.roles)) {
     const activeTenantId = usePlatformStore.getState().activeTenantId;
@@ -31,7 +26,6 @@ apiClient.interceptors.request.use((config) => {
     config.headers['x-tenant-id'] = tenantId;
   }
 
-  // Inject active outlet ID if present and not overridden by custom header
   if (activeOutletId && config.headers && !config.headers['x-outlet-id']) {
     config.headers['x-outlet-id'] = activeOutletId;
   }
@@ -41,13 +35,11 @@ apiClient.interceptors.request.use((config) => {
   return Promise.reject(error);
 });
 
-// Response Interceptor: Global handler for auth failures or clean error unwrapping
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     const status = error.response?.status;
-    
-    // Auto-logout if unauthorized
+
     if (status === 401) {
       useAuthStore.getState().logout();
       if (typeof window !== 'undefined' && window.location.pathname !== '/login') {

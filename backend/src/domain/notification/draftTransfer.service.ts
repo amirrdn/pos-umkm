@@ -1,4 +1,5 @@
 import { prisma } from '../../lib/prisma';
+import { runInSystemContext } from '../../lib/tenantContext';
 import { sendMail } from '../../lib/mail';
 
 const DIGEST_ROLES = ['Owner', 'Manager'] as const;
@@ -75,6 +76,7 @@ export async function runDailyDraftTransferDigest(): Promise<{
   tenantsNotified: number;
   totalDrafts: number;
 }> {
+  return runInSystemContext('platform', async () => {
   const tenants = await prisma.tenant.findMany({
     where: { status: 'ACTIVE', deletedAt: null },
     select: { id: true, name: true },
@@ -90,4 +92,5 @@ export async function runDailyDraftTransferDigest(): Promise<{
   }
 
   return { tenantsNotified, totalDrafts };
+  });
 }

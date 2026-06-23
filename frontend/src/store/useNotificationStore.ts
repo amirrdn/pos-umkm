@@ -34,8 +34,8 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   sseFallbackTimer: null,
 
   fetchDraftTransferCount: async () => {
-    const { token, user } = useAuthStore.getState();
-    if (!token || !user || !canReceiveDraftTransferNotifications(user.roles)) {
+    const { isAuthenticated, user } = useAuthStore.getState();
+    if (!isAuthenticated || !user || !canReceiveDraftTransferNotifications(user.roles)) {
       set({ draftTransferCount: 0 });
       return;
     }
@@ -52,8 +52,8 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
 
   startRealtime: () => {
     get().stopRealtime();
-    const { token, user } = useAuthStore.getState();
-    if (!token || !user || !canReceiveDraftTransferNotifications(user.roles)) {
+    const { isAuthenticated, user } = useAuthStore.getState();
+    if (!isAuthenticated || !user || !canReceiveDraftTransferNotifications(user.roles)) {
       return;
     }
 
@@ -73,8 +73,8 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
             tenantId = activeTenantId;
           }
         }
-        const url = `${API_BASE_URL}/api/notifications/stream?token=${token}&tenantId=${tenantId}`;
-        const sse = new EventSource(url);
+        const url = `${API_BASE_URL}/api/notifications/stream?tenantId=${tenantId}`;
+        const sse = new EventSource(url, { withCredentials: true });
 
         sse.addEventListener('draft_transfer', (event) => {
           try {

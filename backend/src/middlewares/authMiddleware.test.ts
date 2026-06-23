@@ -38,6 +38,35 @@ describe('authMiddleware - Runtime Payload Validation', () => {
     expect(req.user.email).toBe('john@example.com');
   });
 
+  it('allows valid token from httpOnly auth cookie', () => {
+    const validPayload = {
+      id: 'user-id-001',
+      tenantId: 'tenant-id-001',
+      name: 'John Doe',
+      email: 'john@example.com',
+      roles: ['Kasir'],
+      permissions: ['create-transaction'],
+      outletIds: ['outlet-id-001'],
+    };
+    const token = jwt.sign(validPayload, 'test-secret');
+
+    const req = {
+      headers: {
+        cookie: `auth_token=${token}`,
+      },
+    } as any;
+    const res = {
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn(),
+    } as any;
+    const next = vi.fn();
+
+    authMiddleware(req, res, next);
+
+    expect(next).toHaveBeenCalledOnce();
+    expect(req.user.email).toBe('john@example.com');
+  });
+
   it('rejects token with missing required fields in payload (e.g. name, email)', () => {
     const invalidPayload = {
       id: 'user-id-001',

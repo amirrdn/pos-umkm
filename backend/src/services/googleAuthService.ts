@@ -1,4 +1,5 @@
 import { prisma } from '../lib/prisma';
+import { runInSystemContext } from '../lib/tenantContext';
 import { getJwtSecret, getJwtExpiresIn } from '../lib/jwtConfig';
 import { resolveAuthRoles } from '../lib/roles';
 import jwt from 'jsonwebtoken';
@@ -114,6 +115,7 @@ function buildAuthResult(user: UserWithRelations): GoogleAuthResult {
 }
 
 export async function loginWithGoogle(payload: GoogleTokenPayload): Promise<GoogleAuthResult> {
+  return runInSystemContext('auth', async () => {
   const googleProfile = await verifyGoogleIdToken(payload.idToken);
   const normalizedEmail = googleProfile.email.toLowerCase().trim();
 
@@ -177,12 +179,14 @@ export async function loginWithGoogle(payload: GoogleTokenPayload): Promise<Goog
   }
 
   throw new Error('Google login pertama kali tanpa akun. Silakan login sebagai Owner/Toko Baru.');
+  });
 }
 
 async function createNewOwnerUser(
   googleProfile: { sub: string; email: string; name: string; picture?: string },
   normalizedEmail: string
 ): Promise<GoogleAuthResult> {
+  return runInSystemContext('auth', async () => {
   const baseSlug = googleProfile.name
     .toLowerCase()
     .trim()
@@ -333,4 +337,5 @@ async function createNewOwnerUser(
   }
 
   return buildAuthResult(userWithRelations);
+  });
 }

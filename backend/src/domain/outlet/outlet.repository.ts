@@ -38,7 +38,7 @@ export async function findMainOutletByTenant(
 /** Satu query untuk seluruh outlet aktif — basis audit in-memory O(n). */
 export async function fetchActiveOutlets(tx?: PrismaTx): Promise<ActiveOutletRow[]> {
   const client = tx ?? prisma;
-  return client.$queryRaw<ActiveOutletRow[]>(ACTIVE_OUTLET_SQL);
+  return client.$queryRaw(ACTIVE_OUTLET_SQL) as Promise<ActiveOutletRow[]>;
 }
 
 /**

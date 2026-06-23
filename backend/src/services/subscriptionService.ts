@@ -15,6 +15,7 @@ export const TIER_LIMITS = {
     maxStaff: 2,
     hasQris: false,
     hasCogs: false,
+    maxDebtLimit: 0,
   },
   [SubscriptionTier.GROWTH]: {
     maxTransactionsPerMonth: 3000,
@@ -23,6 +24,7 @@ export const TIER_LIMITS = {
     maxStaff: 5,
     hasQris: true,
     hasCogs: true,
+    maxDebtLimit: 5000000,
   },
   [SubscriptionTier.ENTERPRISE]: {
     maxTransactionsPerMonth: Infinity,
@@ -31,6 +33,7 @@ export const TIER_LIMITS = {
     maxStaff: Infinity,
     hasQris: true,
     hasCogs: true,
+    maxDebtLimit: Infinity,
   },
 };
 
@@ -115,6 +118,7 @@ export class SubscriptionService {
       features: {
         hasQris: currentLimits.hasQris,
         hasCogs: currentLimits.hasCogs,
+        maxDebtLimit: currentLimits.maxDebtLimit,
       },
     };
   }
@@ -158,6 +162,18 @@ export class SubscriptionService {
     return !details.usage.transactions.isFull;
   }
 
+  static async assertDebtPaymentAllowed(
+    tenantId: string,
+    options?: SubscriptionAccessOptions
+  ): Promise<void> {
+    if (options?.bypassLimits) return;
+    const details = await this.getSubscriptionDetails(tenantId);
+    if (details.features.maxDebtLimit === 0) {
+      throw new Error(
+        'Fitur hutang pelanggan tidak tersedia pada paket Anda. Silakan upgrade ke paket Tumbuh atau Enterprise.'
+      );
+    }
+  }
 
   /**
    * Menurunkan tingkat paket ke FREE jika diinginkan user secara manual atau jika kedaluwarsa habis.
@@ -176,7 +192,6 @@ export class SubscriptionService {
     }
 
     return await prisma.$transaction(async (tx) => {
-      // 1. Update tenant ke FREE
       const updatedTenant = await tx.tenant.update({
         where: { id: tenantId },
         data: {
@@ -186,7 +201,6 @@ export class SubscriptionService {
         },
       });
 
-      // 2. Nonaktifkan cabang-cabang tambahan (Hanya sisakan MAIN)
       await tx.outlet.updateMany({
         where: {
           tenantId,
@@ -217,12 +231,10 @@ export class SubscriptionService {
             id: { in: staffToSuspend.map((u) => u.id) },
           },
           data: {
-            approvalStatus: 'PENDING', // Diubah ke pending agar tidak bisa login kasir
+            approvalStatus: 'PENDING',
           },
         });
       }
-
-      // 4. Catat riwayat
       await tx.subscriptionHistory.create({
         data: {
           tenantId,

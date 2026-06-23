@@ -45,7 +45,7 @@ function loadGoogleSdk(): Promise<void> {
   });
 }
 
-export function useGoogleAuth() {
+function useGoogleAuth() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
@@ -69,7 +69,7 @@ export function useGoogleAuth() {
         callback: async (response) => {
           try {
             const result = await googleLoginApi({ idToken: response.credential });
-            login(result.data.token, result.data.user);
+            login(result.data.user);
             navigate('/pos');
           } catch (err: unknown) {
             const message = isApiError(err)

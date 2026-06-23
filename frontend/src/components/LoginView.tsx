@@ -52,7 +52,7 @@ export const LoginView: React.FC = () => {
 
     try {
       const data = await loginApi({ email, password });
-      login(data.data.token, data.data.user);
+      login(data.data.user);
       navigate('/pos');
     } catch (err: unknown) {
       console.error('Login Error:', err);

@@ -1,12 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../lib/prisma';
 import { logError } from '../lib/logger';
+import { tenantStorage } from '../lib/tenantContext';
+import { recordTenantScopedWriteAudit } from '../services/platformAuditService';
 
-/**
- * Middleware untuk mengidentifikasi dan memvalidasi Tenant dari request.
- * Informasi tenant dapat dikirim via header custom 'x-tenant-id' atau diekstrak dari payload JWT.
- * Admin platform boleh menginspeksi tenant non-aktif (kedaluwarsa/ditangguhkan).
- */
 export async function tenantMiddleware(req: Request, res: Response, next: NextFunction) {
   try {
     let tenantId = req.header('x-tenant-id') || req.header('X-Tenant-Id');
@@ -19,6 +16,13 @@ export async function tenantMiddleware(req: Request, res: Response, next: NextFu
       return res.status(400).json({
         success: false,
         message: 'Akses Ditolak: Header tenant (x-tenant-id) atau konteks tenant tidak ditemukan.',
+      });
+    }
+
+    if (req.user && !req.isPlatformAdmin && tenantId !== req.user.tenantId) {
+      return res.status(403).json({
+        success: false,
+        message: 'Akses Ditolak: Anda tidak memiliki wewenang untuk mengakses lingkungan tenant ini.',
       });
     }
 
@@ -56,7 +60,17 @@ export async function tenantMiddleware(req: Request, res: Response, next: NextFu
       }
     }
 
-    return next();
+    void recordTenantScopedWriteAudit({
+      isPlatformAdmin: req.isPlatformAdmin,
+      user: req.user,
+      tenantId: tenant.id,
+      method: req.method,
+      originalUrl: req.originalUrl,
+    }).catch((error) => logError('recordTenantScopedWriteAudit', error));
+
+    return tenantStorage.run(tenant.id, () => {
+      return next();
+    });
   } catch (error) {
     logError('tenantMiddleware', error);
     return res.status(500).json({

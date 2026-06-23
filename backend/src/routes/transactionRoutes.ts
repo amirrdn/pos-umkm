@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { checkout, getHistory, handleMidtransWebhook, getTransactionStatus } from '../controllers/transactionController';
 import { authMiddleware } from '../middlewares/authMiddleware';
 import { tenantMiddleware } from '../middlewares/tenantMiddleware';
+import { checkoutRateLimiter } from '../middlewares/apiRateLimiter';
 import { requirePermission } from '../middlewares/roleMiddleware';
 
 const router = Router();
@@ -12,6 +13,7 @@ const router = Router();
  */
 router.post(
   '/checkout',
+  checkoutRateLimiter,
   authMiddleware,
   tenantMiddleware,
   requirePermission('create-transaction'),
