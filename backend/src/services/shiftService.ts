@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
+import { loadTenantUsersByIds, resolveTenantUser } from '../lib/tenantUserLookup';
 
 // ==========================================
 // INTERFACE
@@ -168,14 +169,19 @@ export async function getShiftHistory(tenantId: string) {
     where: { tenantId },
     orderBy: { createdAt: 'desc' },
     include: {
-      user: {
-        select: { id: true, name: true, email: true },
-      },
       _count: {
         select: { transactions: true },
       },
     },
   });
 
-  return shifts;
+  const userMap = await loadTenantUsersByIds(
+    tenantId,
+    shifts.map((shift) => shift.userId)
+  );
+
+  return shifts.map((shift) => ({
+    ...shift,
+    user: resolveTenantUser(userMap, shift.userId),
+  }));
 }

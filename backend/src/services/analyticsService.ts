@@ -1,4 +1,5 @@
 import { prisma } from '../lib/prisma';
+import { loadTenantUsersByIds, resolveTenantUser } from '../lib/tenantUserLookup';
 import { getOutletBreakdown } from '../domain/analytics/breakdown.service';
 import {
   calculateTransactionProfit,
@@ -153,9 +154,13 @@ export class AnalyticsService {
         userId: true,
         grandTotal: true,
         paymentMethod: true,
-        user: { select: { id: true, name: true, email: true } },
       },
     });
+
+    const userMap = await loadTenantUsersByIds(
+      tenantId,
+      transactions.map((transaction) => transaction.userId)
+    );
 
     const reportMap = new Map<
       string,
@@ -171,10 +176,11 @@ export class AnalyticsService {
     >();
 
     for (const tx of transactions) {
+      const user = resolveTenantUser(userMap, tx.userId);
       const current = reportMap.get(tx.userId) ?? {
         cashierId: tx.userId,
-        name: tx.user.name,
-        email: tx.user.email,
+        name: user.name,
+        email: user.email,
         totalTransactions: 0,
         totalSales: 0,
         cashSales: 0,
@@ -199,8 +205,16 @@ export class AnalyticsService {
         tenantId,
         ...(outletId ? { outletId } : {}),
       },
-      include: {
-        user: { select: { name: true } },
+      select: {
+        id: true,
+        userId: true,
+        startTime: true,
+        endTime: true,
+        cashStart: true,
+        cashExpected: true,
+        cashActual: true,
+        difference: true,
+        status: true,
         transactions: {
           where: { status: 'COMPLETED' },
           select: { grandTotal: true, paymentMethod: true },
@@ -208,6 +222,11 @@ export class AnalyticsService {
       },
       orderBy: { startTime: 'desc' },
     });
+
+    const userMap = await loadTenantUsersByIds(
+      tenantId,
+      shifts.map((shift) => shift.userId)
+    );
 
     return shifts.map((shift) => {
       let totalSales = 0;
@@ -223,7 +242,7 @@ export class AnalyticsService {
 
       return {
         id: shift.id,
-        cashierName: shift.user.name,
+        cashierName: resolveTenantUser(userMap, shift.userId).name,
         startTime: shift.startTime,
         endTime: shift.endTime,
         cashStart: Number(shift.cashStart),
