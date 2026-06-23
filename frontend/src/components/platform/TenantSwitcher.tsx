@@ -32,7 +32,9 @@ export function TenantSwitcher({ className = '', size = 'md' }: { className?: st
       className={className}
       size={isMd ? 'md' : 'sm'}
       value={activeTenantId ?? ''}
-      onChange={(value) => setActiveTenant(value || null)}
+      onChange={(value) => {
+        void setActiveTenant(value || null);
+      }}
       disabled={loading || tenants.length === 0}
       searchable={tenants.length > 4}
       searchPlaceholder="Cari tenant..."

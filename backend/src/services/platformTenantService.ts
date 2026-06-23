@@ -1,11 +1,13 @@
 import { prisma } from '../lib/prisma';
+import { runInSystemContext } from '../lib/tenantContext';
 import { TenantStatus, SubscriptionTier } from '@prisma/client';
 import bcrypt from 'bcrypt';
 import { normalizeAuthEmail } from '../domain/auth/emailVerification.service';
 
 export class PlatformTenantService {
   static async listTenants() {
-    return prisma.tenant.findMany({
+    return runInSystemContext('platform', () =>
+    prisma.tenant.findMany({
       where: { deletedAt: null },
       orderBy: { createdAt: 'desc' },
       select: {
@@ -28,11 +30,13 @@ export class PlatformTenantService {
           },
         },
       },
-    });
+    })
+    );
   }
 
   static async getOverview() {
-    const [totalTenants, activeTenants, expiredTenants, tierCounts] = await Promise.all([
+    return runInSystemContext('platform', () =>
+    Promise.all([
       prisma.tenant.count({ where: { deletedAt: null } }),
       prisma.tenant.count({
         where: { deletedAt: null, subscriptionStatus: 'ACTIVE' },
@@ -45,15 +49,17 @@ export class PlatformTenantService {
         where: { deletedAt: null },
         _count: true,
       }),
-    ]);
-
-    return { totalTenants, activeTenants, expiredTenants, tierCounts };
+    ]).then(([totalTenants, activeTenants, expiredTenants, tierCounts]) => ({
+      totalTenants, activeTenants, expiredTenants, tierCounts,
+    }))
+    );
   }
 
   static async createTenant(
     input: { tenantName: string; ownerName: string; email: string; password: string; phone?: string; taxRate?: number },
     actorUserId: string
   ) {
+    return runInSystemContext('platform', async () => {
     const normalizedEmail = normalizeAuthEmail(input.email);
     const existingUser = await prisma.user.findFirst({
       where: {
@@ -149,8 +155,8 @@ export class PlatformTenantService {
           actorUserId,
           tenantId: tenant.id,
           action: 'TENANT_CREATE',
-          metadata: { name: tenant.name, slug: tenant.slug }
-        }
+          metadata: { name: tenant.name, slug: tenant.slug },
+        },
       });
 
       return {
@@ -161,6 +167,7 @@ export class PlatformTenantService {
         email: user.email
       };
     });
+    });
   }
 
   static async updateTenant(
@@ -168,6 +175,7 @@ export class PlatformTenantService {
     input: { name?: string; phone?: string; taxRate?: number },
     actorUserId: string
   ) {
+    return runInSystemContext('platform', async () => {
     const tenant = await prisma.tenant.findFirst({
       where: { id: tenantId, deletedAt: null }
     });
@@ -189,17 +197,19 @@ export class PlatformTenantService {
           actorUserId,
           tenantId,
           action: 'TENANT_UPDATE',
-          metadata: { input }
-        }
+          metadata: { input },
+        },
       });
 
       return result;
     });
 
     return updated;
+    });
   }
 
   static async deleteTenant(tenantId: string, actorUserId: string) {
+    return runInSystemContext('platform', async () => {
     const tenant = await prisma.tenant.findFirst({
       where: { id: tenantId, deletedAt: null }
     });
@@ -226,15 +236,17 @@ export class PlatformTenantService {
           actorUserId,
           tenantId,
           action: 'TENANT_DELETE',
-          metadata: { deletedAt: now }
-        }
+          metadata: { deletedAt: now },
+        },
       });
     });
 
     return { id: tenantId, deleted: true };
+    });
   }
 
   static async getTenantById(tenantId: string) {
+    return runInSystemContext('platform', async () => {
     const tenant = await prisma.tenant.findFirst({
       where: { id: tenantId, deletedAt: null },
       select: {
@@ -266,9 +278,11 @@ export class PlatformTenantService {
     }
 
     return tenant;
+    });
   }
 
   static async updateTenantStatus(tenantId: string, status: TenantStatus, actorUserId: string) {
+    return runInSystemContext('platform', async () => {
     const tenant = await prisma.tenant.findFirst({
       where: { id: tenantId, deletedAt: null }
     });
@@ -287,12 +301,13 @@ export class PlatformTenantService {
           actorUserId,
           tenantId,
           action: status === 'SUSPENDED' ? 'TENANT_SUSPEND' : 'TENANT_ACTIVATE',
-          metadata: { status }
-        }
-      })
+          metadata: { status },
+        },
+      }),
     ]);
 
     return { id: tenantId, status };
+    });
   }
 
   static async overrideSubscription(
@@ -302,6 +317,7 @@ export class PlatformTenantService {
     actorUserId: string,
     note?: string
   ) {
+    return runInSystemContext('platform', async () => {
     const tenant = await prisma.tenant.findFirst({
       where: { id: tenantId, deletedAt: null }
     });
@@ -336,11 +352,12 @@ export class PlatformTenantService {
           actorUserId,
           tenantId,
           action: 'TIER_OVERRIDE',
-          metadata: { tier, expiresAt, note: note || null }
-        }
-      })
+          metadata: { tier, expiresAt, note: note || null },
+        },
+      }),
     ]);
 
     return { id: tenantId, subscriptionTier: tier, subscriptionExpiresAt: expiresAt };
+    });
   }
 }

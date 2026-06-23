@@ -53,7 +53,7 @@ const emptyStaffOverviewMetrics: StaffOverviewMetrics = {
 
 export function useStaffManagement() {
   const navigate = useNavigate();
-  const token = useAuthStore((state) => state.token);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const currentUser = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
   const subscription = useSubscriptionStore((state) => state.subscription);
@@ -151,7 +151,7 @@ export function useStaffManagement() {
   }, [fetchStaff, fetchActiveSubscription]);
 
   useEffect(() => {
-    if (!token) {
+    if (!isAuthenticated) {
       navigate('/login');
       return;
     }
@@ -160,9 +160,11 @@ export function useStaffManagement() {
       return;
     }
 
-    void Promise.all([fetchRoles(), fetchOutletHierarchy(), fetchActiveSubscription()]);
+    Promise.resolve().then(() => {
+      void Promise.all([fetchRoles(), fetchOutletHierarchy(), fetchActiveSubscription()]);
+    });
   }, [
-    token,
+    isAuthenticated,
     currentUser,
     navigate,
     fetchRoles,
@@ -172,17 +174,21 @@ export function useStaffManagement() {
   ]);
 
   useEffect(() => {
-    if (!token || !isStaffManagementSessionAllowed) {
+    if (!isAuthenticated || !isStaffManagementSessionAllowed) {
       return;
     }
 
-    void fetchStaff();
-  }, [activeTab, roleFilter, token, isStaffManagementSessionAllowed, fetchStaff]);
+    Promise.resolve().then(() => {
+      void fetchStaff();
+    });
+  }, [activeTab, roleFilter, isAuthenticated, isStaffManagementSessionAllowed, fetchStaff]);
 
   useEffect(() => {
-    setSelectedStaffIds([]);
-    setDetailStaff(null);
-    setStaffDetail(null);
+    Promise.resolve().then(() => {
+      setSelectedStaffIds([]);
+      setDetailStaff(null);
+      setStaffDetail(null);
+    });
   }, [activeTab]);
 
   const handleSearchSubmit = (event: React.FormEvent) => {

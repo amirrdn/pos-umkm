@@ -16,6 +16,7 @@ import {
   LoginView,
   OutletManagementView,
   PlatformBillingView,
+  PlatformAuditView,
   PlatformConsoleLayout,
   PlatformDashboard,
   PlatformAnalyticsView,
@@ -33,10 +34,10 @@ import {
 } from './routes/lazyPages';
 
 const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode; allowedRoles?: string[] }) => {
-  const token = useAuthStore((state) => state.token);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const user = useAuthStore((state) => state.user);
 
-  if (!token) {
+  if (!isAuthenticated || !user) {
     return <Navigate to="/login" replace />;
   }
 
@@ -58,10 +59,10 @@ const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode;
 };
 
 const PlatformRoute = ({ children }: { children: React.ReactNode }) => {
-  const token = useAuthStore((state) => state.token);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const user = useAuthStore((state) => state.user);
 
-  if (!token) {
+  if (!isAuthenticated || !user) {
     return <Navigate to="/login" replace />;
   }
 
@@ -80,7 +81,7 @@ function getDefaultAuthedPath(user: ReturnType<typeof useAuthStore.getState>['us
 }
 
 function App() {
-  const token = useAuthStore((state) => state.token);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const user = useAuthStore((state) => state.user);
   const theme = useThemeStore((state) => state.theme);
   const defaultAuthedPath = getDefaultAuthedPath(user);
@@ -100,19 +101,19 @@ function App() {
         <Routes>
           <Route
             path="/"
-            element={token ? <Navigate to={defaultAuthedPath} replace /> : <LandingPage />}
+            element={isAuthenticated ? <Navigate to={defaultAuthedPath} replace /> : <LandingPage />}
           />
 
           <Route
             path="/register"
-            element={token ? <Navigate to={defaultAuthedPath} replace /> : <RegisterView />}
+            element={isAuthenticated ? <Navigate to={defaultAuthedPath} replace /> : <RegisterView />}
           />
 
           <Route path="/verify-email" element={<VerifyEmailView />} />
 
           <Route
             path="/login"
-            element={token ? <Navigate to={defaultAuthedPath} replace /> : <LoginView />}
+            element={isAuthenticated ? <Navigate to={defaultAuthedPath} replace /> : <LoginView />}
           />
 
           <Route path="/docs" element={<UserDocumentation />} />
@@ -131,6 +132,7 @@ function App() {
             <Route path="tenants" element={<PlatformTenantsView />} />
             <Route path="tenants/:tenantId" element={<PlatformTenantDetailView />} />
             <Route path="billing" element={<PlatformBillingView />} />
+            <Route path="audit" element={<PlatformAuditView />} />
           </Route>
 
           <Route

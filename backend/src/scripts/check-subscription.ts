@@ -1,8 +1,9 @@
-import { PrismaClient, SubscriptionTier, SubscriptionStatus } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { SubscriptionTier, SubscriptionStatus } from '@prisma/client';
+import { prisma } from '../lib/prisma';
+import { runInSystemContext } from '../lib/tenantContext';
 
 async function main() {
+  await runInSystemContext('script', async () => {
   const email = 'owner@tokoutama.com';
   console.log(`Mencari user dengan email: ${email}...`);
 
@@ -57,7 +58,6 @@ async function main() {
     });
   }
 
-  // Jika argumen --reset diberikan, reset langganan ke ACTIVE - FREE
   const args = process.argv.slice(2);
   if (args.includes('--reset-free')) {
     console.log('\n[RESET] Mereset status langganan tenant ke paket FREE - ACTIVE...');
@@ -84,7 +84,6 @@ async function main() {
       }
     });
 
-    // Jika ada invoice pending, set ke PAID agar sinkron
     const pendingInvoice = tenant.subscriptionInvoices.find(inv => inv.status === 'PENDING');
     if (pendingInvoice) {
       console.log(`Mengubah status invoice ${pendingInvoice.invoiceNumber} menjadi PAID...`);
@@ -107,6 +106,7 @@ async function main() {
     });
     console.log(`Berhasil menghapus ${delInvoices.count} invoice dan ${delHistories.count} catatan riwayat.`);
   }
+  });
 }
 
 main()

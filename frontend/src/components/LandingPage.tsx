@@ -1,10 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Store, TrendingUp, ShieldCheck, Layers, ArrowRight, Menu, X } from 'lucide-react';
+import { usePageSeo } from '../hooks/usePageSeo';
+import { PAGE_SEO } from '../utils/pageSeo';
 
 export default function LandingPage() {
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  usePageSeo(PAGE_SEO.home);
 
   useEffect(() => {
     if (!mobileMenuOpen) return;

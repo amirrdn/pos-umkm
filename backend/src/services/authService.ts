@@ -1,5 +1,6 @@
 import bcrypt from 'bcrypt';
 import { prisma } from '../lib/prisma';
+import { runInSystemContext } from '../lib/tenantContext';
 import jwt from 'jsonwebtoken';
 import {
   normalizeAuthEmail,
@@ -18,6 +19,7 @@ export class AuthService {
    * Melakukan autentikasi email & password dan menghasilkan token JWT jika kredensial benar.
    */
   async login(email: string, password: string) {
+    return runInSystemContext('auth', async () => {
     const normalizedEmail = normalizeAuthEmail(email);
     const user = await prisma.user.findFirst({
       where: {
@@ -120,12 +122,14 @@ export class AuthService {
         taxRate
       }
     };
+    });
   }
 
   /**
    * Melakukan registrasi Tenant (Toko) baru beserta Owner pertama dalam transaksi database yang terpadu.
    */
   async registerTenant(input: { tenantName: string; ownerName: string; email: string; password: string }) {
+    return runInSystemContext('auth', async () => {
     const normalizedEmail = normalizeAuthEmail(input.email);
     const existingUser = await prisma.user.findFirst({
       where: {
@@ -283,6 +287,7 @@ export class AuthService {
       ...result,
       emailVerificationSent: true,
     };
+    });
   }
 
   /**
@@ -290,6 +295,7 @@ export class AuthService {
    * Status staf secara default akan menjadi PENDING.
    */
   async registerStaff(input: { tenantId: string; name: string; email: string; password: string; outletIds: string[] }) {
+    return runInSystemContext('auth', async () => {
     const normalizedEmail = normalizeAuthEmail(input.email);
     const existingUser = await prisma.user.findFirst({
       where: {
@@ -382,5 +388,6 @@ export class AuthService {
       ...result,
       emailVerificationSent: true,
     };
+    });
   }
 }

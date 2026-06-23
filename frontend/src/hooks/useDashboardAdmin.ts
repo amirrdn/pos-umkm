@@ -20,7 +20,7 @@ import type {
 
 export function useDashboardAdmin() {
   const navigate = useNavigate();
-  const { token, user, logout } = useAuthStore();
+  const { isAuthenticated, user, logout } = useAuthStore();
   const activeOutletId = useAuthStore((state) => state.activeOutletId);
   const tenantId = user?.tenantId;
   const tenantWideAccess = user ? hasTenantWideOutletAccess(user.roles) : false;
@@ -37,7 +37,7 @@ export function useDashboardAdmin() {
   const [shiftReports, setShiftReports] = useState<ShiftReport[]>([]);
 
   const fetchData = useCallback(async () => {
-    if (!token || !tenantId) return;
+    if (!isAuthenticated || !tenantId) return;
 
     setLoading(true);
     setError(null);
@@ -62,7 +62,7 @@ export function useDashboardAdmin() {
     } finally {
       setLoading(false);
     }
-  }, [token, tenantId, tenantWideAccess]);
+  }, [isAuthenticated, tenantId, tenantWideAccess]);
 
   useEffect(() => {
     void (async () => {

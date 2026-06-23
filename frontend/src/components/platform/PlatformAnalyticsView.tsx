@@ -3,6 +3,35 @@ import { usePlatformStore } from '../../store/usePlatformStore';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { TrendingUp, Package, Store, Loader2 } from 'lucide-react';
 
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: Array<{ value: number | string }>;
+  label?: string;
+}
+
+const formatCurrency = (amount: number) => {
+  return new Intl.NumberFormat('id-ID', {
+    style: 'currency',
+    currency: 'IDR',
+    minimumFractionDigits: 0,
+  }).format(amount);
+};
+
+const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
+  if (active && payload && payload.length) {
+    const value = Number(payload[0].value);
+    return (
+      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-3 rounded-lg shadow-lg">
+        <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-1">{label}</p>
+        <p className="text-sm font-bold text-violet-600">
+          {formatCurrency(isNaN(value) ? 0 : value)}
+        </p>
+      </div>
+    );
+  }
+  return null;
+};
+
 export function PlatformAnalyticsView() {
   const fetchRevenueData = usePlatformStore((state) => state.fetchRevenueData);
   const fetchTopProducts = usePlatformStore((state) => state.fetchTopProducts);
@@ -22,28 +51,6 @@ export function PlatformAnalyticsView() {
       </div>
     );
   }
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      minimumFractionDigits: 0,
-    }).format(amount);
-  };
-
-  const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-3 rounded-lg shadow-lg">
-          <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-1">{label}</p>
-          <p className="text-sm font-bold text-violet-600">
-            {formatCurrency(payload[0].value)}
-          </p>
-        </div>
-      );
-    }
-    return null;
-  };
 
   return (
     <div className="space-y-6">

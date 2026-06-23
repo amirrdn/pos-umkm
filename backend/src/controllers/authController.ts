@@ -17,8 +17,38 @@ import {
 import { LoginError } from '../domain/auth/login.errors';
 import { prisma } from '../lib/prisma';
 import { getErrorMessage } from '../lib/errors';
+import { clearAuthCookie, setAuthCookie } from '../lib/authCookie';
 
 const authService = new AuthService();
+
+type AuthSessionUser = {
+  id: string;
+  tenantId: string | null;
+  name: string;
+  email: string;
+  roles: string[];
+  permissions: string[];
+  outletIds: string[];
+  outlets?: unknown[];
+  taxRate?: number;
+};
+
+function sendAuthenticatedSession(res: Response, token: string, user: AuthSessionUser) {
+  setAuthCookie(res, token);
+  return res.status(200).json({
+    success: true,
+    message: 'Login berhasil.',
+    data: { user },
+  });
+}
+
+export async function logout(_req: Request, res: Response) {
+  clearAuthCookie(res);
+  return res.status(200).json({
+    success: true,
+    message: 'Logout berhasil.',
+  });
+}
 
 export async function login(req: Request, res: Response) {
   try {
@@ -34,11 +64,7 @@ export async function login(req: Request, res: Response) {
     const { email, password } = validation.data;
     const result = await authService.login(email, password);
 
-    return res.status(200).json({
-      success: true,
-      message: 'Login berhasil.',
-      data: result,
-    });
+    return sendAuthenticatedSession(res, result.token, result.user);
   } catch (error: unknown) {
     console.error('Login Controller Error:', error);
 
@@ -264,11 +290,7 @@ export async function googleLogin(req: Request, res: Response) {
     const { loginWithGoogle } = await import('../services/googleAuthService');
     const result = await loginWithGoogle(validation.data);
 
-    return res.status(200).json({
-      success: true,
-      message: 'Login Google berhasil.',
-      data: result,
-    });
+    return sendAuthenticatedSession(res, result.token, result.user);
   } catch (error: unknown) {
     console.error('Google Login Controller Error:', error);
     const message = getErrorMessage(error);

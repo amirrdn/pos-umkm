@@ -12,7 +12,6 @@ export interface PosPaymentSheetProps {
   setCustomerQuery: (query: string) => void;
   searchResults: Customer[];
   setSearchResults: (results: Customer[]) => void;
-  onCustomerSearch: (query: string) => void;
   setShowAddCustomerModal: (val: boolean) => void;
   discountType: 'PERCENT' | 'NOMINAL';
   discountValue: number;
@@ -30,7 +29,6 @@ export function PosPaymentSheet({
   setCustomerQuery,
   searchResults,
   setSearchResults,
-  onCustomerSearch: _onCustomerSearch,
   setShowAddCustomerModal,
   discountType,
   discountValue,

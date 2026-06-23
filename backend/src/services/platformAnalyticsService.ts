@@ -1,8 +1,10 @@
 import { prisma } from '../lib/prisma';
+import { runInSystemContext } from '../lib/tenantContext';
 import { Prisma } from '@prisma/client';
 
 export class PlatformAnalyticsService {
   static async getAllStaff(page = 1, limit = 50) {
+    return runInSystemContext('platform', async () => {
     const skip = (page - 1) * limit;
 
     const [total, data] = await Promise.all([
@@ -56,9 +58,11 @@ export class PlatformAnalyticsService {
         totalPages: Math.ceil(total / limit),
       },
     };
+    });
   }
 
   static async getPlatformRevenue() {
+    return runInSystemContext('platform', async () => {
     const rawData = await prisma.$queryRaw<
       Array<{ date: Date; revenue: Prisma.Decimal }>
     >`
@@ -75,9 +79,11 @@ export class PlatformAnalyticsService {
       date: row.date.toISOString().split('T')[0],
       revenue: Number(row.revenue),
     }));
+    });
   }
 
   static async getTopProducts() {
+    return runInSystemContext('platform', async () => {
     const topTransactionItems = await prisma.transactionItem.groupBy({
       by: ['productId'],
       _sum: {
@@ -119,6 +125,7 @@ export class PlatformAnalyticsService {
         quantitySold: item._sum.quantity || 0,
         revenueGenerated: Number(item._sum.subtotal || 0),
       };
+    });
     });
   }
 }

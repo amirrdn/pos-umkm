@@ -50,6 +50,10 @@ export const PlatformBillingView = lazyNamed(
   () => import('../components/platform/PlatformBillingView'),
   'PlatformBillingView'
 );
+export const PlatformAuditView = lazyNamed(
+  () => import('../components/platform/PlatformAuditView'),
+  'PlatformAuditView'
+);
 
 export const PosView = lazyNamed(() => import('../components/PosView'), 'PosView');
 export const TransactionHistory = lazyNamed(

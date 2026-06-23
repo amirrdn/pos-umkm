@@ -21,7 +21,6 @@ interface PosCartPanelProps {
   setCustomerQuery: (query: string) => void;
   searchResults: Customer[];
   setSearchResults: (results: Customer[]) => void;
-  handleCustomerSearch: (query: string) => void;
   setShowAddCustomerModal: (val: boolean) => void;
   discountType: 'PERCENT' | 'NOMINAL';
   discountValue: number;
@@ -53,7 +52,6 @@ export const PosCartPanel: React.FC<PosCartPanelProps> = ({
   setCustomerQuery,
   searchResults,
   setSearchResults,
-  handleCustomerSearch,
   setShowAddCustomerModal,
   discountType,
   discountValue,
@@ -129,7 +127,6 @@ export const PosCartPanel: React.FC<PosCartPanelProps> = ({
               setCustomerQuery={setCustomerQuery}
               searchResults={searchResults}
               setSearchResults={setSearchResults}
-              onCustomerSearch={handleCustomerSearch}
               setShowAddCustomerModal={setShowAddCustomerModal}
               discountType={discountType}
               discountValue={discountValue}

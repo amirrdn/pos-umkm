@@ -10,7 +10,6 @@ export type LoginErrorCode =
   | 'INVALID_CREDENTIALS';
 
 export interface LoginResult {
-  token: string;
   user: AuthUser;
 }
 
@@ -64,5 +63,10 @@ export async function registerStaffApi(payload: {
 
 export async function googleLoginApi(payload: { idToken: string; role?: 'owner' | 'staff' }): Promise<ApiSuccessResponse<LoginResult>> {
   const response = await apiClient.post<ApiSuccessResponse<LoginResult>>('/api/auth/google', payload);
+  return response.data;
+}
+
+export async function logoutApi(): Promise<ApiSuccessResponse<null>> {
+  const response = await apiClient.post<ApiSuccessResponse<null>>('/api/auth/logout');
   return response.data;
 }

@@ -29,7 +29,7 @@ export function OutletSwitcher({
   operationalOnly = false,
 }: OutletSwitcherProps) {
   const user = useAuthStore((state) => state.user);
-  const token = useAuthStore((state) => state.token);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const activeOutletId = useAuthStore((state) => state.activeOutletId);
   const setActiveOutlet = useAuthStore((state) => state.setActiveOutlet);
 
@@ -39,7 +39,7 @@ export function OutletSwitcher({
   const tenantWideAccess = user ? hasTenantWideOutletAccess(user.roles) : false;
 
   useEffect(() => {
-    if (!token || !user || !tenantWideAccess) return;
+    if (!isAuthenticated || !user || !tenantWideAccess) return;
 
     const fetchOutlets = async () => {
       setLoading(true);
@@ -61,7 +61,7 @@ export function OutletSwitcher({
     };
 
     fetchOutlets();
-  }, [token, user, tenantWideAccess, operationalOnly]);
+  }, [isAuthenticated, user, tenantWideAccess, operationalOnly]);
 
   const outlets = useMemo((): OutletOption[] => {
     if (!user) return [];

@@ -35,8 +35,10 @@ export function PlatformBillingView() {
   const [selectedMidtransInvoice, setSelectedMidtransInvoice] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
+    Promise.resolve().then(() => {
+      setIsLoading(true);
+      setError(null);
+    });
     try {
       const [metricsData, invoicesRes] = await Promise.all([
         getBillingMetricsApi(),
@@ -54,7 +56,10 @@ export function PlatformBillingView() {
   }, [page]);
 
   useEffect(() => {
-    fetchData();
+    const timer = setTimeout(() => {
+      fetchData();
+    }, 0);
+    return () => clearTimeout(timer);
   }, [fetchData]);
 
   const formatCurrency = (amount: number | string) => {

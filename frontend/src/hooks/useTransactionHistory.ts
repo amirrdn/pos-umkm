@@ -17,10 +17,9 @@ const QRIS_POLL_INTERVAL_MS = 3000;
 
 export function useTransactionHistory() {
   const navigate = useNavigate();
-  const token = useAuthStore((state) => state.token);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
-  const activeOutletId = useAuthStore((state) => state.activeOutletId);
 
   const [transactions, setTransactions] = useState<TransactionRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,7 +39,7 @@ export function useTransactionHistory() {
 
   const fetchHistory = useCallback(async () => {
     const isPlatformAdminUser = user && isPlatformAdmin(user.roles);
-    if (!token || (!isPlatformAdminUser && !user?.tenantId)) return;
+    if (!isAuthenticated || (!isPlatformAdminUser && !user?.tenantId)) return;
 
     setLoading(true);
     setError(null);
@@ -55,7 +54,7 @@ export function useTransactionHistory() {
     } finally {
       setLoading(false);
     }
-  }, [token, user, activeOutletId]);
+  }, [isAuthenticated, user]);
 
   useEffect(() => {
     void (async () => {

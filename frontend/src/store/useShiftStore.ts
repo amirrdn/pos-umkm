@@ -1,10 +1,6 @@
 import { create } from 'zustand';
 import { apiClient } from '../api/apiClient';
 
-// ==========================================
-// INTERFACE
-// ==========================================
-
 export interface ActiveShift {
   id: string;
   tenantId: string;
@@ -28,20 +24,13 @@ export interface ActiveShift {
 interface ShiftStore {
   activeShift: ActiveShift | null;
   isLoading: boolean;
-  /** True setelah GET /shifts/active selesai — cegah flash ShiftModal saat refresh. */
   hasCheckedActiveShift: boolean;
   error: string | null;
-
-  // Actions
-  fetchActiveShift: (token: string, tenantId: string) => Promise<void>;
-  openShift: (token: string, tenantId: string, cashStart: number) => Promise<ActiveShift>;
-  closeShift: (token: string, tenantId: string, shiftId: string, cashActual: number) => Promise<ActiveShift>;
+  fetchActiveShift: () => Promise<void>;
+  openShift: (cashStart: number) => Promise<ActiveShift>;
+  closeShift: (shiftId: string, cashActual: number) => Promise<ActiveShift>;
   clearShift: () => void;
 }
-
-// ==========================================
-// STORE
-// ==========================================
 
 export const useShiftStore = create<ShiftStore>((set) => ({
   activeShift: null,
@@ -49,13 +38,7 @@ export const useShiftStore = create<ShiftStore>((set) => ({
   hasCheckedActiveShift: false,
   error: null,
 
-  /**
-   * Mengambil data shift aktif milik kasir yang sedang login.
-   * Dipanggil saat komponen PosView pertama kali di-mount.
-   */
-  fetchActiveShift: async (_token, _tenantId) => {
-    void _token;
-    void _tenantId;
+  fetchActiveShift: async () => {
     set({ isLoading: true, error: null });
     try {
       const response = await apiClient.get<{ data: ActiveShift | null }>('/api/shifts/active');
@@ -68,12 +51,7 @@ export const useShiftStore = create<ShiftStore>((set) => ({
     }
   },
 
-  /**
-   * Membuka shift baru dengan modal awal yang dimasukkan kasir.
-   */
-  openShift: async (_token, _tenantId, cashStart) => {
-    void _token;
-    void _tenantId;
+  openShift: async (cashStart) => {
     set({ isLoading: true, error: null });
     try {
       const response = await apiClient.post<{ data: ActiveShift }>('/api/shifts/open', { cashStart });
@@ -88,12 +66,7 @@ export const useShiftStore = create<ShiftStore>((set) => ({
     }
   },
 
-  /**
-   * Menutup shift aktif dengan memasukkan jumlah uang fisik di laci.
-   */
-  closeShift: async (_token, _tenantId, shiftId, cashActual) => {
-    void _token;
-    void _tenantId;
+  closeShift: async (shiftId, cashActual) => {
     set({ isLoading: true, error: null });
     try {
       const response = await apiClient.post<{ data: ActiveShift }>('/api/shifts/close', {
@@ -111,8 +84,5 @@ export const useShiftStore = create<ShiftStore>((set) => ({
     }
   },
 
-  /**
-   * Membersihkan state shift (misalnya saat user logout).
-   */
   clearShift: () => set({ activeShift: null, error: null, hasCheckedActiveShift: false }),
 }));

@@ -4,6 +4,7 @@ import {
   getTenants,
   googleLogin,
   login,
+  logout,
   register,
   registerStaff,
   resendVerification,
@@ -13,6 +14,7 @@ import {
 const router = Router();
 
 router.post('/login', login);
+router.post('/logout', logout);
 router.post('/register', register);
 router.post('/register-staff', registerStaff);
 router.post('/google', googleLogin);

@@ -1,0 +1,234 @@
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useCartStore } from '../../store/useCartStore';
+import { getRecentProductIds, pushRecentProductId } from '../../utils/posRecentProducts';
+import { getProductsApi, type PosCatalogProduct } from '../../api/posApi';
+import {
+  type Product,
+  type ProductApiImage,
+  buildProductAssetUrl,
+} from './posUtils';
+
+interface UsePosProductsOptions {
+  isAuthenticated: boolean;
+  activeOutletId: string | null;
+  platformAdmin: boolean;
+  showToast: (type: 'success' | 'error', message: string) => void;
+  checkTokenExpiration: (err: unknown) => boolean;
+}
+
+export function usePosProducts({
+  isAuthenticated,
+  activeOutletId,
+  platformAdmin,
+  showToast,
+  checkTokenExpiration,
+}: UsePosProductsOptions) {
+  const {
+    cart,
+    addToCart,
+    updateQuantity,
+  } = useCartStore();
+
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loadingProducts, setLoadingProducts] = useState<boolean>(true);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('SEMUA');
+  const [inStockOnly, setInStockOnly] = useState<boolean>(true);
+  const [cartBadgePulse, setCartBadgePulse] = useState<boolean>(false);
+  const [recentProductIds, setRecentProductIds] = useState<string[]>(() => getRecentProductIds());
+
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  const focusSearchInput = useCallback(() => {
+    searchInputRef.current?.focus();
+  }, []);
+
+  const canFetchProducts = Boolean(isAuthenticated && (activeOutletId || platformAdmin));
+
+  useEffect(() => {
+    if (!canFetchProducts) return;
+
+    let cancelled = false;
+
+    void (async () => {
+      await Promise.resolve();
+      if (cancelled) return;
+
+      setLoadingProducts(true);
+      try {
+        const data = await getProductsApi();
+        if (cancelled) return;
+
+        const mappedProducts = (data.data as PosCatalogProduct[]).map((item, index: number) => {
+          const fallbacks = [
+            'https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&q=80&w=600',
+            'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&q=80&w=600',
+            'https://images.unsplash.com/photo-1555507036-ab1f4038808a?auto=format&fit=crop&q=80&w=600',
+            'https://images.unsplash.com/photo-1556679343-c7306c1976bc?auto=format&fit=crop&q=80&w=600',
+            'https://images.unsplash.com/photo-1536256263959-770b48d82b0a?auto=format&fit=crop&q=80&w=600'
+          ];
+          const mainImage = item.images && item.images.length > 0
+            ? (item.images.find((img: ProductApiImage) => img.isMain)?.url || item.images[0].url)
+            : null;
+          const finalImageUrl = mainImage && mainImage.startsWith('/uploads')
+            ? buildProductAssetUrl(mainImage)
+            : mainImage;
+          return {
+            id: item.id,
+            sku: item.sku,
+            name: item.name,
+            price: Number(item.sellingPrice),
+            stock: item.stock,
+            minStock: item.minStock ?? 0,
+            category: item.category?.name || 'Umum',
+            imageUrl: finalImageUrl || fallbacks[index % fallbacks.length]
+          };
+        });
+
+        setProducts(mappedProducts);
+      } catch (err: unknown) {
+        if (cancelled) return;
+        console.error('Fetch Products Error:', err);
+        if (!checkTokenExpiration(err)) {
+          const msg = err instanceof Error ? err.message : 'Koneksi ke API produk gagal.';
+          showToast('error', msg);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingProducts(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [canFetchProducts, isAuthenticated, activeOutletId, platformAdmin, checkTokenExpiration, showToast]);
+
+  const catalogProducts = useMemo(
+    () => (canFetchProducts ? products : []),
+    [canFetchProducts, products]
+  );
+  const catalogLoading = canFetchProducts ? loadingProducts : false;
+
+  const getRemainingStock = useCallback((productId: string, originalStock: number): number => {
+    const cartItem = cart.find(item => item.productId === productId);
+    return originalStock - (cartItem ? cartItem.quantity : 0);
+  }, [cart]);
+
+  const handleAddToCart = useCallback(
+    (product: { productId: string; name: string; price: number; sku: string; stock: number }) => {
+      addToCart(product);
+      const nextRecent = pushRecentProductId(product.productId);
+      setRecentProductIds(nextRecent);
+      setCartBadgePulse(true);
+      setTimeout(() => setCartBadgePulse(false), 600);
+      showToast('success', `${product.name} ditambahkan ke keranjang.`);
+    },
+    [addToCart, showToast]
+  );
+
+  const handleSearchKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLInputElement>) => {
+      if (event.key !== 'Enter' || !searchQuery.trim()) return;
+
+      const query = searchQuery.trim().toLowerCase();
+      const exactMatch = catalogProducts.find(
+        (product) =>
+          product.sku.toLowerCase() === query ||
+          product.name.toLowerCase() === query
+      );
+
+      if (!exactMatch) return;
+
+      const remaining = getRemainingStock(exactMatch.id, exactMatch.stock);
+      if (remaining <= 0) {
+        showToast('error', `${exactMatch.name} stok habis.`);
+        return;
+      }
+
+      handleAddToCart({
+        productId: exactMatch.id,
+        name: exactMatch.name,
+        price: exactMatch.price,
+        sku: exactMatch.sku,
+        stock: exactMatch.stock,
+      });
+      setSearchQuery('');
+    },
+    [searchQuery, catalogProducts, handleAddToCart, showToast, getRemainingStock]
+  );
+
+  const incrementLastCartItem = useCallback(() => {
+    const lastItem = cart[cart.length - 1];
+    if (!lastItem) return;
+    if (lastItem.quantity >= lastItem.stock) {
+      showToast('error', 'Stok tidak mencukupi.');
+      return;
+    }
+    updateQuantity(lastItem.productId, lastItem.quantity + 1);
+  }, [cart, updateQuantity, showToast]);
+
+  const decrementLastCartItem = useCallback(() => {
+    const lastItem = cart[cart.length - 1];
+    if (!lastItem) return;
+    updateQuantity(lastItem.productId, lastItem.quantity - 1);
+  }, [cart, updateQuantity]);
+
+  const filteredProducts = useMemo(() => {
+    return catalogProducts.filter(product => {
+      const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        product.sku.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesCategory = selectedCategory === 'SEMUA' || product.category === selectedCategory;
+      const remaining = getRemainingStock(product.id, product.stock);
+      const matchesStock = !inStockOnly || remaining > 0;
+      return matchesSearch && matchesCategory && matchesStock;
+    });
+  }, [catalogProducts, searchQuery, selectedCategory, inStockOnly, getRemainingStock]);
+
+  const categoriesList = useMemo(() => {
+    return ['SEMUA', ...Array.from(new Set(catalogProducts.map(p => p.category)))];
+  }, [catalogProducts]);
+
+  const recentProducts = useMemo(() => {
+    return recentProductIds
+      .map((id) => catalogProducts.find((product) => product.id === id))
+      .filter((product): product is Product => Boolean(product));
+  }, [recentProductIds, catalogProducts]);
+
+  const popularProducts = useMemo(() => {
+    return [...catalogProducts]
+      .filter((product) => getRemainingStock(product.id, product.stock) > 0)
+      .sort((a, b) => b.stock - a.stock)
+      .slice(0, 4);
+  }, [catalogProducts, getRemainingStock]);
+
+  return {
+    products,
+    setProducts,
+    loadingProducts,
+    searchQuery,
+    setSearchQuery,
+    selectedCategory,
+    setSelectedCategory,
+    inStockOnly,
+    setInStockOnly,
+    cartBadgePulse,
+    setCartBadgePulse,
+    recentProductIds,
+    setRecentProductIds,
+    searchInputRef,
+    focusSearchInput,
+    catalogProducts,
+    catalogLoading,
+    getRemainingStock,
+    handleAddToCart,
+    handleSearchKeyDown,
+    incrementLastCartItem,
+    decrementLastCartItem,
+    filteredProducts,
+    categoriesList,
+    recentProducts,
+    popularProducts,
+  };
+}

@@ -42,6 +42,12 @@ const { mockTx, mockPrisma, mockSubscriptionService, mockMidtransService } = vi.
       $transaction: vi.fn(async (callback: (innerTx: typeof tx) => Promise<unknown>) =>
         callback(tx)
       ),
+      $executeRawWithTenant: vi.fn(
+        async (
+          _tenantId: string,
+          callback: (innerTx: typeof tx) => Promise<unknown>
+        ) => callback(tx)
+      ),
       transaction: {
         update: vi.fn(),
         delete: vi.fn(),
@@ -150,7 +156,7 @@ describe('processCheckout', () => {
       httpStatus: 403,
     });
 
-    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    expect(mockPrisma.$executeRawWithTenant).not.toHaveBeenCalled();
   });
 
   it('throws OUTLET_REQUIRED when outlet context is missing', async () => {
@@ -168,7 +174,7 @@ describe('processCheckout', () => {
       httpStatus: 400,
     });
 
-    expect(mockPrisma.$transaction).toHaveBeenCalledOnce();
+    expect(mockPrisma.$executeRawWithTenant).toHaveBeenCalledOnce();
   });
 
   it('throws STOCK_INSUFFICIENT when stock is not enough', async () => {

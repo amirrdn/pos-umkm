@@ -1,5 +1,6 @@
-import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
+import { prisma } from '../lib/prisma';
+import { runInSystemContext } from '../lib/tenantContext';
 
 async function run() {
   require('dotenv').config();
@@ -9,22 +10,14 @@ async function run() {
     process.exit(1);
   }
 
-  console.log(`Menghubungkan ke database...`);
-  const prisma = new PrismaClient({
-    datasources: {
-      db: {
-        url: dbUrl,
-      },
-    },
-  });
+  if (!process.env.DATABASE_URL) {
+    process.env.DATABASE_URL = dbUrl;
+  }
 
   try {
+    await runInSystemContext('script', async () => {
     const email = '4mir.rdn@gmail.com';
     const password = 'password123';
-    // Cari tenant secara dinamis:
-    // 1. Cari berdasarkan slug 'toko-berkah-makmur'
-    // 2. Jika tidak ada, cari tenant non-default pertama (yang bukan 'tenant-uuid-xyz-123')
-    // 3. Fallback ke 'tenant-uuid-xyz-123' (seeder tenant)
     console.log(`Meng-hash password...`);
     const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -76,6 +69,7 @@ async function run() {
     console.log('Platform Admin tidak diikat ke outlet tertentu (akses lintas tenant).');
 
     console.log(`✅ Sukses! User admin ${email} berhasil ditambahkan/diperbarui.`);
+    });
   } catch (error) {
     console.error('❌ Terjadi kesalahan:', error);
   } finally {

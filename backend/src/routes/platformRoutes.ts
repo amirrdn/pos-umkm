@@ -21,6 +21,12 @@ import {
   listInvoices,
   getMidtransDetail,
 } from '../controllers/platformBillingController';
+import {
+  getActiveInspection,
+  listAuditLogs,
+  startInspection,
+  stopInspection,
+} from '../controllers/platformAuditController';
 
 const router = Router();
 
@@ -42,5 +48,10 @@ router.patch('/tenants/:id/subscription', overrideSubscription);
 router.get('/billing/metrics', getBillingMetrics);
 router.get('/billing/invoices', listInvoices);
 router.get('/billing/invoices/:invoiceNumber/midtrans', getMidtransDetail);
+
+router.post('/inspection/start', startInspection);
+router.post('/inspection/stop', stopInspection);
+router.get('/inspection/active', getActiveInspection);
+router.get('/audit-logs', listAuditLogs);
 
 export default router;

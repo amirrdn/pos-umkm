@@ -17,6 +17,8 @@ import {
   Sparkles,
   type LucideIcon,
 } from 'lucide-react';
+import { usePageSeo } from '../hooks/usePageSeo';
+import { PAGE_SEO } from '../utils/pageSeo';
 
 interface DocSection {
   id: string;
@@ -30,6 +32,8 @@ export default function UserDocumentation() {
   const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState('getting-started');
   const [searchQuery, setSearchQuery] = useState('');
+
+  usePageSeo(PAGE_SEO.docs);
 
   const sections: DocSection[] = [
     {

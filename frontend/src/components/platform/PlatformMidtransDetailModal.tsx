@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { X, RefreshCw, ExternalLink, Receipt, AlertCircle, Clock, CheckCircle } from 'lucide-react';
 import { getMidtransDetailApi } from '../../api/platformBillingApi';
 import type { MidtransTransactionDetail } from '../../api/platformBillingApi';
@@ -15,9 +15,11 @@ export function PlatformMidtransDetailModal({ invoiceNumber, onClose }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchDetail = async () => {
-    setLoading(true);
-    setError(null);
+  const fetchDetail = useCallback(async () => {
+    Promise.resolve().then(() => {
+      setLoading(true);
+      setError(null);
+    });
     try {
       const result = await getMidtransDetailApi(invoiceNumber);
       setData(result);
@@ -26,11 +28,14 @@ export function PlatformMidtransDetailModal({ invoiceNumber, onClose }: Props) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [invoiceNumber]);
 
   useEffect(() => {
-    fetchDetail();
-  }, [invoiceNumber]);
+    const timer = setTimeout(() => {
+      fetchDetail();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [fetchDetail]);
 
   const formatCurrency = (amount: string | number) => {
     return new Intl.NumberFormat('id-ID', {

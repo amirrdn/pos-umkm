@@ -4,22 +4,12 @@ import { hasTenantWideOutletAccess, isPlatformAdmin } from '../lib/roles';
 import { getJwtSecret } from '../lib/jwtConfig';
 import { validateJwtPayload } from '../lib/jwtPayload';
 import { logError } from '../lib/logger';
+import { extractAuthToken } from '../lib/authCookie';
 
-/**
- * Auth untuk SSE — EventSource tidak bisa set Authorization header.
- * Terima Bearer header ATAU query `?token=`.
- */
 export function sseAuthMiddleware(req: Request, res: Response, next: NextFunction) {
   try {
-    const authHeader = req.headers.authorization;
     const queryToken = typeof req.query.token === 'string' ? req.query.token : undefined;
-
-    let token: string | undefined;
-    if (authHeader) {
-      const parts = authHeader.split(' ');
-      if (parts.length === 2 && parts[0] === 'Bearer') token = parts[1];
-    }
-    if (!token && queryToken) token = queryToken;
+    const token = extractAuthToken(req) ?? queryToken;
 
     if (!token) {
       return res.status(401).json({

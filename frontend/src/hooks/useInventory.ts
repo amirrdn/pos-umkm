@@ -36,7 +36,7 @@ import type { AppSelectGroup } from '../components/AppSelect';
 
 export function useInventory() {
   const navigate = useNavigate();
-  const token = useAuthStore((state) => state.token);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const activeOutletId = useAuthStore((state) => state.activeOutletId);
   const currentUser = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
@@ -200,7 +200,7 @@ export function useInventory() {
   };
 
   useEffect(() => {
-    if (!token) {
+    if (!isAuthenticated) {
       navigate('/login');
       return;
     }
@@ -219,7 +219,7 @@ export function useInventory() {
           : []),
       ]);
     })();
-  }, [token, currentUser, activeOutletId, navigate, fetchOutlets, fetchHierarchy, fetchTransfers, refreshDraftCount]);
+  }, [isAuthenticated, currentUser, activeOutletId, navigate, fetchOutlets, fetchHierarchy, fetchTransfers, refreshDraftCount]);
 
   useEffect(() => {
     if (!shouldLoadSourceInventory) return;
@@ -252,7 +252,7 @@ export function useInventory() {
     return () => {
       cancelled = true;
     };
-  }, [shouldLoadSourceInventory, transferForm.fromOutletId, token]);
+  }, [shouldLoadSourceInventory, transferForm.fromOutletId, isAuthenticated]);
 
   useEffect(() => {
     if (!shouldLoadMutationStock || !selectedProduct) return;
@@ -513,8 +513,8 @@ export function useInventory() {
     }
   };
 
-  const isBelowMinStock = (prod: Product) =>
-    (prod.minStock ?? 0) > 0 && prod.stock < (prod.minStock ?? 0);
+  const isBelowMinStock = useCallback((prod: Product) =>
+    (prod.minStock ?? 0) > 0 && prod.stock < (prod.minStock ?? 0), []);
 
   const filteredProducts = useMemo(() => {
     return products.filter((prod) => {

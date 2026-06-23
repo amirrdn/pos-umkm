@@ -47,8 +47,8 @@ export function PlatformTenantsView() {
     if (confirm(`Apakah Anda yakin ingin menghapus toko "${tenantName}" secara permanen? Tindakan ini tidak dapat dibatalkan.`)) {
       try {
         await deleteTenant(tenantId);
-      } catch (err: any) {
-        alert(err.message || 'Gagal menghapus tenant.');
+      } catch (err: unknown) {
+        alert(err instanceof Error ? err.message : 'Gagal menghapus tenant.');
       }
     }
   };

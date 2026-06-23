@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { API_BASE_URL } from '../config';
 import {
   hasTenantWideOutletAccess,
   isPlatformAdmin,
@@ -46,12 +47,11 @@ export interface AuthUser {
 }
 
 interface AuthState {
-  token: string | null;
   user: AuthUser | null;
   isAuthenticated: boolean;
   activeOutletId: string | null;
 
-  login: (token: string, user: AuthUser) => void;
+  login: (user: AuthUser) => void;
   logout: () => void;
   setActiveOutlet: (outletId: string | null) => void;
 }
@@ -84,38 +84,62 @@ function resolveInitialOutlet(user: AuthUser, persistedOutletId: string | null):
   return null;
 }
 
+async function clearServerAuthSession(): Promise<void> {
+  try {
+    await fetch(`${API_BASE_URL}/api/auth/logout`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+  } catch {
+    // ignore network errors during local sign-out
+  }
+}
+
+async function clearPlatformInspectionSession(): Promise<void> {
+  try {
+    await fetch(`${API_BASE_URL}/api/platform/inspection/stop`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+  } catch {
+    // ignore network errors during local sign-out
+  }
+}
+
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
-      token: null,
       user: null,
       isAuthenticated: false,
       activeOutletId: null,
 
-      login: (token, user) => {
+      login: (user) => {
         const activeOutletId = resolveInitialOutlet(user, get().activeOutletId);
         set({
-          token,
           user,
           isAuthenticated: true,
           activeOutletId,
         });
       },
 
-      logout: () =>
+      logout: () => {
+        const { user } = get();
+        if (user && isPlatformAdmin(user.roles)) {
+          void clearPlatformInspectionSession();
+        }
+        void clearServerAuthSession();
         set({
-          token: null,
           user: null,
           isAuthenticated: false,
           activeOutletId: null,
-        }),
+        });
+      },
 
       setActiveOutlet: (outletId) => set({ activeOutletId: outletId }),
     }),
     {
       name: 'pos-auth-session',
       partialize: (state) => ({
-        token: state.token,
         user: state.user,
         isAuthenticated: state.isAuthenticated,
         activeOutletId: state.activeOutletId,
