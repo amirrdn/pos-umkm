@@ -184,6 +184,7 @@ describe('Prisma Extension - Tenant Isolation', () => {
       });
 
       expect(resultArgs.data!.tenantId).toBe('tenant-abc');
+      expect(resultArgs.where).toBeUndefined();
     });
   });
 

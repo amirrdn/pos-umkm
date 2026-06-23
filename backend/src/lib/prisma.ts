@@ -100,6 +100,22 @@ function isTenantScopedModel(model: string): boolean {
   return TENANT_SCOPED_MODELS.has(model);
 }
 
+const WHERE_SCOPED_OPERATIONS = new Set([
+  'findUnique',
+  'findUniqueOrThrow',
+  'findFirst',
+  'findFirstOrThrow',
+  'findMany',
+  'count',
+  'aggregate',
+  'groupBy',
+  'update',
+  'updateMany',
+  'delete',
+  'deleteMany',
+  'upsert',
+]);
+
 const tenantScopedPrisma = basePrisma.$extends({
   query: {
     $allModels: {
@@ -151,10 +167,12 @@ const tenantScopedPrisma = basePrisma.$extends({
 
           if (effectiveTenantId) {
             if (activeTenantId) {
-              if (where) {
-                queryArgs.where = { ...where, tenantId: activeTenantId };
-              } else {
-                queryArgs.where = { tenantId: activeTenantId };
+              if (WHERE_SCOPED_OPERATIONS.has(operation)) {
+                if (where) {
+                  queryArgs.where = { ...where, tenantId: activeTenantId };
+                } else {
+                  queryArgs.where = { tenantId: activeTenantId };
+                }
               }
 
               if (operation === 'create' && dataObj && !Array.isArray(dataObj) && !('data' in dataObj)) {
