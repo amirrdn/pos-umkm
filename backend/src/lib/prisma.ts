@@ -21,13 +21,21 @@ function datasourceWithPoolLimit(url: string | undefined, limit: number): string
   }
 }
 
-export const systemPrisma = new PrismaClient({
-  log: process.env.NODE_ENV === 'development' ? ['warn', 'error'] : ['error'],
-  datasourceUrl: datasourceWithPoolLimit(
-    process.env.DIRECT_URL || process.env.DATABASE_URL,
-    SYSTEM_POOL_LIMIT
-  ),
-});
+let systemPrismaInstance: PrismaClient | undefined;
+
+/** Lazy — hindari dua Prisma engine di cold start (penting di Render 512MB). */
+function getSystemPrisma(): PrismaClient {
+  if (!systemPrismaInstance) {
+    systemPrismaInstance = new PrismaClient({
+      log: process.env.NODE_ENV === 'development' ? ['warn', 'error'] : ['error'],
+      datasourceUrl: datasourceWithPoolLimit(
+        process.env.DIRECT_URL || process.env.DATABASE_URL,
+        SYSTEM_POOL_LIMIT
+      ),
+    });
+  }
+  return systemPrismaInstance;
+}
 
 const basePrisma = new PrismaClient({
   log: process.env.NODE_ENV === 'development' ? ['warn', 'error'] : ['error'],
@@ -200,12 +208,15 @@ export const prisma = new Proxy(
   }),
   {
     get(target, prop, receiver) {
-      if (getSystemContext() && typeof prop === 'string' && prop in systemPrisma) {
-        const value = Reflect.get(systemPrisma, prop, systemPrisma);
-        if (typeof value === 'function') {
-          return value.bind(systemPrisma);
+      if (getSystemContext() && typeof prop === 'string') {
+        const systemPrisma = getSystemPrisma();
+        if (prop in systemPrisma) {
+          const value = Reflect.get(systemPrisma, prop, systemPrisma);
+          if (typeof value === 'function') {
+            return value.bind(systemPrisma);
+          }
+          return value;
         }
-        return value;
       }
       return Reflect.get(target, prop, receiver);
     },
