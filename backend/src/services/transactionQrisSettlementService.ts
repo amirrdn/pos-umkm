@@ -1,5 +1,5 @@
 import { prisma } from '../lib/prisma';
-import { buildQrisSaleLedgerEntries } from '../domain/inventory';
+import { incrementOutletStock } from '../domain/inventory/stock.repository';
 import { MidtransService } from './midtransService';
 
 export const QRIS_FAILURE_STATUSES = ['expire', 'cancel', 'deny'] as const;
@@ -13,9 +13,8 @@ export function isQrisFailureStatus(status: string): boolean {
  */
 export async function completeQrisSettlement(params: {
   transactionId: string;
-  ledgerNote: string;
 }): Promise<void> {
-  const { transactionId, ledgerNote } = params;
+  const { transactionId } = params;
 
   await prisma.$transaction(async (tx) => {
     await tx.transaction.update({
@@ -30,15 +29,8 @@ export async function completeQrisSettlement(params: {
 
     if (!transactionWithItems) return;
 
-    const stockLedgerEntries = await buildQrisSaleLedgerEntries(
-      tx,
-      transactionWithItems,
-      ledgerNote
-    );
-
-    if (stockLedgerEntries.length > 0) {
-      await tx.stockLedger.createMany({ data: stockLedgerEntries });
-    }
+    // Stok sudah dipotong saat proses checkout awal (reservasi).
+    // Tidak perlu memotong stok lagi di sini.
   }, { maxWait: 15000, timeout: 30000 });
 }
 
@@ -47,10 +39,38 @@ export async function completeQrisSettlement(params: {
  */
 export async function voidQrisTransaction(transactionId: string): Promise<void> {
   await prisma.$transaction(async (tx) => {
-    await tx.transaction.update({
+    const transaction = await tx.transaction.update({
       where: { id: transactionId },
       data: { status: 'VOID' },
+      include: { items: true },
     });
+
+    if (transaction.outletId) {
+      for (const item of transaction.items) {
+        const { stockBefore, stockAfter } = await incrementOutletStock(
+          tx,
+          transaction.tenantId,
+          transaction.outletId,
+          item.productId,
+          item.quantity
+        );
+
+        await tx.stockLedger.create({
+          data: {
+            tenantId: transaction.tenantId,
+            productId: item.productId,
+            userId: transaction.userId,
+            transactionId: transaction.id,
+            type: 'RETURN',
+            quantity: item.quantity,
+            stockBefore,
+            stockAfter,
+            outletId: transaction.outletId,
+            note: `Pengembalian stok QRIS batal/expire - Invoice ${transaction.invoiceNumber}`,
+          },
+        });
+      }
+    }
   }, { maxWait: 15000, timeout: 30000 });
 }
 
@@ -69,7 +89,6 @@ export async function syncPendingQrisFromMidtrans(params: {
     if (midtransStatus === 'settlement') {
       await completeQrisSettlement({
         transactionId,
-        ledgerNote: `Penjualan (QRIS Lunas - Polling) - Invoice ${invoiceNumber}`,
       });
       return 'COMPLETED';
     }

@@ -11,7 +11,7 @@ import { prisma, type PrismaTx } from '../lib/prisma';
 import { MidtransService } from './midtransService';
 import { SubscriptionService, TIER_LIMITS } from './subscriptionService';
 import { isSubscriptionExpired } from '../lib/subscription';
-import { decrementOutletStock } from '../domain/inventory/stock.repository';
+import { decrementOutletStockBulk } from '../domain/inventory/stock.repository';
 
 const checkoutTransactionInclude = {
   items: {
@@ -200,46 +200,40 @@ async function executeCheckoutTransaction(
     });
     pricingLineItems.push({ unitPrice: sellingPrice, quantity: item.quantity });
 
-    if (paymentMethod !== 'QRIS') {
-      try {
-        const { stockBefore, stockAfter } = await decrementOutletStock(
-          tx,
-          tenantId,
-          outletId,
-          product.id,
-          item.quantity
-        );
-
-        stockLedgerEntries.push({
-          tenantId,
-          productId: product.id,
-          userId,
-          type: 'SALE',
-          quantity: -item.quantity,
-          stockBefore,
-          stockAfter,
-          outletId,
-          note: 'Penjualan - Invoice',
-        });
-      } catch (err: unknown) {
-        const errMsg = err instanceof Error ? err.message : String(err);
-        throw new CheckoutError(
-          errMsg || `Stok tidak mencukupi untuk ${product.name}.`,
-          'STOCK_INSUFFICIENT',
-          400
-        );
-      }
-    } else {
-      const stockBefore = stockMap.get(product.id) ?? 0;
-      const stockAfter = stockBefore - item.quantity;
-      if (stockAfter < 0) {
-        throw new CheckoutError(
-          `Stok tidak mencukupi untuk ${product.name}. Tersedia: ${stockBefore}, diminta: ${item.quantity}.`,
-          'STOCK_INSUFFICIENT',
-          400
-        );
-      }
+    const stockBefore = stockMap.get(product.id) ?? 0;
+    const stockAfter = stockBefore - item.quantity;
+    if (stockAfter < 0) {
+      throw new CheckoutError(
+        `Stok tidak mencukupi untuk ${product.name}. Tersedia: ${stockBefore}, diminta: ${item.quantity}.`,
+        'STOCK_INSUFFICIENT',
+        400
+      );
     }
+  }
+
+  try {
+    const bulkItems = itemsToCreate.map((i) => ({ productId: i.productId, quantity: i.quantity }));
+    const stockChanges = await decrementOutletStockBulk(tx, tenantId, outletId, bulkItems);
+    
+    for (const change of stockChanges) {
+      stockLedgerEntries.push({
+        tenantId,
+        productId: change.productId,
+        userId,
+        type: 'SALE',
+        quantity: -change.quantity,
+        stockBefore: change.stockBefore,
+        stockAfter: change.stockAfter,
+        outletId,
+        note: paymentMethod === 'QRIS' ? 'Penjualan QRIS (Pending) - Invoice' : 'Penjualan - Invoice',
+      });
+    }
+  } catch (err: unknown) {
+    throw new CheckoutError(
+      err instanceof Error ? err.message : 'Stok tidak mencukupi untuk beberapa barang.',
+      'STOCK_INSUFFICIENT',
+      400
+    );
   }
 
   const { subTotal, discountAmount, taxAmount, grandTotal } = computeCheckoutPricing({
@@ -325,7 +319,7 @@ async function executeCheckoutTransaction(
     include: checkoutTransactionInclude,
   });
 
-  if (paymentMethod !== 'QRIS' && stockLedgerEntries.length > 0) {
+  if (stockLedgerEntries.length > 0) {
     await tx.stockLedger.createMany({
       data: stockLedgerEntries.map((entry) => ({
         ...entry,

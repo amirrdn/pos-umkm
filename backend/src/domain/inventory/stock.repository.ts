@@ -134,6 +134,44 @@ export async function decrementOutletStock(
   return { stockBefore, stockAfter };
 }
 
+/**
+ * Kurangi stok outlet secara massal (Bulk Update) menggunakan 1 raw query.
+ * Mencegah N+1 Query Problem dan mengunci secara Atomic.
+ */
+export async function decrementOutletStockBulk(
+  tx: PrismaTx,
+  _tenantId: string,
+  outletId: string,
+  items: { productId: string; quantity: number }[]
+): Promise<{ productId: string; quantity: number; stockBefore: number; stockAfter: number }[]> {
+  if (items.length === 0) return [];
+
+  const valuesString = items
+    .map((item) => `('${outletId}', '${item.productId}', ${item.quantity})`)
+    .join(', ');
+
+  const rows = await tx.$queryRawUnsafe<{ productId: string; stockAfter: number; quantity: number }[]>(`
+    UPDATE outlet_stocks AS os
+    SET stock = stock - v.quantity::int
+    FROM (VALUES ${valuesString}) AS v(outlet_id, product_id, quantity)
+    WHERE os."outletId" = v.outlet_id
+      AND os."productId" = v.product_id
+      AND os.stock >= v.quantity::int
+    RETURNING os."productId", os.stock AS "stockAfter", v.quantity::int AS "quantity"
+  `);
+
+  if (rows.length !== items.length) {
+    throw new Error('Stok tidak mencukupi untuk beberapa barang dalam keranjang.');
+  }
+
+  return rows.map((r) => ({
+    productId: r.productId,
+    quantity: r.quantity,
+    stockAfter: r.stockAfter,
+    stockBefore: r.stockAfter + r.quantity,
+  }));
+}
+
 /** Kembalikan stok ke outlet (void / batal QRIS). */
 export async function incrementOutletStock(
   tx: PrismaTx,

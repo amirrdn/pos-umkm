@@ -77,7 +77,6 @@ export async function processMidtransPosWebhook(
   if (transaction_status === 'settlement') {
     await completeQrisSettlement({
       transactionId: transaction.id,
-      ledgerNote: `Penjualan (QRIS Lunas) - Invoice ${order_id}`,
     });
     return { httpStatus: 200, message: 'Pembayaran settlement berhasil diproses.' };
   }

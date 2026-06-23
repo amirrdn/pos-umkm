@@ -228,6 +228,7 @@ model Product {
 
   // SKU harus unik di dalam tenant yang sama
   @@unique([tenantId, sku])
+  @@index([tenantId, categoryId])
   @@map("products")
 }
 
@@ -274,6 +275,8 @@ model Transaction {
 
   // Nomor invoice harus unik di dalam tenant yang sama
   @@unique([tenantId, invoiceNumber])
+  @@index([tenantId, outletId, createdAt])
+  @@index([tenantId, status])
   @@map("transactions")
 }
 
@@ -291,6 +294,8 @@ model TransactionItem {
   transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade) // Hapus item jika transaksi utama dihapus
   product     Product     @relation(fields: [productId], references: [id], onDelete: Restrict) // Tidak boleh hapus produk jika sudah ada transaksi
 
+  @@index([transactionId])
+  @@index([productId])
   @@map("transaction_items")
 }
 
@@ -350,6 +355,7 @@ model StockLedger {
   user    User    @relation(fields: [userId], references: [id], onDelete: Restrict)
   outlet  Outlet? @relation(fields: [outletId], references: [id], onDelete: SetNull)
 
+  @@index([tenantId, outletId, productId, createdAt])
   @@map("stock_ledgers")
 }
 
