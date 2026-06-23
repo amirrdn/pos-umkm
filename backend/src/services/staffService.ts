@@ -91,6 +91,8 @@ async function loadStaffRelations(
     const roleMap = new Map(tenantRoles.map((role) => [role.id, role]));
     const outletMap = new Map(tenantOutlets.map((outlet) => [outlet.id, outlet]));
 
+    const isPivotReadable = assignments.length > 0;
+
     return users
       .map((user) => {
         const userRoles = assignments
@@ -103,7 +105,18 @@ async function loadStaffRelations(
 
         return { ...user, userRoles, userOutlets };
       })
-      .filter((user) => user.userRoles.length > 0);
+      .filter((user) => {
+        if (!isPivotReadable) {
+          return true;
+        }
+
+        const userAssignments = assignments.filter((assignment) => assignment.userId === user.id);
+        if (userAssignments.length === 0) {
+          return true;
+        }
+
+        return userAssignments.some((assignment) => roleMap.has(assignment.roleId));
+      });
   };
 
   if (tx) {
