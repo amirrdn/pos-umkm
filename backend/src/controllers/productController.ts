@@ -16,7 +16,10 @@ export async function getAllProducts(req: Request, res: Response) {
       outletId = (req.query.outletId as string) || req.outletId || null;
     }
 
-    const products = await productService.getAllProducts(tenantId, outletId);
+    const usePosCatalog = Boolean(outletId) && req.query.context !== 'master';
+    const products = usePosCatalog
+      ? await productService.getPosCatalogProducts(tenantId, outletId!)
+      : await productService.getAllProducts(tenantId, outletId);
 
     return res.status(200).json({
       success: true,

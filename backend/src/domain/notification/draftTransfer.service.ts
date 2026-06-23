@@ -13,16 +13,13 @@ export interface DraftTransferSnapshot {
 export async function getDraftTransferSnapshot(
   tenantId: string
 ): Promise<DraftTransferSnapshot> {
-  const rows = await prisma.stockTransfer.findMany({
+  const count = await prisma.stockTransfer.count({
     where: { tenantId, status: 'DRAFT' },
-    select: { id: true },
-    orderBy: { createdAt: 'desc' },
-    take: 100,
   });
 
   return {
-    count: rows.length,
-    transferIds: rows.map((r) => r.id),
+    count,
+    transferIds: [],
   };
 }
 

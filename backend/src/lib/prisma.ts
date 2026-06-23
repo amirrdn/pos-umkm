@@ -88,6 +88,16 @@ async function runWithTenantRlsSession(
   });
 }
 
+const TENANT_SCOPED_MODELS = new Set(
+  Prisma.dmmf.datamodel.models
+    .filter((entry) => entry.fields.some((field) => field.name === 'tenantId'))
+    .map((entry) => entry.name)
+);
+
+function isTenantScopedModel(model: string): boolean {
+  return TENANT_SCOPED_MODELS.has(model);
+}
+
 const tenantScopedPrisma = basePrisma.$extends({
   query: {
     $allModels: {
@@ -97,10 +107,6 @@ const tenantScopedPrisma = basePrisma.$extends({
         }
 
         const activeTenantId = tenantStorage.getStore();
-
-        const modelFields =
-          Prisma.dmmf.datamodel.models.find((entry: Prisma.DMMF.Model) => entry.name === model)?.fields ?? [];
-        const isTenantScopedModel = modelFields.some((field: Prisma.DMMF.Field) => field.name === 'tenantId');
 
         const queryArgs = args as Record<string, unknown>;
         const where = queryArgs.where as Record<string, unknown> | undefined;
@@ -116,7 +122,7 @@ const tenantScopedPrisma = basePrisma.$extends({
           return query(args);
         }
 
-        if (isTenantScopedModel) {
+        if (isTenantScopedModel(model)) {
           const dataObj = queryArgs.data as
             | Record<string, unknown>
             | Record<string, unknown>[]

@@ -45,6 +45,54 @@ const PRODUCT_LIST_INCLUDE = {
  * Stok selalu computed dari OutletStock — tidak ada kolom Product.stock.
  */
 export class ProductService {
+  /** Katalog POS — select minimal per outlet, tanpa nested outlet / semua cabang. */
+  async getPosCatalogProducts(tenantId: string, outletId: string) {
+    const products = await prisma.product.findMany({
+      where: { tenantId, deletedAt: null },
+      select: {
+        id: true,
+        sku: true,
+        name: true,
+        sellingPrice: true,
+        category: { select: { name: true } },
+        images: {
+          orderBy: [{ isMain: 'desc' }, { id: 'asc' }],
+          take: 1,
+          select: { url: true, isMain: true },
+        },
+        outletStocks: {
+          where: { outletId },
+          select: { stock: true, minStock: true, outletId: true },
+          take: 1,
+        },
+        outletPrices: {
+          where: { outletId },
+          select: { price: true },
+          take: 1,
+        },
+      },
+      orderBy: { name: 'asc' },
+    });
+
+    return products.map((product) => {
+      const stockRow = product.outletStocks[0];
+      const priceOverride = product.outletPrices[0]?.price;
+      return {
+        id: product.id,
+        sku: product.sku,
+        name: product.name,
+        sellingPrice:
+          priceOverride !== null && priceOverride !== undefined
+            ? priceOverride
+            : product.sellingPrice,
+        stock: stockRow?.stock ?? 0,
+        minStock: stockRow?.minStock ?? 0,
+        category: product.category,
+        images: product.images,
+      };
+    });
+  }
+
   async getAllProducts(tenantId: string, outletId?: string | null) {
     const products = await prisma.product.findMany({
       where: { tenantId, deletedAt: null },

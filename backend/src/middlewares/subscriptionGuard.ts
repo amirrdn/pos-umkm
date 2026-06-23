@@ -46,6 +46,11 @@ export async function checkSubscriptionStatus(req: Request, res: Response, next:
       return next();
     }
 
+    const isWriteOperation = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method);
+    if (!isWriteOperation) {
+      return next();
+    }
+
     // Global guard berjalan sebelum tenantMiddleware — bootstrap RLS via where.id.
     const tenant = await prisma.tenant.findUnique({
       where: { id: tenantId },
@@ -53,10 +58,9 @@ export async function checkSubscriptionStatus(req: Request, res: Response, next:
     });
 
     if (tenant && isSubscriptionExpired(tenant)) {
-      const isWriteOperation = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method);
       const isWebhookRoute = req.originalUrl.includes('/api/subscriptions/webhook');
 
-      if (isWriteOperation && !isWebhookRoute) {
+      if (!isWebhookRoute) {
         return res.status(403).json({
           success: false,
           error: 'SUBSCRIPTION_EXPIRED',

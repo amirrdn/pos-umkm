@@ -50,11 +50,7 @@ describe('subscriptionGuard', () => {
   });
 
   describe('checkSubscriptionStatus', () => {
-    it('allows GET requests even if tenant is EXPIRED', async () => {
-      mockPrisma.tenant.findUnique.mockResolvedValue({
-        subscriptionStatus: SubscriptionStatus.EXPIRED,
-      });
-
+    it('allows GET requests even if tenant is EXPIRED without DB lookup', async () => {
       const req = createTestRequest({
         method: 'GET',
         headers: { 'x-tenant-id': tenantId },
@@ -64,6 +60,7 @@ describe('subscriptionGuard', () => {
 
       await checkSubscriptionStatus(req, res, next);
 
+      expect(mockPrisma.tenant.findUnique).not.toHaveBeenCalled();
       expect(next).toHaveBeenCalledOnce();
       expect(res.statusCode).toBe(200); // untouched default
     });

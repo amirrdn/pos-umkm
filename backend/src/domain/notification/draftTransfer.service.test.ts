@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockFindMany, mockSendMail } = vi.hoisted(() => ({
-  mockFindMany: vi.fn(),
+const { mockCount, mockSendMail } = vi.hoisted(() => ({
+  mockCount: vi.fn(),
   mockSendMail: vi.fn(),
 }));
 
 vi.mock('../../lib/prisma', () => ({
   prisma: {
-    stockTransfer: { findMany: (...args: unknown[]) => mockFindMany(...args) },
+    stockTransfer: { count: (...args: unknown[]) => mockCount(...args) },
     user: { findMany: vi.fn() },
     tenant: { findMany: vi.fn() },
   },
@@ -29,16 +29,16 @@ describe('draftTransfer.service', () => {
     vi.clearAllMocks();
   });
 
-  it('getDraftTransferSnapshot returns count and ids', async () => {
-    mockFindMany.mockResolvedValue([{ id: 't1' }, { id: 't2' }]);
+  it('getDraftTransferSnapshot returns count', async () => {
+    mockCount.mockResolvedValue(2);
 
     const snapshot = await getDraftTransferSnapshot('tenant-1');
 
-    expect(snapshot).toEqual({ count: 2, transferIds: ['t1', 't2'] });
+    expect(snapshot).toEqual({ count: 2, transferIds: [] });
   });
 
   it('sendDraftTransferDigestForTenant skips when no drafts', async () => {
-    mockFindMany.mockResolvedValue([]);
+    mockCount.mockResolvedValue(0);
 
     const result = await sendDraftTransferDigestForTenant('tenant-1', 'Toko A');
 
@@ -47,7 +47,7 @@ describe('draftTransfer.service', () => {
   });
 
   it('sendDraftTransferDigestForTenant sends mail to Owner/Manager', async () => {
-    mockFindMany.mockResolvedValue([{ id: 't1' }]);
+    mockCount.mockResolvedValue(1);
     vi.mocked(prisma.user.findMany).mockResolvedValue([
       { email: 'owner@test.com', name: 'Owner' },
     ] as never);
@@ -69,7 +69,7 @@ describe('draftTransfer.service', () => {
     vi.mocked(prisma.tenant.findMany).mockResolvedValue([
       { id: 't1', name: 'Toko 1' },
     ] as never);
-    mockFindMany.mockResolvedValue([]);
+    mockCount.mockResolvedValue(0);
 
     const result = await runDailyDraftTransferDigest();
 

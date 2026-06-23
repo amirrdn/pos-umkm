@@ -24,14 +24,22 @@ function isLongLivedTenantRequest(req: Request): boolean {
   );
 }
 
-/** Satu koneksi DB per request HTTP — hindari pool exhaustion di Supabase session mode. */
+function shouldPinTenantDbConnection(req: Request): boolean {
+  return ['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method);
+}
+
+/** Pin koneksi DB hanya untuk write — GET paralel (POS) tidak memblokir pool 7 koneksi. */
 async function runTenantRequestScope(
   tenantId: string,
   req: Request,
   res: Response,
   handler: () => void | Promise<void>
 ): Promise<void> {
-  if (process.env.NODE_ENV === 'test' || isLongLivedTenantRequest(req)) {
+  if (
+    process.env.NODE_ENV === 'test' ||
+    isLongLivedTenantRequest(req) ||
+    !shouldPinTenantDbConnection(req)
+  ) {
     await tenantStorage.run(tenantId, handler);
     return;
   }
@@ -76,54 +84,58 @@ export async function tenantMiddleware(req: Request, res: Response, next: NextFu
       });
     }
 
-    const tenant = await prisma.tenant.findUnique({
-      where: { id: tenantId },
-      select: tenantSelect,
-    });
-
-    if (!tenant || tenant.deletedAt !== null) {
-      return res.status(404).json({
-        success: false,
-        message: 'Tenant tidak terdaftar di sistem kami.',
-      });
-    }
-
-    if (!req.isPlatformAdmin && tenant.status !== 'ACTIVE') {
-      return res.status(403).json({
-        success: false,
-        message: 'Tenant ditangguhkan atau tidak lagi aktif. Silakan hubungi administrator.',
-      });
-    }
-
-    req.tenantId = tenant.id;
-    req.tenant = tenant as ResolvedTenant;
-
     const outletId = req.outletId;
 
-    await runTenantRequestScope(tenant.id, req, res, async () => {
-      if (outletId) {
-        const outlet = await prisma.outlet.findFirst({
-          where: { id: outletId, tenantId: tenant.id, deletedAt: null, isActive: true },
-          select: { id: true },
+    await tenantStorage.run(tenantId, async () => {
+      const tenant = await prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: tenantSelect,
+      });
+
+      if (!tenant || tenant.deletedAt !== null) {
+        res.status(404).json({
+          success: false,
+          message: 'Tenant tidak terdaftar di sistem kami.',
         });
-        if (!outlet) {
-          res.status(403).json({
-            success: false,
-            message: 'Outlet tidak aktif atau tidak tersedia untuk operasi.',
-          });
-          return;
-        }
+        return;
       }
 
-      void recordTenantScopedWriteAudit({
-        isPlatformAdmin: req.isPlatformAdmin,
-        user: req.user,
-        tenantId: tenant.id,
-        method: req.method,
-        originalUrl: req.originalUrl,
-      }).catch((error) => logError('recordTenantScopedWriteAudit', error));
+      if (!req.isPlatformAdmin && tenant.status !== 'ACTIVE') {
+        res.status(403).json({
+          success: false,
+          message: 'Tenant ditangguhkan atau tidak lagi aktif. Silakan hubungi administrator.',
+        });
+        return;
+      }
 
-      next();
+      req.tenantId = tenant.id;
+      req.tenant = tenant as ResolvedTenant;
+
+      await runTenantRequestScope(tenant.id, req, res, async () => {
+        if (outletId) {
+          const outlet = await prisma.outlet.findFirst({
+            where: { id: outletId, tenantId: tenant.id, deletedAt: null, isActive: true },
+            select: { id: true },
+          });
+          if (!outlet) {
+            res.status(403).json({
+              success: false,
+              message: 'Outlet tidak aktif atau tidak tersedia untuk operasi.',
+            });
+            return;
+          }
+        }
+
+        void recordTenantScopedWriteAudit({
+          isPlatformAdmin: req.isPlatformAdmin,
+          user: req.user,
+          tenantId: tenant.id,
+          method: req.method,
+          originalUrl: req.originalUrl,
+        }).catch((error) => logError('recordTenantScopedWriteAudit', error));
+
+        next();
+      });
     });
     return;
   } catch (error) {

@@ -19,7 +19,7 @@ interface ApiSuccessResponse<T> {
 export async function getProductsApi(outletId?: string): Promise<MasterProduct[]> {
   const response = await apiClient.get<ApiSuccessResponse<Parameters<typeof mapApiProductToMasterProduct>[0][]>>(
     '/api/products',
-    { params: outletId ? { outletId } : {} }
+    { params: { context: 'master', ...(outletId ? { outletId } : {}) } }
   );
   return (response.data.data || []).map(mapApiProductToMasterProduct);
 }

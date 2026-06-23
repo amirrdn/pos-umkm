@@ -73,35 +73,29 @@ export async function getActiveShift(tenantId: string, userId: string) {
       user: {
         select: { id: true, name: true, email: true },
       },
-      transactions: {
-        where: {
-          paymentMethod: 'CASH',
-          status: 'COMPLETED',
-        },
-        select: {
-          grandTotal: true,
-          invoiceNumber: true,
-          createdAt: true,
-        },
-      },
     },
   });
 
   if (!shift) return null;
 
-  const totalCashSales = shift.transactions.reduce(
-    (sum: Prisma.Decimal, tx: { grandTotal: Prisma.Decimal; invoiceNumber: string; createdAt: Date }) =>
-      sum.add(new Prisma.Decimal(tx.grandTotal)),
-    new Prisma.Decimal(0)
-  );
+  const cashSales = await prisma.transaction.aggregate({
+    where: {
+      shiftId: shift.id,
+      paymentMethod: 'CASH',
+      status: 'COMPLETED',
+    },
+    _sum: { grandTotal: true },
+    _count: true,
+  });
 
+  const totalCashSales = new Prisma.Decimal(cashSales._sum.grandTotal ?? 0);
   const cashExpected = new Prisma.Decimal(shift.cashStart).add(totalCashSales);
 
   return {
     ...shift,
     totalCashSales,
     cashExpected,
-    totalTransactions: shift.transactions.length,
+    totalTransactions: cashSales._count,
   };
 }
 
