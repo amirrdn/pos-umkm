@@ -177,7 +177,11 @@ export async function uploadImage(req: Request, res: Response) {
 export async function setPriceOverride(req: Request, res: Response) {
   try {
     const tenantId = req.tenantId!;
-    const validation = setPriceOverrideSchema.safeParse(req.body);
+    let safeOutletId = req.body.outletId;
+    if (!req.hasTenantWideOutletAccess) {
+      safeOutletId = req.outletId;
+    }
+    const validation = setPriceOverrideSchema.safeParse({ ...req.body, outletId: safeOutletId });
     if (!validation.success) {
       return res.status(400).json({
         success: false,
@@ -205,16 +209,20 @@ export async function setPriceOverride(req: Request, res: Response) {
 export async function deletePriceOverride(req: Request, res: Response) {
   try {
     const tenantId = req.tenantId!;
-    const { outletId, productId } = req.body;
+    let safeOutletId = req.body.outletId;
+    if (!req.hasTenantWideOutletAccess) {
+      safeOutletId = req.outletId;
+    }
+    const { productId } = req.body;
 
-    if (!outletId || !productId) {
+    if (!safeOutletId || !productId) {
       return res.status(400).json({
         success: false,
         message: 'ID outlet dan ID produk wajib diisi.',
       });
     }
 
-    await productService.deletePriceOverride(tenantId, outletId, productId);
+    await productService.deletePriceOverride(tenantId, safeOutletId as string, productId);
 
     return res.status(200).json({
       success: true,
@@ -232,13 +240,17 @@ export async function deletePriceOverride(req: Request, res: Response) {
 export async function setMinStock(req: Request, res: Response) {
   try {
     const tenantId = req.tenantId!;
+    let safeOutletId = req.body.outletId;
+    if (!req.hasTenantWideOutletAccess) {
+      safeOutletId = req.outletId;
+    }
     const schema = z.object({
       outletId: z.string().uuid(),
       productId: z.string().uuid(),
       minStock: z.number().int().nonnegative(),
     });
 
-    const validation = schema.safeParse(req.body);
+    const validation = schema.safeParse({ ...req.body, outletId: safeOutletId });
     if (!validation.success) {
       return res.status(400).json({
         success: false,

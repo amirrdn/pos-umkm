@@ -68,6 +68,12 @@ const tenantScopedPrisma = basePrisma.$extends({
             } else if (operation === 'upsert' && createObj) {
               createObj.tenantId = activeTenantId;
             }
+
+            const [, result] = await basePrisma.$transaction([
+              basePrisma.$executeRawUnsafe(`SELECT set_config('app.current_tenant_id', $1, true)`, activeTenantId),
+              query(args),
+            ]);
+            return result;
           }
         }
 

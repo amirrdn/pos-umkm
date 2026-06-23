@@ -6,7 +6,12 @@ import { getErrorMessage } from '../lib/errors';
 
 export async function createTransfer(req: Request, res: Response): Promise<Response> {
   try {
-    const validation = createTransferSchema.safeParse(req.body);
+    let safeFromOutletId = req.body.fromOutletId;
+    if (!req.hasTenantWideOutletAccess) {
+      safeFromOutletId = req.outletId;
+    }
+
+    const validation = createTransferSchema.safeParse({ ...req.body, fromOutletId: safeFromOutletId });
     if (!validation.success) {
       return res.status(400).json({
         success: false,

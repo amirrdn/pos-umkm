@@ -8,6 +8,16 @@ import { extractAuthToken } from '../lib/authCookie';
 
 export function authMiddleware(req: Request, res: Response, next: NextFunction) {
   try {
+    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) {
+      const csrfHeader = req.headers['x-requested-with'];
+      if (csrfHeader !== 'XMLHttpRequest') {
+        return res.status(403).json({
+          success: false,
+          message: 'Potensi Serangan CSRF Diblokir: Header X-Requested-With tidak valid.',
+        });
+      }
+    }
+
     const token = extractAuthToken(req);
 
     if (!token) {
