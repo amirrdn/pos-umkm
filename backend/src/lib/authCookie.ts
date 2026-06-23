@@ -25,10 +25,9 @@ function resolveAuthCookieMaxAgeMs(): number {
 function resolveAuthCookieSameSite(): CookieOptions['sameSite'] {
   const configured = process.env.COOKIE_SAME_SITE?.toLowerCase();
   if (configured === 'lax' || configured === 'strict' || configured === 'none') {
-    return configured;
+    return configured as CookieOptions['sameSite'];
   }
-  // Frontend Vercel + API Render = cross-site; Strict memblokir cookie pada XHR berikutnya
-  return process.env.NODE_ENV === 'production' ? 'none' : 'strict';
+  return 'strict';
 }
 
 export function getAuthCookieOptions(): CookieOptions {
