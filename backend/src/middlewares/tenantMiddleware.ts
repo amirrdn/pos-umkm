@@ -28,6 +28,16 @@ function shouldPinTenantDbConnection(req: Request): boolean {
   return ['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method);
 }
 
+/** Validasi outlet di luar tx write — hindari nested $transaction saat POST checkout. */
+async function resolveActiveOutletForTenant(tenantId: string, outletId: string) {
+  return prisma.$executeRawWithTenant(tenantId, async (tx) =>
+    tx.outlet.findFirst({
+      where: { id: outletId, tenantId, deletedAt: null, isActive: true },
+      select: { id: true },
+    })
+  );
+}
+
 /** Pin koneksi DB hanya untuk write — GET paralel (POS) tidak memblokir pool 7 koneksi. */
 async function runTenantRequestScope(
   tenantId: string,
@@ -111,21 +121,18 @@ export async function tenantMiddleware(req: Request, res: Response, next: NextFu
       req.tenantId = tenant.id;
       req.tenant = tenant as ResolvedTenant;
 
-      await runTenantRequestScope(tenant.id, req, res, async () => {
-        if (outletId) {
-          const outlet = await prisma.outlet.findFirst({
-            where: { id: outletId, tenantId: tenant.id, deletedAt: null, isActive: true },
-            select: { id: true },
+      if (outletId) {
+        const outlet = await resolveActiveOutletForTenant(tenant.id, outletId);
+        if (!outlet) {
+          res.status(403).json({
+            success: false,
+            message: 'Outlet tidak aktif atau tidak tersedia untuk operasi.',
           });
-          if (!outlet) {
-            res.status(403).json({
-              success: false,
-              message: 'Outlet tidak aktif atau tidak tersedia untuk operasi.',
-            });
-            return;
-          }
+          return;
         }
+      }
 
+      await runTenantRequestScope(tenant.id, req, res, async () => {
         void recordTenantScopedWriteAudit({
           isPlatformAdmin: req.isPlatformAdmin,
           user: req.user,
