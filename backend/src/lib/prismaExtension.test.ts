@@ -25,14 +25,32 @@ let capturedExtension: CapturedExtension | null = null;
 
 // Mocking @prisma/client sebelum meng-import prisma.ts
 vi.mock('@prisma/client', () => {
+  const makeDelegate = () =>
+    new Proxy(
+      {},
+      {
+        get: (_target, operation: string) => (operationArgs: unknown) =>
+          Promise.resolve(operationArgs),
+      }
+    );
+
   return {
     PrismaClient: class {
       $extends(ext: CapturedExtension) {
         capturedExtension = ext;
         return this;
       }
-      $transaction(args: unknown[]) {
-        return Promise.resolve([undefined, args[1]]);
+      $transaction(input: unknown) {
+        if (typeof input === 'function') {
+          const tx = {
+            $executeRawUnsafe: vi.fn().mockResolvedValue(1),
+            product: makeDelegate(),
+            user: makeDelegate(),
+            tenant: makeDelegate(),
+          };
+          return input(tx);
+        }
+        return Promise.resolve([undefined, (input as unknown[])[1]]);
       }
       $executeRawUnsafe = vi.fn().mockResolvedValue(1);
       $queryRawUnsafe = vi.fn().mockResolvedValue([{ count: 1 }]);
@@ -100,7 +118,6 @@ describe('Prisma Extension - Tenant Isolation', () => {
         name: 'Spoon',
         tenantId: 'tenant-abc',
       });
-      expect(mockQuery).toHaveBeenCalledWith(resultArgs);
     });
   });
 
@@ -134,7 +151,6 @@ describe('Prisma Extension - Tenant Isolation', () => {
     });
 
     expect(resultArgs.where!.tenantId).toBe('tenant-manual-123');
-    expect(mockQuery).toHaveBeenCalledOnce();
   });
 
   it('allows query to proceed without tenantId for global models (not tenant-scoped)', async () => {
@@ -168,8 +184,22 @@ describe('Prisma Extension - Tenant Isolation', () => {
       });
 
       expect(resultArgs.data!.tenantId).toBe('tenant-abc');
-      expect(mockQuery).toHaveBeenCalledOnce();
     });
+  });
+
+  it('binds tenant RLS session for Tenant lookup by id before ALS is set', async () => {
+    const mockQuery = vi.fn();
+    const args = { where: { id: 'tenant-bootstrap' } };
+
+    const resultArgs = await allOperations({
+      model: 'Tenant',
+      operation: 'findUnique',
+      args,
+      query: mockQuery,
+    });
+
+    expect(resultArgs.where).toEqual({ id: 'tenant-bootstrap' });
+    expect(mockQuery).not.toHaveBeenCalled();
   });
 
   it('allows tenant-scoped query without ALS tenant when system context is active', async () => {

@@ -17,6 +17,32 @@ type TenantTransactionOptions = {
   timeout?: number;
 };
 
+type PrismaModelDelegate = {
+  [operation: string]: (operationArgs: unknown) => Promise<unknown>;
+};
+
+function modelClientKey(modelName: string): string {
+  return modelName.charAt(0).toLowerCase() + modelName.slice(1);
+}
+
+/** set_config + query harus satu koneksi/tx — batch [raw, query(args)] tidak menjamin itu (PgBouncer/RLS). */
+async function runWithTenantRlsSession(
+  model: string,
+  operation: string,
+  args: unknown,
+  tenantId: string
+): Promise<unknown> {
+  const clientKey = modelClientKey(model);
+  return basePrisma.$transaction(async (tx) => {
+    await tx.$executeRawUnsafe(
+      `SELECT set_config('app.current_tenant_id', $1, true)`,
+      tenantId
+    );
+    const delegate = (tx as unknown as Record<string, PrismaModelDelegate>)[clientKey];
+    return delegate[operation](args);
+  });
+}
+
 const tenantScopedPrisma = basePrisma.$extends({
   query: {
     $allModels: {
@@ -39,11 +65,7 @@ const tenantScopedPrisma = basePrisma.$extends({
             activeTenantId ?? (typeof where?.id === 'string' ? where.id : undefined);
 
           if (tenantId) {
-            const [, result] = await basePrisma.$transaction([
-              basePrisma.$executeRawUnsafe(`SELECT set_config('app.current_tenant_id', $1, true)`, tenantId),
-              query(args),
-            ]);
-            return result;
+            return runWithTenantRlsSession(model, operation, args, tenantId);
           }
 
           return query(args);
@@ -99,14 +121,7 @@ const tenantScopedPrisma = basePrisma.$extends({
               }
             }
 
-            const [, result] = await basePrisma.$transaction([
-              basePrisma.$executeRawUnsafe(
-                `SELECT set_config('app.current_tenant_id', $1, true)`,
-                effectiveTenantId
-              ),
-              query(args),
-            ]);
-            return result;
+            return runWithTenantRlsSession(model, operation, args, effectiveTenantId);
           }
         }
 
