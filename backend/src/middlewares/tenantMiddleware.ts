@@ -42,7 +42,7 @@ async function runTenantRequestScope(
         await tx.$executeRawUnsafe(`SELECT set_config('app.current_tenant_id', $1, true)`, tenantId);
 
         return new Promise<void>((resolve, reject) => {
-          tenantRlsTxStorage.run(tx, () => {
+          tenantRlsTxStorage.run(tx as object, () => {
             void Promise.resolve(handler()).catch(reject);
             res.once('finish', () => resolve());
             res.once('close', () => resolve());
@@ -125,6 +125,7 @@ export async function tenantMiddleware(req: Request, res: Response, next: NextFu
 
       next();
     });
+    return;
   } catch (error) {
     logError('tenantMiddleware', error);
     return res.status(500).json({

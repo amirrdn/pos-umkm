@@ -34,8 +34,6 @@ const basePrisma = new PrismaClient({
   datasourceUrl: datasourceWithPoolLimit(process.env.DATABASE_URL, APP_POOL_LIMIT),
 });
 
-type BasePrismaTx = Parameters<Parameters<typeof basePrisma['$transaction']>[0]>[0];
-
 type TenantTransactionOptions = {
   maxWait?: number;
   timeout?: number;
@@ -55,7 +53,7 @@ function runOnTenantRlsClient<T>(
   args: unknown,
   tenantId: string
 ): Promise<T> {
-  const pinnedTx = tenantRlsTxStorage.getStore() as BasePrismaTx | undefined;
+  const pinnedTx = tenantRlsTxStorage.getStore();
   if (pinnedTx && tenantStorage.getStore() === tenantId) {
     const clientKey = modelClientKey(model);
     const delegate = (pinnedTx as unknown as Record<string, PrismaModelDelegate>)[clientKey];
@@ -185,9 +183,9 @@ async function executeRawWithTenant<T>(
   callback: (transaction: PrismaTx) => Promise<T>,
   options?: TenantTransactionOptions
 ): Promise<T> {
-  const pinnedTx = tenantRlsTxStorage.getStore() as BasePrismaTx | undefined;
+  const pinnedTx = tenantRlsTxStorage.getStore();
   if (pinnedTx && tenantStorage.getStore() === tenantId) {
-    return callback(pinnedTx);
+    return callback(pinnedTx as PrismaTx);
   }
 
   return tenantScopedPrisma.$transaction(async (transaction) => {
