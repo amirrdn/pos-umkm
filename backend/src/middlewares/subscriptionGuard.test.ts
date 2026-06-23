@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { SubscriptionTier, SubscriptionStatus } from '@prisma/client';
+import { SubscriptionTier, SubscriptionStatus, TenantStatus } from '@prisma/client';
 import { checkSubscriptionStatus, requireTier } from './subscriptionGuard';
 import { createMockRequest, createMockResponse, tenantId } from '../test/helpers/http';
+import type { ResolvedTenant } from '../lib/tenantTypes';
 import { Request } from 'express';
 
 const { mockPrisma } = vi.hoisted(() => ({
@@ -15,6 +16,21 @@ const { mockPrisma } = vi.hoisted(() => ({
 vi.mock('../lib/prisma', () => ({
   prisma: mockPrisma,
 }));
+
+function mockResolvedTenant(overrides: Partial<ResolvedTenant> = {}): ResolvedTenant {
+  return {
+    id: tenantId,
+    name: 'Test Tenant',
+    status: TenantStatus.ACTIVE,
+    deletedAt: null,
+    subscriptionTier: SubscriptionTier.FREE,
+    subscriptionStatus: SubscriptionStatus.ACTIVE,
+    subscriptionExpiresAt: null,
+    lastBillingAt: null,
+    requireStockApproval: false,
+    ...overrides,
+  };
+}
 
 function createTestRequest(overrides: Partial<Request> = {}): Request {
   const req = createMockRequest({
@@ -130,9 +146,9 @@ describe('subscriptionGuard', () => {
   });
 
   describe('requireTier', () => {
-    it('returns 400 if tenantId is missing in request context', async () => {
+    it('returns 400 if req.tenant is missing in request context', async () => {
       const req = createTestRequest({
-        tenantId: undefined,
+        tenantId,
       });
       const res = createMockResponse();
       const next = vi.fn();
@@ -146,32 +162,16 @@ describe('subscriptionGuard', () => {
         success: false,
         message: expect.stringContaining('Konteks tenant tidak ditemukan'),
       });
-    });
-
-    it('returns 404 if tenant does not exist', async () => {
-      mockPrisma.tenant.findUnique.mockResolvedValue(null);
-
-      const req = createTestRequest({
-        tenantId,
-      });
-      const res = createMockResponse();
-      const next = vi.fn();
-
-      const middleware = requireTier([SubscriptionTier.GROWTH]);
-      await middleware(req, res, next);
-
-      expect(next).not.toHaveBeenCalled();
-      expect(res.statusCode).toBe(404);
+      expect(mockPrisma.tenant.findUnique).not.toHaveBeenCalled();
     });
 
     it('returns 403 if tenant subscription is EXPIRED', async () => {
-      mockPrisma.tenant.findUnique.mockResolvedValue({
-        subscriptionTier: SubscriptionTier.GROWTH,
-        subscriptionStatus: SubscriptionStatus.EXPIRED,
-      });
-
       const req = createTestRequest({
         tenantId,
+        tenant: mockResolvedTenant({
+          subscriptionTier: SubscriptionTier.GROWTH,
+          subscriptionStatus: SubscriptionStatus.EXPIRED,
+        }),
       });
       const res = createMockResponse();
       const next = vi.fn();
@@ -188,13 +188,12 @@ describe('subscriptionGuard', () => {
     });
 
     it('returns 403 if tenant has insufficient tier', async () => {
-      mockPrisma.tenant.findUnique.mockResolvedValue({
-        subscriptionTier: SubscriptionTier.FREE,
-        subscriptionStatus: SubscriptionStatus.ACTIVE,
-      });
-
       const req = createTestRequest({
         tenantId,
+        tenant: mockResolvedTenant({
+          subscriptionTier: SubscriptionTier.FREE,
+          subscriptionStatus: SubscriptionStatus.ACTIVE,
+        }),
       });
       const res = createMockResponse();
       const next = vi.fn();
@@ -211,13 +210,12 @@ describe('subscriptionGuard', () => {
     });
 
     it('calls next() if tenant has sufficient tier and is active', async () => {
-      mockPrisma.tenant.findUnique.mockResolvedValue({
-        subscriptionTier: SubscriptionTier.GROWTH,
-        subscriptionStatus: SubscriptionStatus.ACTIVE,
-      });
-
       const req = createTestRequest({
         tenantId,
+        tenant: mockResolvedTenant({
+          subscriptionTier: SubscriptionTier.GROWTH,
+          subscriptionStatus: SubscriptionStatus.ACTIVE,
+        }),
       });
       const res = createMockResponse();
       const next = vi.fn();
@@ -226,6 +224,7 @@ describe('subscriptionGuard', () => {
       await middleware(req, res, next);
 
       expect(next).toHaveBeenCalledOnce();
+      expect(mockPrisma.tenant.findUnique).not.toHaveBeenCalled();
     });
 
     it('calls next() for platform admin regardless of tenant tier', async () => {

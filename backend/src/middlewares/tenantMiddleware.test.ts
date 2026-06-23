@@ -10,6 +10,12 @@ vi.mock('../lib/prisma', () => ({
   prisma: {
     tenant: { findUnique: (...args: unknown[]) => mockFindUnique(...args) },
     outlet: { findFirst: (...args: unknown[]) => mockFindFirst(...args) },
+    $transaction: vi.fn(async (callback: (tx: unknown) => Promise<unknown>) => {
+      const tx = {
+        $executeRawUnsafe: vi.fn().mockResolvedValue(1),
+      };
+      return callback(tx);
+    }),
   },
 }));
 
@@ -23,6 +29,12 @@ function mockRes() {
     },
     json(payload: unknown) {
       this.body = payload;
+      return this;
+    },
+    once(event: string, handler: () => void) {
+      if (event === 'finish' || event === 'close') {
+        queueMicrotask(handler);
+      }
       return this;
     },
   };

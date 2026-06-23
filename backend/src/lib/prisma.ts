@@ -1,16 +1,40 @@
 import { PrismaClient, Prisma } from '@prisma/client';
-import { tenantStorage, getSystemContext } from './tenantContext';
+import { tenantStorage, getSystemContext, tenantRlsTxStorage } from './tenantContext';
 
 const globalForPrisma = globalThis as unknown as { prisma?: TenantScopedPrismaClient };
 
+const APP_POOL_LIMIT = Number(process.env.PRISMA_APP_CONNECTION_LIMIT ?? 7);
+const SYSTEM_POOL_LIMIT = Number(process.env.PRISMA_SYSTEM_CONNECTION_LIMIT ?? 3);
+
+function datasourceWithPoolLimit(url: string | undefined, limit: number): string | undefined {
+  if (!url) return undefined;
+  try {
+    const parsed = new URL(url);
+    parsed.searchParams.set('connection_limit', String(limit));
+    if (!parsed.searchParams.has('pool_timeout')) {
+      parsed.searchParams.set('pool_timeout', '10');
+    }
+    return parsed.toString();
+  } catch {
+    const joiner = url.includes('?') ? '&' : '?';
+    return `${url}${joiner}connection_limit=${limit}&pool_timeout=10`;
+  }
+}
+
 export const systemPrisma = new PrismaClient({
   log: process.env.NODE_ENV === 'development' ? ['warn', 'error'] : ['error'],
-  datasourceUrl: process.env.DIRECT_URL || process.env.DATABASE_URL,
+  datasourceUrl: datasourceWithPoolLimit(
+    process.env.DIRECT_URL || process.env.DATABASE_URL,
+    SYSTEM_POOL_LIMIT
+  ),
 });
 
 const basePrisma = new PrismaClient({
   log: process.env.NODE_ENV === 'development' ? ['warn', 'error'] : ['error'],
+  datasourceUrl: datasourceWithPoolLimit(process.env.DATABASE_URL, APP_POOL_LIMIT),
 });
+
+type BasePrismaTx = Parameters<Parameters<typeof basePrisma['$transaction']>[0]>[0];
 
 type TenantTransactionOptions = {
   maxWait?: number;
@@ -23,6 +47,21 @@ type PrismaModelDelegate = {
 
 function modelClientKey(modelName: string): string {
   return modelName.charAt(0).toLowerCase() + modelName.slice(1);
+}
+
+function runOnTenantRlsClient<T>(
+  model: string,
+  operation: string,
+  args: unknown,
+  tenantId: string
+): Promise<T> {
+  const pinnedTx = tenantRlsTxStorage.getStore() as BasePrismaTx | undefined;
+  if (pinnedTx && tenantStorage.getStore() === tenantId) {
+    const clientKey = modelClientKey(model);
+    const delegate = (pinnedTx as unknown as Record<string, PrismaModelDelegate>)[clientKey];
+    return delegate[operation](args) as Promise<T>;
+  }
+  return runWithTenantRlsSession(model, operation, args, tenantId) as Promise<T>;
 }
 
 /** set_config + query harus satu koneksi/tx — batch [raw, query(args)] tidak menjamin itu (PgBouncer/RLS). */
@@ -65,7 +104,7 @@ const tenantScopedPrisma = basePrisma.$extends({
             activeTenantId ?? (typeof where?.id === 'string' ? where.id : undefined);
 
           if (tenantId) {
-            return runWithTenantRlsSession(model, operation, args, tenantId);
+            return runOnTenantRlsClient(model, operation, args, tenantId);
           }
 
           return query(args);
@@ -121,7 +160,7 @@ const tenantScopedPrisma = basePrisma.$extends({
               }
             }
 
-            return runWithTenantRlsSession(model, operation, args, effectiveTenantId);
+            return runOnTenantRlsClient(model, operation, args, effectiveTenantId);
           }
         }
 
@@ -146,6 +185,11 @@ async function executeRawWithTenant<T>(
   callback: (transaction: PrismaTx) => Promise<T>,
   options?: TenantTransactionOptions
 ): Promise<T> {
+  const pinnedTx = tenantRlsTxStorage.getStore() as BasePrismaTx | undefined;
+  if (pinnedTx && tenantStorage.getStore() === tenantId) {
+    return callback(pinnedTx);
+  }
+
   return tenantScopedPrisma.$transaction(async (transaction) => {
     await transaction.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
     return callback(transaction);
@@ -159,7 +203,11 @@ export const prisma = new Proxy(
   {
     get(target, prop, receiver) {
       if (getSystemContext() && typeof prop === 'string' && prop in systemPrisma) {
-        return Reflect.get(systemPrisma, prop);
+        const value = Reflect.get(systemPrisma, prop, systemPrisma);
+        if (typeof value === 'function') {
+          return value.bind(systemPrisma);
+        }
+        return value;
       }
       return Reflect.get(target, prop, receiver);
     },

@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../lib/prisma';
 import { logError } from '../lib/logger';
 import type { ResolvedTenant } from '../lib/tenantTypes';
-import { tenantStorage } from '../lib/tenantContext';
+import { tenantRlsTxStorage, tenantStorage } from '../lib/tenantContext';
 import { recordTenantScopedWriteAudit } from '../services/platformAuditService';
 
 const tenantSelect = {
@@ -16,6 +16,43 @@ const tenantSelect = {
   lastBillingAt: true,
   requireStockApproval: true,
 } as const;
+
+function isLongLivedTenantRequest(req: Request): boolean {
+  return (
+    req.originalUrl.includes('/notifications/stream') ||
+    req.headers.accept?.includes('text/event-stream') === true
+  );
+}
+
+/** Satu koneksi DB per request HTTP — hindari pool exhaustion di Supabase session mode. */
+async function runTenantRequestScope(
+  tenantId: string,
+  req: Request,
+  res: Response,
+  handler: () => void | Promise<void>
+): Promise<void> {
+  if (process.env.NODE_ENV === 'test' || isLongLivedTenantRequest(req)) {
+    await tenantStorage.run(tenantId, handler);
+    return;
+  }
+
+  await tenantStorage.run(tenantId, async () => {
+    await prisma.$transaction(
+      async (tx) => {
+        await tx.$executeRawUnsafe(`SELECT set_config('app.current_tenant_id', $1, true)`, tenantId);
+
+        return new Promise<void>((resolve, reject) => {
+          tenantRlsTxStorage.run(tx, () => {
+            void Promise.resolve(handler()).catch(reject);
+            res.once('finish', () => resolve());
+            res.once('close', () => resolve());
+          });
+        });
+      },
+      { maxWait: 10_000, timeout: 120_000 }
+    );
+  });
+}
 
 export async function tenantMiddleware(req: Request, res: Response, next: NextFunction) {
   try {
@@ -39,7 +76,6 @@ export async function tenantMiddleware(req: Request, res: Response, next: NextFu
       });
     }
 
-    // app_user + RLS: prisma extension set_config + query pada satu sesi (where.id bootstrap).
     const tenant = await prisma.tenant.findUnique({
       where: { id: tenantId },
       select: tenantSelect,
@@ -64,17 +100,18 @@ export async function tenantMiddleware(req: Request, res: Response, next: NextFu
 
     const outletId = req.outletId;
 
-    return tenantStorage.run(tenant.id, async () => {
+    await runTenantRequestScope(tenant.id, req, res, async () => {
       if (outletId) {
         const outlet = await prisma.outlet.findFirst({
           where: { id: outletId, tenantId: tenant.id, deletedAt: null, isActive: true },
           select: { id: true },
         });
         if (!outlet) {
-          return res.status(403).json({
+          res.status(403).json({
             success: false,
             message: 'Outlet tidak aktif atau tidak tersedia untuk operasi.',
           });
+          return;
         }
       }
 
@@ -86,7 +123,7 @@ export async function tenantMiddleware(req: Request, res: Response, next: NextFu
         originalUrl: req.originalUrl,
       }).catch((error) => logError('recordTenantScopedWriteAudit', error));
 
-      return next();
+      next();
     });
   } catch (error) {
     logError('tenantMiddleware', error);
