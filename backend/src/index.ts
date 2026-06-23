@@ -37,6 +37,11 @@ getJwtSecret();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Render / reverse proxy mengirim X-Forwarded-For — wajib agar rate-limit & req.ip benar
+if (process.env.NODE_ENV === 'production' || process.env.RENDER) {
+  app.set('trust proxy', 1);
+}
+
 const uploadsDir = path.join(__dirname, '../uploads');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
