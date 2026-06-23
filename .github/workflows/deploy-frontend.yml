@@ -38,7 +38,9 @@ jobs:
         run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
         working-directory: ./frontend
         env:
-          VITE_API_URL: /api
+          # Kosong = same-origin; path API sudah diawali /api (mis. /api/auth/login).
+          # Jangan set ke "/api" — akan jadi double prefix /api/api/... → 404.
+          VITE_API_URL: ''
           VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID }}
 
       - name: Deploy Project Artifacts to Vercel
