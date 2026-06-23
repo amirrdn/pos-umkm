@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../lib/prisma';
 import { logError } from '../lib/logger';
-import { tenantStorage } from '../lib/tenantContext';
+import { runInSystemContext, tenantStorage } from '../lib/tenantContext';
 import { recordTenantScopedWriteAudit } from '../services/platformAuditService';
 
 export async function tenantMiddleware(req: Request, res: Response, next: NextFunction) {
@@ -26,9 +26,11 @@ export async function tenantMiddleware(req: Request, res: Response, next: NextFu
       });
     }
 
-    const tenant = await prisma.tenant.findUnique({
-      where: { id: tenantId },
-    });
+    const tenant = await runInSystemContext('auth', () =>
+      prisma.tenant.findUnique({
+        where: { id: tenantId },
+      })
+    );
 
     if (!tenant || tenant.deletedAt !== null) {
       return res.status(404).json({
@@ -47,28 +49,29 @@ export async function tenantMiddleware(req: Request, res: Response, next: NextFu
     req.tenantId = tenant.id;
 
     const outletId = req.outletId;
-    if (outletId) {
-      const outlet = await prisma.outlet.findFirst({
-        where: { id: outletId, tenantId: tenant.id, deletedAt: null, isActive: true },
-        select: { id: true },
-      });
-      if (!outlet) {
-        return res.status(403).json({
-          success: false,
-          message: 'Outlet tidak aktif atau tidak tersedia untuk operasi.',
+
+    return tenantStorage.run(tenant.id, async () => {
+      if (outletId) {
+        const outlet = await prisma.outlet.findFirst({
+          where: { id: outletId, tenantId: tenant.id, deletedAt: null, isActive: true },
+          select: { id: true },
         });
+        if (!outlet) {
+          return res.status(403).json({
+            success: false,
+            message: 'Outlet tidak aktif atau tidak tersedia untuk operasi.',
+          });
+        }
       }
-    }
 
-    void recordTenantScopedWriteAudit({
-      isPlatformAdmin: req.isPlatformAdmin,
-      user: req.user,
-      tenantId: tenant.id,
-      method: req.method,
-      originalUrl: req.originalUrl,
-    }).catch((error) => logError('recordTenantScopedWriteAudit', error));
+      void recordTenantScopedWriteAudit({
+        isPlatformAdmin: req.isPlatformAdmin,
+        user: req.user,
+        tenantId: tenant.id,
+        method: req.method,
+        originalUrl: req.originalUrl,
+      }).catch((error) => logError('recordTenantScopedWriteAudit', error));
 
-    return tenantStorage.run(tenant.id, () => {
       return next();
     });
   } catch (error) {

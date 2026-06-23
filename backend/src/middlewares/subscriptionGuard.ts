@@ -7,6 +7,7 @@ import { getJwtSecret } from '../lib/jwtConfig';
 import { validateJwtPayload } from '../lib/jwtPayload';
 import { isSubscriptionExpired } from '../lib/subscription';
 import { logError } from '../lib/logger';
+import { runInSystemContext } from '../lib/tenantContext';
 
 /**
  * Middleware untuk mengecek apakah langganan tenant saat ini kedaluwarsa.
@@ -48,10 +49,12 @@ export async function checkSubscriptionStatus(req: Request, res: Response, next:
       return next();
     }
 
-    const tenant = await prisma.tenant.findUnique({
-      where: { id: tenantId },
-      select: { subscriptionStatus: true, subscriptionExpiresAt: true }
-    });
+    const tenant = await runInSystemContext('auth', () =>
+      prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: { subscriptionStatus: true, subscriptionExpiresAt: true },
+      })
+    );
 
     if (tenant && isSubscriptionExpired(tenant)) {
       const isWriteOperation = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method);
@@ -95,10 +98,16 @@ export function requireTier(allowedTiers: SubscriptionTier[]) {
         });
       }
 
-      const tenant = await prisma.tenant.findUnique({
-        where: { id: tenantId },
-        select: { subscriptionTier: true, subscriptionStatus: true, subscriptionExpiresAt: true }
-      });
+      const tenant = await runInSystemContext('auth', () =>
+        prisma.tenant.findUnique({
+          where: { id: tenantId },
+          select: {
+            subscriptionTier: true,
+            subscriptionStatus: true,
+            subscriptionExpiresAt: true,
+          },
+        })
+      );
 
       if (!tenant) {
         return res.status(404).json({
