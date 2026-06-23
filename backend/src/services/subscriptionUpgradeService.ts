@@ -14,14 +14,6 @@ export async function createSubscriptionUpgradeInvoice(
     throw new Error('Paket GRATIS tidak memerlukan pembayaran.');
   }
 
-  const tenant = await prisma.tenant.findUnique({
-    where: { id: tenantId },
-  });
-
-  if (!tenant) {
-    throw new Error('Tenant tidak ditemukan.');
-  }
-
   const amount = TIER_PRICES[targetTier];
   const invoiceNumber = `INV-SUB-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
   const expiredAt = new Date(Date.now() + 24 * 60 * 60 * 1000);

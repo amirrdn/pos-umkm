@@ -1,8 +1,21 @@
 import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../lib/prisma';
 import { logError } from '../lib/logger';
-import { runInSystemContext, tenantStorage } from '../lib/tenantContext';
+import type { ResolvedTenant } from '../lib/tenantTypes';
+import { tenantStorage } from '../lib/tenantContext';
 import { recordTenantScopedWriteAudit } from '../services/platformAuditService';
+
+const tenantSelect = {
+  id: true,
+  name: true,
+  status: true,
+  deletedAt: true,
+  subscriptionTier: true,
+  subscriptionStatus: true,
+  subscriptionExpiresAt: true,
+  lastBillingAt: true,
+  requireStockApproval: true,
+} as const;
 
 export async function tenantMiddleware(req: Request, res: Response, next: NextFunction) {
   try {
@@ -26,11 +39,11 @@ export async function tenantMiddleware(req: Request, res: Response, next: NextFu
       });
     }
 
-    const tenant = await runInSystemContext('auth', () =>
-      prisma.tenant.findUnique({
-        where: { id: tenantId },
-      })
-    );
+    // app_user + RLS: prisma extension set_config + query pada satu sesi (where.id bootstrap).
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: tenantSelect,
+    });
 
     if (!tenant || tenant.deletedAt !== null) {
       return res.status(404).json({
@@ -47,6 +60,7 @@ export async function tenantMiddleware(req: Request, res: Response, next: NextFu
     }
 
     req.tenantId = tenant.id;
+    req.tenant = tenant as ResolvedTenant;
 
     const outletId = req.outletId;
 

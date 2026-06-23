@@ -20,6 +20,9 @@ GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO app_user;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO app_user;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO app_user;
 
+-- 7. RLS tabel tenants (self-read/update via app.current_tenant_id)
+-- Jalankan juga: scripts/tenant_table_rls.sql
+
 -- PERHATIAN:
 -- Jangan pernah memberikan role SUPERUSER atau BYPASSRLS kepada app_user.
 -- Jika app_user memiliki BYPASSRLS, maka semua RLS yang ada di tabel akan diabaikan!

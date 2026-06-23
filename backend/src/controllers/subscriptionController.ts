@@ -9,9 +9,11 @@ import { logError } from '../lib/logger';
 export async function getActiveSubscription(req: Request, res: Response) {
   try {
     const tenantId = req.tenantId!;
-    const details = await SubscriptionService.getSubscriptionDetails(tenantId, {
-      bypassLimits: req.isPlatformAdmin,
-    });
+    const details = await SubscriptionService.getSubscriptionDetails(
+      tenantId,
+      { bypassLimits: req.isPlatformAdmin },
+      req.tenant
+    );
 
     return res.status(200).json({
       success: true,
@@ -90,7 +92,7 @@ export async function downgradeSubscription(req: Request, res: Response) {
     const tenantId = req.tenantId!;
     const userId = req.user?.id;
 
-    await SubscriptionService.downgradeToFree(tenantId, userId);
+    await SubscriptionService.downgradeToFree(tenantId, userId, req.tenant?.subscriptionTier);
 
     return res.status(200).json({
       success: true,

@@ -86,12 +86,18 @@ export async function createStockMutation(req: Request, res: Response): Promise<
     const userId = req.user!.id;
     const { productId, type, quantity, note } = validation.data;
 
-    const result = await stockLedgerService.createStockMutation(tenantId, userId, {
-      productId,
-      type: type as MutationType,
-      quantity,
-      note,
-    }, req.outletId);
+    const result = await stockLedgerService.createStockMutation(
+      tenantId,
+      userId,
+      {
+        productId,
+        type: type as MutationType,
+        quantity,
+        note,
+      },
+      req.outletId,
+      req.tenant?.requireStockApproval ?? false
+    );
 
     if (result.isPendingApproval) {
       return res.status(201).json({
@@ -208,12 +214,14 @@ export async function updateSettings(req: Request, res: Response): Promise<Respo
  */
 export async function getSettings(req: Request, res: Response): Promise<Response> {
   try {
-    const tenantId = req.tenantId!;
-    const data = await stockLedgerService.getTenantSettings(tenantId);
-    if (!data) {
+    const tenant = req.tenant;
+    if (!tenant) {
       return res.status(404).json({ success: false, message: 'Tenant tidak ditemukan.' });
     }
-    return res.status(200).json({ success: true, data });
+    return res.status(200).json({
+      success: true,
+      data: { requireStockApproval: tenant.requireStockApproval },
+    });
   } catch (error: unknown) {
     console.error('[StockLedgerController.getSettings]', error);
     return res.status(500).json({ success: false, message: 'Terjadi kesalahan saat mengambil pengaturan.' });

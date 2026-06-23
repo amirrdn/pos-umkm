@@ -50,6 +50,9 @@ const { mockTx, mockPrisma } = vi.hoisted(() => {
       subscriptionHistory: {
         create: vi.fn(),
       },
+      $executeRawWithTenant: vi.fn(async (_id: string, callback: (innerTx: typeof tx) => Promise<unknown>) =>
+        callback(tx)
+      ),
       $transaction: vi.fn(async (callback: (innerTx: typeof tx) => Promise<unknown>) =>
         callback(tx)
       ),
@@ -109,6 +112,22 @@ describe('SubscriptionService', () => {
       expect(details.usage.transactions.limit).toBe(150);
       expect(details.usage.transactions.isNearLimit).toBe(false);
       expect(details.usage.transactions.isFull).toBe(false);
+    });
+
+    it('uses subscription snapshot without querying tenant again', async () => {
+      mockPrisma.product.count.mockResolvedValue(0);
+      mockPrisma.outlet.count.mockResolvedValue(0);
+      mockPrisma.user.count.mockResolvedValue(0);
+      mockPrisma.transaction.count.mockResolvedValue(0);
+
+      await SubscriptionService.getSubscriptionDetails(tenantId, undefined, {
+        subscriptionTier: SubscriptionTier.FREE,
+        subscriptionStatus: SubscriptionStatus.ACTIVE,
+        subscriptionExpiresAt: null,
+        lastBillingAt: null,
+      });
+
+      expect(mockPrisma.tenant.findUnique).not.toHaveBeenCalled();
     });
 
     it('returns enterprise-level effective access for platform admin bypass', async () => {
@@ -265,9 +284,13 @@ describe('SubscriptionService', () => {
       };
       mockPrisma.tenant.findUnique.mockResolvedValue(mockTenant);
 
-      const result = await SubscriptionService.downgradeToFree(tenantId, userId);
+      const result = await SubscriptionService.downgradeToFree(
+        tenantId,
+        userId,
+        SubscriptionTier.FREE
+      );
       expect(result).toEqual(mockTenant);
-      expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+      expect(mockPrisma.$executeRawWithTenant).not.toHaveBeenCalled();
     });
 
     it('performs downgrade, deactivates branch outlets and restricts staff successfully', async () => {
@@ -288,9 +311,9 @@ describe('SubscriptionService', () => {
         subscriptionTier: SubscriptionTier.FREE,
       });
 
-      await SubscriptionService.downgradeToFree(tenantId, userId);
+      await SubscriptionService.downgradeToFree(tenantId, userId, SubscriptionTier.GROWTH);
 
-      expect(mockPrisma.$transaction).toHaveBeenCalledOnce();
+      expect(mockPrisma.$executeRawWithTenant).toHaveBeenCalledOnce();
       expect(mockTx.tenant.update).toHaveBeenCalledWith({
         where: { id: tenantId },
         data: {

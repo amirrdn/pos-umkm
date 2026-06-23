@@ -29,6 +29,18 @@ function mockRes() {
   return res as any;
 }
 
+const activeTenant = {
+  id: 'tenant-123',
+  name: 'Toko',
+  status: 'ACTIVE',
+  deletedAt: null,
+  subscriptionTier: 'FREE',
+  subscriptionStatus: 'ACTIVE',
+  subscriptionExpiresAt: null,
+  lastBillingAt: null,
+  requireStockApproval: false,
+};
+
 describe('tenantMiddleware', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -52,11 +64,7 @@ describe('tenantMiddleware', () => {
   });
 
   it('uses req.user.tenantId when no header is supplied', async () => {
-    mockFindUnique.mockResolvedValue({
-      id: 'tenant-123',
-      status: 'ACTIVE',
-      deletedAt: null,
-    });
+    mockFindUnique.mockResolvedValue(activeTenant);
 
     const req = {
       header: vi.fn().mockReturnValue(undefined),
@@ -69,6 +77,7 @@ describe('tenantMiddleware', () => {
     await tenantMiddleware(req, res, next);
 
     expect(req.tenantId).toBe('tenant-123');
+    expect(req.tenant).toEqual(activeTenant);
     expect(next).toHaveBeenCalledOnce();
   });
 
@@ -96,9 +105,8 @@ describe('tenantMiddleware', () => {
 
   it('allows Platform Admin to impersonate/access a different tenant ID via header', async () => {
     mockFindUnique.mockResolvedValue({
+      ...activeTenant,
       id: 'tenant-target-456',
-      status: 'ACTIVE',
-      deletedAt: null,
     });
 
     const req = {
@@ -120,9 +128,9 @@ describe('tenantMiddleware', () => {
 
   it('allows Platform Admin to inspect a suspended/inactive tenant', async () => {
     mockFindUnique.mockResolvedValue({
+      ...activeTenant,
       id: 'tenant-suspended-789',
       status: 'SUSPENDED',
-      deletedAt: null,
     });
 
     const req = {
@@ -144,9 +152,9 @@ describe('tenantMiddleware', () => {
 
   it('blocks non-admin users from accessing suspended/inactive tenants', async () => {
     mockFindUnique.mockResolvedValue({
+      ...activeTenant,
       id: 'tenant-suspended-789',
       status: 'SUSPENDED',
-      deletedAt: null,
     });
 
     const req = {

@@ -41,18 +41,12 @@ export async function createStockMutation(
   tenantId: string,
   userId: string,
   input: { productId: string; type: MutationType; quantity: number; note?: string },
-  outletId?: string | null
+  outletId?: string | null,
+  requireStockApproval = false
 ) {
   const { productId, type, quantity, note } = input;
 
-  const tenant = await prisma.tenant.findUnique({
-    where: { id: tenantId },
-    select: { requireStockApproval: true },
-  });
-
-  if (!tenant) {
-    throw new Error('Tenant tidak ditemukan.');
-  }
+  const tenant = { requireStockApproval };
 
   const user = await prisma.user.findFirst({
     where: { id: userId, tenantId },
@@ -295,10 +289,12 @@ export async function rejectStockRequest(
 }
 
 export async function updateTenantSettings(tenantId: string, requireStockApproval: boolean) {
-  return prisma.tenant.update({
-    where: { id: tenantId },
-    data: { requireStockApproval },
-  });
+  return prisma.$executeRawWithTenant(tenantId, async (tx) =>
+    tx.tenant.update({
+      where: { id: tenantId },
+      data: { requireStockApproval },
+    })
+  );
 }
 
 export async function getTenantSettings(tenantId: string) {

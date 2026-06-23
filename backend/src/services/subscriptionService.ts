@@ -1,4 +1,5 @@
 import { prisma } from '../lib/prisma';
+import type { TenantSubscriptionSnapshot } from '../lib/tenantTypes';
 import { SubscriptionTier, SubscriptionStatus } from '@prisma/client';
 
 export const TIER_PRICES = {
@@ -66,16 +67,22 @@ export class SubscriptionService {
   /**
    * Mendapatkan status paket dan tingkat kapasitas penggunaan data saat ini.
    */
-  static async getSubscriptionDetails(tenantId: string, options?: SubscriptionAccessOptions) {
-    const tenant = await prisma.tenant.findUnique({
-      where: { id: tenantId },
-      select: {
-        subscriptionTier: true,
-        subscriptionStatus: true,
-        subscriptionExpiresAt: true,
-        lastBillingAt: true,
-      },
-    });
+  static async getSubscriptionDetails(
+    tenantId: string,
+    options?: SubscriptionAccessOptions,
+    subscriptionSnapshot?: TenantSubscriptionSnapshot
+  ) {
+    const tenant =
+      subscriptionSnapshot ??
+      (await prisma.tenant.findUnique({
+        where: { id: tenantId },
+        select: {
+          subscriptionTier: true,
+          subscriptionStatus: true,
+          subscriptionExpiresAt: true,
+          lastBillingAt: true,
+        },
+      }));
 
     if (!tenant) {
       throw new Error('Tenant tidak ditemukan.');
@@ -178,20 +185,31 @@ export class SubscriptionService {
   /**
    * Menurunkan tingkat paket ke FREE jika diinginkan user secara manual atau jika kedaluwarsa habis.
    */
-  static async downgradeToFree(tenantId: string, userId?: string) {
-    const tenant = await prisma.tenant.findUnique({
-      where: { id: tenantId },
-    });
+  static async downgradeToFree(
+    tenantId: string,
+    userId?: string,
+    currentTier?: SubscriptionTier
+  ) {
+    const tier =
+      currentTier ??
+      (
+        await prisma.tenant.findUnique({
+          where: { id: tenantId },
+          select: { subscriptionTier: true },
+        })
+      )?.subscriptionTier;
 
-    if (!tenant) {
+    if (!tier) {
       throw new Error('Tenant tidak ditemukan.');
     }
 
-    if (tenant.subscriptionTier === SubscriptionTier.FREE) {
-      return tenant;
+    if (tier === SubscriptionTier.FREE) {
+      return prisma.tenant.findUnique({ where: { id: tenantId } });
     }
 
-    return await prisma.$transaction(async (tx) => {
+    const previousTier = tier;
+
+    return await prisma.$executeRawWithTenant(tenantId, async (tx) => {
       const updatedTenant = await tx.tenant.update({
         where: { id: tenantId },
         data: {
@@ -238,7 +256,7 @@ export class SubscriptionService {
       await tx.subscriptionHistory.create({
         data: {
           tenantId,
-          oldTier: tenant.subscriptionTier,
+          oldTier: previousTier,
           newTier: SubscriptionTier.FREE,
           action: 'DOWNGRADE',
           note: 'Downgrade ke paket GRATIS. Cabang tambahan dinonaktifkan, kapasitas staf dibatasi.',

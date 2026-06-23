@@ -1,7 +1,11 @@
+import type { ResolvedTenant } from '../lib/tenantTypes';
+
 declare global {
   namespace Express {
     interface Request {
       tenantId?: string;
+      /** Tenant yang sudah di-resolve & diotorisasi oleh tenantMiddleware. */
+      tenant?: ResolvedTenant;
       outletId?: string | null;
       /** Outlet ter-resolve dari x-outlet-id (setelah attachActiveOutlet). */
       activeOutlet?: {

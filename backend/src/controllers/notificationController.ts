@@ -3,7 +3,6 @@ import {
   getDraftTransferSnapshot,
   sendDraftTransferDigestForTenant,
 } from '../domain/notification';
-import { prisma } from '../lib/prisma';
 
 const SSE_INTERVAL_MS = 30_000;
 
@@ -61,12 +60,7 @@ export async function notificationStream(req: Request, res: Response): Promise<v
  */
 export async function runDigestNow(req: Request, res: Response): Promise<Response> {
   try {
-    const tenantId = req.tenantId!;
-    const tenant = await prisma.tenant.findFirst({
-      where: { id: tenantId, deletedAt: null },
-      select: { id: true, name: true },
-    });
-
+    const tenant = req.tenant;
     if (!tenant) {
       return res.status(404).json({
         success: false,

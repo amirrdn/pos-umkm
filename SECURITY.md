@@ -14,6 +14,13 @@ Kami secara aktif mendukung dan menambal kerentanan keamanan pada versi-versi be
 ### Database Row-Level Security (RLS)
 - Gunakan user database non-superuser (misalnya `app_user`) agar kebijakan RLS PostgreSQL diterapkan.
 - Migrasi `20260623120000_enable_rls` mengaktifkan `FORCE ROW LEVEL SECURITY` pada 15 tabel ber-`tenantId`.
+- Tabel `tenants`: jalankan `backend/scripts/tenant_table_rls.sql` — `app_user` hanya boleh SELECT/UPDATE baris sendiri (`id = app.current_tenant_id`). INSERT/DELETE tenant hanya via `postgres` (seed/migrasi).
+
+### Akses tabel `tenants` di aplikasi
+- **Jangan** melebar `runInSystemContext` / `DIRECT_URL` ke service bisnis.
+- `tenantMiddleware` resolve tenant sekali (app_user + RLS) → disimpan di `req.tenant`.
+- Route handler memakai `req.tenant` untuk metadata langganan/pengaturan; query data bisnis tetap lewat `app_user` + RLS pada tabel ber-`tenantId`.
+- `runInSystemContext` tetap hanya untuk auth login/register, platform admin, seed, dan skrip ops.
 
 ### Autentikasi
 - JWT disimpan di cookie `auth_token` dengan flag `httpOnly`, `sameSite: strict`, dan `secure` di produksi.
