@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../lib/prisma';
 import { logError } from '../lib/logger';
-import { tenantStorage } from '../lib/tenantContext';
+import { runInSystemContext, tenantStorage } from '../lib/tenantContext';
 import { recordTenantScopedWriteAudit } from '../services/platformAuditService';
 
 export async function tenantMiddleware(req: Request, res: Response, next: NextFunction) {
@@ -26,9 +26,11 @@ export async function tenantMiddleware(req: Request, res: Response, next: NextFu
       });
     }
 
-    const tenant = await prisma.tenant.findUnique({
-      where: { id: tenantId },
-    });
+    const tenant = await runInSystemContext('auth', () =>
+      prisma.tenant.findUnique({
+        where: { id: tenantId },
+      })
+    );
 
     if (!tenant || tenant.deletedAt !== null) {
       return res.status(404).json({
@@ -48,10 +50,12 @@ export async function tenantMiddleware(req: Request, res: Response, next: NextFu
 
     const outletId = req.outletId;
     if (outletId) {
-      const outlet = await prisma.outlet.findFirst({
-        where: { id: outletId, tenantId: tenant.id, deletedAt: null, isActive: true },
-        select: { id: true },
-      });
+      const outlet = await runInSystemContext('auth', () =>
+        prisma.outlet.findFirst({
+          where: { id: outletId, tenantId: tenant.id, deletedAt: null, isActive: true },
+          select: { id: true },
+        })
+      );
       if (!outlet) {
         return res.status(403).json({
           success: false,

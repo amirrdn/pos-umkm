@@ -382,31 +382,37 @@ async function main() {
   
   // 1. Kategori
   const catMinuman = await prisma.category.upsert({
-    where: { id: 'cat-minuman-111' },
+    where: {
+      tenantId_slug: { tenantId: tenant.id, slug: 'minuman' },
+    },
     update: {
-      prefix: 'MNM'
+      prefix: 'MNM',
+      name: 'Minuman',
     },
     create: {
       id: 'cat-minuman-111',
       tenantId: tenant.id,
       name: 'Minuman',
       slug: 'minuman',
-      prefix: 'MNM'
-    }
+      prefix: 'MNM',
+    },
   });
 
   const catMakanan = await prisma.category.upsert({
-    where: { id: 'cat-makanan-222' },
+    where: {
+      tenantId_slug: { tenantId: tenant.id, slug: 'makanan' },
+    },
     update: {
-      prefix: 'MKN'
+      prefix: 'MKN',
+      name: 'Makanan',
     },
     create: {
       id: 'cat-makanan-222',
       tenantId: tenant.id,
       name: 'Makanan',
       slug: 'makanan',
-      prefix: 'MKN'
-    }
+      prefix: 'MKN',
+    },
   });
   console.log('📂 Kategori produk [Makanan] & [Minuman] berhasil di-seed.');
 
