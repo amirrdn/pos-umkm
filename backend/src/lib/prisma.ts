@@ -3,6 +3,11 @@ import { tenantStorage, getSystemContext } from './tenantContext';
 
 const globalForPrisma = globalThis as unknown as { prisma?: TenantScopedPrismaClient };
 
+export const systemPrisma = new PrismaClient({
+  log: process.env.NODE_ENV === 'development' ? ['warn', 'error'] : ['error'],
+  datasourceUrl: process.env.DIRECT_URL || process.env.DATABASE_URL,
+});
+
 const basePrisma = new PrismaClient({
   log: process.env.NODE_ENV === 'development' ? ['warn', 'error'] : ['error'],
 });
@@ -104,9 +109,19 @@ async function executeRawWithTenant<T>(
   }, options);
 }
 
-export const prisma = Object.assign(tenantScopedPrisma, {
-  $executeRawWithTenant: executeRawWithTenant,
-}) as TenantScopedPrismaClient;
+export const prisma = new Proxy(
+  Object.assign(tenantScopedPrisma, {
+    $executeRawWithTenant: executeRawWithTenant,
+  }),
+  {
+    get(target, prop, receiver) {
+      if (getSystemContext() && typeof prop === 'string' && prop in systemPrisma) {
+        return Reflect.get(systemPrisma, prop);
+      }
+      return Reflect.get(target, prop, receiver);
+    },
+  }
+) as unknown as TenantScopedPrismaClient;
 
 if (process.env.NODE_ENV !== 'production') {
   globalForPrisma.prisma = prisma;
