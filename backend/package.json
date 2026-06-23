@@ -4,7 +4,7 @@
   "description": "Backend POS Multi-Tenant SaaS",
   "main": "dist/index.js",
   "scripts": {
-    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "dev": "NODE_OPTIONS=--max-old-space-size=512 ts-node-dev --respawn --transpile-only src/index.ts",
     "build": "prisma generate && tsc",
     "start": "node --max-old-space-size=384 dist/index.js",
     "start:migrate": "prisma migrate deploy && node dist/index.js",

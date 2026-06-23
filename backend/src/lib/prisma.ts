@@ -59,13 +59,13 @@ function runOnTenantRlsClient<T>(
   model: string,
   operation: string,
   args: unknown,
-  tenantId: string
+  tenantId: string,
+  query: (modifiedArgs: unknown) => Promise<unknown>
 ): Promise<T> {
   const pinnedTx = tenantRlsTxStorage.getStore();
   if (pinnedTx && tenantStorage.getStore() === tenantId) {
-    const clientKey = modelClientKey(model);
-    const delegate = (pinnedTx as unknown as Record<string, PrismaModelDelegate>)[clientKey];
-    return delegate[operation](args) as Promise<T>;
+    // Pakai query() — delegate tx extended client re-enter extension → loop/OOM.
+    return query(args) as Promise<T>;
   }
   return runWithTenantRlsSession(model, operation, args, tenantId) as Promise<T>;
 }
@@ -118,7 +118,7 @@ const tenantScopedPrisma = basePrisma.$extends({
             activeTenantId ?? (typeof where?.id === 'string' ? where.id : undefined);
 
           if (tenantId) {
-            return runOnTenantRlsClient(model, operation, args, tenantId);
+            return runOnTenantRlsClient(model, operation, args, tenantId, query);
           }
 
           return query(args);
@@ -174,7 +174,7 @@ const tenantScopedPrisma = basePrisma.$extends({
               }
             }
 
-            return runOnTenantRlsClient(model, operation, args, effectiveTenantId);
+            return runOnTenantRlsClient(model, operation, args, effectiveTenantId, query);
           }
         }
 
@@ -206,7 +206,9 @@ async function executeRawWithTenant<T>(
 
   return tenantScopedPrisma.$transaction(async (transaction) => {
     await transaction.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
-    return tenantRlsTxStorage.run(transaction as object, () => callback(transaction));
+    return tenantRlsTxStorage.run(transaction as object, () =>
+      tenantStorage.run(tenantId, () => callback(transaction))
+    );
   }, options);
 }
 
