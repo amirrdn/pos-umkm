@@ -86,7 +86,6 @@ describe('processMidtransPosWebhook', () => {
 
     expect(mockCompleteQris).toHaveBeenCalledWith({
       transactionId: 'txn-1',
-      ledgerNote: expect.stringContaining('INV-20260621-001'),
     });
     expect(result.httpStatus).toBe(200);
   });

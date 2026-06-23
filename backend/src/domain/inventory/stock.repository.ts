@@ -160,6 +160,11 @@ export async function decrementOutletStockBulk(
     RETURNING os."productId", os.stock AS "stockAfter", v.quantity::int AS "quantity"
   `);
 
+  console.log('ROWS IS:', rows);
+  if (!rows || typeof rows.length === 'undefined') {
+    console.log('TX OBJECT HAS:', Object.keys(tx));
+  }
+
   if (rows.length !== items.length) {
     throw new Error('Stok tidak mencukupi untuk beberapa barang dalam keranjang.');
   }

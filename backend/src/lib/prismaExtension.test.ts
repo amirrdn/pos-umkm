@@ -31,6 +31,11 @@ vi.mock('@prisma/client', () => {
         capturedExtension = ext;
         return this;
       }
+      $transaction(args: unknown[]) {
+        return Promise.resolve([undefined, args[1]]);
+      }
+      $executeRawUnsafe = vi.fn().mockResolvedValue(1);
+      $queryRawUnsafe = vi.fn().mockResolvedValue([{ count: 1 }]);
     },
     Prisma: {
       dmmf: {

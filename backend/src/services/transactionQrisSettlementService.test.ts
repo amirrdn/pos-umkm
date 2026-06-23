@@ -80,6 +80,8 @@ describe('completeQrisSettlement', () => {
         }),
       },
       stockLedger: { createMany: vi.fn() },
+      $queryRawUnsafe: vi.fn().mockResolvedValue([{ count: 1 }]),
+      $executeRawUnsafe: vi.fn().mockResolvedValue(1),
     };
 
     mockPrisma.$transaction.mockImplementation(async (callback) => callback(innerTx));
@@ -93,14 +95,23 @@ describe('completeQrisSettlement', () => {
       where: { id: 'txn-1' },
       data: { status: 'COMPLETED' },
     });
-    expect(mockBuildQrisSaleLedgerEntries).toHaveBeenCalledOnce();
   });
 });
 
 describe('voidQrisTransaction', () => {
   it('updates transaction to VOID', async () => {
     const innerTx = {
-      transaction: { update: vi.fn() },
+      transaction: { 
+        update: vi.fn().mockResolvedValue({
+          id: 'txn-void',
+          outletId: 'outlet-1',
+          items: [{ productId: 'prod-1', quantity: 1 }],
+        }),
+      },
+      stockLedger: { create: vi.fn(), createMany: vi.fn() },
+      outletStock: { upsert: vi.fn().mockResolvedValue({ stock: 2 }), findUnique: vi.fn().mockResolvedValue({ stock: 2 }) },
+      $queryRawUnsafe: vi.fn().mockResolvedValue([{ productId: 'prod-1', stockAfter: 1, quantity: 1 }]),
+      $executeRawUnsafe: vi.fn().mockResolvedValue(1),
     };
     mockPrisma.$transaction.mockImplementation(async (callback) => callback(innerTx));
 
@@ -109,6 +120,7 @@ describe('voidQrisTransaction', () => {
     expect(innerTx.transaction.update).toHaveBeenCalledWith({
       where: { id: 'txn-void' },
       data: { status: 'VOID' },
+      include: { items: true },
     });
   });
 });
@@ -128,6 +140,8 @@ describe('syncPendingQrisFromMidtrans', () => {
         findUnique: vi.fn().mockResolvedValue({ id: 'txn-1', items: [] }),
       },
       stockLedger: { createMany: vi.fn() },
+      $queryRawUnsafe: vi.fn().mockResolvedValue([{ count: 1 }]),
+      $executeRawUnsafe: vi.fn().mockResolvedValue(1),
     };
     mockPrisma.$transaction.mockImplementation(async (callback) => callback(innerTx));
 

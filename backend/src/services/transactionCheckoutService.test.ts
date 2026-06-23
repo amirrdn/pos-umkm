@@ -34,6 +34,8 @@ const { mockTx, mockPrisma, mockSubscriptionService, mockMidtransService } = vi.
     tenant: {
       findUnique: vi.fn(),
     },
+    $queryRawUnsafe: vi.fn().mockResolvedValue([{ count: 1 }]),
+    $executeRawUnsafe: vi.fn().mockResolvedValue(1),
   };
 
   return {
@@ -126,6 +128,8 @@ describe('processCheckout', () => {
       subscriptionStatus: 'ACTIVE',
       subscriptionExpiresAt: null,
     });
+    mockTx.$queryRawUnsafe.mockResolvedValue([{ productId, stockAfter: 9, quantity: 1 }]);
+    mockTx.$executeRawUnsafe.mockResolvedValue(1);
     mockTx.stockLedger.createMany.mockResolvedValue({ count: 1 });
     mockTx.transaction.create.mockResolvedValue({
       id: 'txn-1',
@@ -208,7 +212,7 @@ describe('processCheckout', () => {
     });
 
     expect(result.transaction.id).toBe('txn-1');
-    expect(mockTx.outletStock.updateMany).toHaveBeenCalledOnce();
+    expect(mockTx.$queryRawUnsafe).toHaveBeenCalledOnce();
     expect(mockTx.stockLedger.createMany).toHaveBeenCalledOnce();
     expect(mockMidtransService.createQrisCharge).not.toHaveBeenCalled();
   });
