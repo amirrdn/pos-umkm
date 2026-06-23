@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useCartStore } from '../../store/useCartStore';
+import { useShallow } from 'zustand/react/shallow';
 import { getRecentProductIds, pushRecentProductId } from '../../utils/posRecentProducts';
 import { getProductsApi, type PosCatalogProduct } from '../../api/posApi';
 import {
@@ -23,11 +24,13 @@ export function usePosProducts({
   showToast,
   checkTokenExpiration,
 }: UsePosProductsOptions) {
-  const {
-    cart,
-    addToCart,
-    updateQuantity,
-  } = useCartStore();
+  const { cart, addToCart, updateQuantity } = useCartStore(
+    useShallow((state) => ({
+      cart: state.cart,
+      addToCart: state.addToCart,
+      updateQuantity: state.updateQuantity,
+    }))
+  );
 
   const [products, setProducts] = useState<Product[]>([]);
   const [loadingProducts, setLoadingProducts] = useState<boolean>(true);
@@ -38,6 +41,7 @@ export function usePosProducts({
   const [recentProductIds, setRecentProductIds] = useState<string[]>(() => getRecentProductIds());
 
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const lastScannedRef = useRef<{ sku: string; time: number } | null>(null);
 
   const focusSearchInput = useCallback(() => {
     searchInputRef.current?.focus();
@@ -105,6 +109,7 @@ export function usePosProducts({
     };
   }, [canFetchProducts, isAuthenticated, activeOutletId, platformAdmin, checkTokenExpiration, showToast]);
 
+
   const catalogProducts = useMemo(
     () => (canFetchProducts ? products : []),
     [canFetchProducts, products]
@@ -118,6 +123,15 @@ export function usePosProducts({
 
   const handleAddToCart = useCallback(
     (product: { productId: string; name: string; price: number; sku: string; stock: number }) => {
+      const now = Date.now();
+      const lastScan = lastScannedRef.current;
+
+      if (lastScan && lastScan.sku === product.sku && now - lastScan.time < 500) {
+        return;
+      }
+
+      lastScannedRef.current = { sku: product.sku, time: now };
+
       addToCart(product);
       const nextRecent = pushRecentProductId(product.productId);
       setRecentProductIds(nextRecent);
@@ -127,6 +141,51 @@ export function usePosProducts({
     },
     [addToCart, showToast]
   );
+
+  useEffect(() => {
+    let barcodeBuffer = '';
+    let lastKeyTime = Date.now();
+
+    const handleGlobalKeydown = (e: KeyboardEvent) => {
+      const activeTag = document.activeElement?.tagName.toLowerCase();
+      if (activeTag === 'input' || activeTag === 'textarea' || activeTag === 'select') return;
+
+      const currentTime = Date.now();
+      if (currentTime - lastKeyTime > 50) {
+        barcodeBuffer = '';
+      }
+      lastKeyTime = currentTime;
+
+      if (e.key === 'Enter' && barcodeBuffer.length > 3) {
+        e.preventDefault();
+        const query = barcodeBuffer.toLowerCase();
+        const exactMatch = catalogProducts.find((p) => p.sku.toLowerCase() === query);
+
+        if (exactMatch) {
+          const remaining = getRemainingStock(exactMatch.id, exactMatch.stock);
+          if (remaining > 0) {
+            handleAddToCart({
+              productId: exactMatch.id,
+              name: exactMatch.name,
+              price: exactMatch.price,
+              sku: exactMatch.sku,
+              stock: exactMatch.stock,
+            });
+          } else {
+            showToast('error', `${exactMatch.name} stok habis.`);
+          }
+        } else {
+          showToast('error', `Barcode ${barcodeBuffer} tidak ditemukan.`);
+        }
+        barcodeBuffer = '';
+      } else if (e.key.length === 1) {
+        barcodeBuffer += e.key;
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeydown);
+    return () => window.removeEventListener('keydown', handleGlobalKeydown);
+  }, [catalogProducts, getRemainingStock, handleAddToCart, showToast]);
 
   const handleSearchKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLInputElement>) => {

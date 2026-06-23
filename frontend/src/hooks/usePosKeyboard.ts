@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 export interface PosKeyboardHandlers {
   onFocusSearch: () => void;
@@ -10,6 +10,12 @@ export interface PosKeyboardHandlers {
 }
 
 export function usePosKeyboard(handlers: PosKeyboardHandlers, enabled = true) {
+  const handlersRef = useRef(handlers);
+
+  useEffect(() => {
+    handlersRef.current = handlers;
+  }, [handlers]);
+
   useEffect(() => {
     if (!enabled) return;
 
@@ -23,12 +29,12 @@ export function usePosKeyboard(handlers: PosKeyboardHandlers, enabled = true) {
 
       if (event.key === '/' && !isTyping) {
         event.preventDefault();
-        handlers.onFocusSearch();
+        handlersRef.current.onFocusSearch();
         return;
       }
 
       if (event.key === 'Escape') {
-        handlers.onCloseCart();
+        handlersRef.current.onCloseCart();
         return;
       }
 
@@ -36,20 +42,20 @@ export function usePosKeyboard(handlers: PosKeyboardHandlers, enabled = true) {
 
       if (event.key === 'F2') {
         event.preventDefault();
-        handlers.onOpenCart();
+        handlersRef.current.onOpenCart();
       } else if (event.key === 'F9') {
         event.preventDefault();
-        handlers.onCheckout();
+        handlersRef.current.onCheckout();
       } else if (event.key === '+' || event.key === '=') {
         event.preventDefault();
-        handlers.onIncrementLastItem();
+        handlersRef.current.onIncrementLastItem();
       } else if (event.key === '-') {
         event.preventDefault();
-        handlers.onDecrementLastItem();
+        handlersRef.current.onDecrementLastItem();
       }
     };
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [enabled, handlers]);
+  }, [enabled]);
 }

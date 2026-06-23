@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, type RefObject } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCartStore } from '../store/useCartStore';
+import { useShallow } from 'zustand/react/shallow';
 import { useAuthStore, canManageSubscription, isPlatformAdmin } from '../store/useAuthStore';
 import { useThemeStore } from '../store/useThemeStore';
 import { useSubscriptionStore } from '../store/useSubscriptionStore';
@@ -39,7 +40,22 @@ export function usePos({ printRef }: UsePosOptions) {
     addToCart,
     removeFromCart,
     updateQuantity,
-  } = useCartStore();
+  } = useCartStore(
+    useShallow((state) => ({
+      cart: state.cart,
+      subTotal: state.subTotal,
+      grandTotal: state.grandTotal,
+      clearCart: state.clearCart,
+      discountType: state.discountType,
+      discountValue: state.discountValue,
+      applyTax: state.applyTax,
+      setDiscount: state.setDiscount,
+      setApplyTax: state.setApplyTax,
+      addToCart: state.addToCart,
+      removeFromCart: state.removeFromCart,
+      updateQuantity: state.updateQuantity,
+    }))
+  );
 
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const user = useAuthStore((state) => state.user);

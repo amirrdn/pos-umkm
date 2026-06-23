@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useCartStore } from '../../store/useCartStore';
+import { useShallow } from 'zustand/react/shallow';
 import { POS_CHECKOUT_CONFIRM_KEY } from '../../utils/posRecentProducts';
 import { getTransactionStatusApi, checkoutApi } from '../../api/posApi';
 import type { Customer } from '../../store/useCustomerStore';
@@ -39,14 +40,16 @@ export function usePosCheckout({
   checkTokenExpiration,
   setShowCartPanel,
 }: UsePosCheckoutOptions) {
-  const {
-    cart,
-    grandTotal,
-    clearCart,
-    discountType,
-    discountValue,
-    applyTax,
-  } = useCartStore();
+  const { cart, grandTotal, clearCart, discountType, discountValue, applyTax } = useCartStore(
+    useShallow((state) => ({
+      cart: state.cart,
+      grandTotal: state.grandTotal,
+      clearCart: state.clearCart,
+      discountType: state.discountType,
+      discountValue: state.discountValue,
+      applyTax: state.applyTax,
+    }))
+  );
 
   const [paymentMethod, setPaymentMethod] = useState<string>('CASH');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
