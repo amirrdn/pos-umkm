@@ -35,6 +35,8 @@ const { mockTx, mockPrisma, mockSubscriptionService, mockMidtransService } = vi.
     },
     transaction: {
       create: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
     },
     stockLedger: {
       createMany: vi.fn(),
@@ -257,7 +259,7 @@ describe('processCheckout', () => {
       httpStatus: 500,
     });
 
-    expect(mockPrisma.transaction.delete).toHaveBeenCalledWith({
+    expect(mockTx.transaction.delete).toHaveBeenCalledWith({
       where: { id: 'txn-qris' },
     });
   });

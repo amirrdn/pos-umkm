@@ -31,6 +31,12 @@ describe('checkout controller', () => {
 
     const req = createMockRequest({
       tenantId,
+      tenant: {
+        subscriptionTier: 'FREE',
+        subscriptionStatus: 'ACTIVE',
+        subscriptionExpiresAt: null,
+        lastBillingAt: null,
+      },
       user: {
         id: userId,
         tenantId,
@@ -69,6 +75,12 @@ describe('checkout controller', () => {
 
     const req = createMockRequest({
       tenantId,
+      tenant: {
+        subscriptionTier: 'FREE',
+        subscriptionStatus: 'ACTIVE',
+        subscriptionExpiresAt: null,
+        lastBillingAt: null,
+      },
       outletId: 'outlet-1',
       user: {
         id: userId,
