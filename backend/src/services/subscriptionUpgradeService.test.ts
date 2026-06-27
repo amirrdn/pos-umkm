@@ -2,16 +2,26 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SubscriptionTier } from '@prisma/client';
 import { tenantId } from '../test/helpers/http';
 
-const { mockPrisma, mockMidtransService } = vi.hoisted(() => ({
-  mockPrisma: {
-    subscriptionInvoice: {
-      create: vi.fn(),
+const { mockPrisma, mockMidtransService } = vi.hoisted(() => {
+  const subscriptionInvoice = {
+    create: vi.fn(),
+  };
+
+  const tx = { subscriptionInvoice };
+
+  return {
+    mockPrisma: {
+      subscriptionInvoice,
+      $executeRawWithTenant: vi.fn(
+        async (_tenantId: string, callback: (innerTx: typeof tx) => Promise<unknown>) =>
+          callback(tx)
+      ),
     },
-  },
-  mockMidtransService: {
-    createSnapTransaction: vi.fn(),
-  },
-}));
+    mockMidtransService: {
+      createSnapTransaction: vi.fn(),
+    },
+  };
+});
 
 vi.mock('../lib/prisma', () => ({
   prisma: mockPrisma,
@@ -68,3 +78,4 @@ describe('createSubscriptionUpgradeInvoice', () => {
     expect(invoice.paymentToken).toBe('snap-token-123');
   });
 });
+
