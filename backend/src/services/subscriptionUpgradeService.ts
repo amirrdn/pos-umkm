@@ -20,18 +20,22 @@ export async function createSubscriptionUpgradeInvoice(
 
   const snapResult = await MidtransService.createSnapTransaction(invoiceNumber, amount);
 
-  const invoice = await prisma.subscriptionInvoice.create({
-    data: {
-      tenantId,
-      invoiceNumber,
-      tier: targetTier,
-      amount,
-      status: 'PENDING',
-      paymentToken: snapResult.token,
-      paymentUrl: snapResult.redirectUrl,
-      expiredAt,
-    },
-  });
+  const invoice = await prisma.$executeRawWithTenant(
+    tenantId,
+    (tx) =>
+      tx.subscriptionInvoice.create({
+        data: {
+          tenantId,
+          invoiceNumber,
+          tier: targetTier,
+          amount,
+          status: 'PENDING',
+          paymentToken: snapResult.token,
+          paymentUrl: snapResult.redirectUrl,
+          expiredAt,
+        },
+      })
+  );
 
   return invoice;
 }
