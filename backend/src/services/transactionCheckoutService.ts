@@ -338,11 +338,14 @@ async function finalizeQrisCheckout(
       Number(transaction.grandTotal)
     );
 
-    const finalResult = await prisma.transaction.update({
-      where: { id: transaction.id },
-      data: { qrisUrl: chargeRes.qrisUrl },
-      include: checkoutTransactionInclude,
-    });
+    const finalResult = await prisma.$executeRawWithTenant(
+      transaction.tenantId,
+      (tx) => tx.transaction.update({
+        where: { id: transaction.id },
+        data: { qrisUrl: chargeRes.qrisUrl },
+        include: checkoutTransactionInclude,
+      })
+    );
 
     return {
       transaction: finalResult,
@@ -352,7 +355,10 @@ async function finalizeQrisCheckout(
     logError('finalizeQrisCheckout.midtrans', midtransError);
 
     try {
-      await prisma.transaction.delete({ where: { id: transaction.id } });
+      await prisma.$executeRawWithTenant(
+        transaction.tenantId,
+        (tx) => tx.transaction.delete({ where: { id: transaction.id } })
+      );
     } catch (cleanupError) {
       logError('finalizeQrisCheckout.cleanup', cleanupError);
     }
