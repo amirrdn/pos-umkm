@@ -51,11 +51,11 @@ export function PosPaymentSheet({
             onClick={() => setPaymentMethod('CASH')}
             className={`cursor-pointer flex flex-col items-center justify-center gap-2 py-4 rounded-xl border-2 text-sm font-bold transition-all ${
               paymentMethod === 'CASH'
-                ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-200/50 dark:shadow-none'
-                : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+                ? 'bg-indigo-50 dark:bg-indigo-950/30 border-indigo-600 dark:border-indigo-500 text-indigo-700 dark:text-indigo-400'
+                : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/60'
             }`}
           >
-            <DollarSign className="h-6 w-6" />
+            <DollarSign className="h-5 w-5" />
             Tunai
           </button>
           <button
@@ -63,11 +63,11 @@ export function PosPaymentSheet({
             onClick={() => setPaymentMethod('QRIS')}
             className={`cursor-pointer flex flex-col items-center justify-center gap-2 py-4 rounded-xl border-2 text-sm font-bold transition-all ${
               paymentMethod === 'QRIS'
-                ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-200/50 dark:shadow-none'
-                : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+                ? 'bg-indigo-50 dark:bg-indigo-950/30 border-indigo-600 dark:border-indigo-500 text-indigo-700 dark:text-indigo-400'
+                : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/60'
             }`}
           >
-            <CreditCard className="h-6 w-6" />
+            <CreditCard className="h-5 w-5" />
             QRIS
           </button>
         </div>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShoppingBag, Moon, Sun, LogOut } from 'lucide-react';
+import { ShoppingBag, Moon, Sun, LogOut, HelpCircle } from 'lucide-react';
 import { OutletSwitcher } from '../OutletSwitcher';
 import type { AuthUser } from '../../store/useAuthStore';
 import type { ActiveShift } from '../../store/useShiftStore';
@@ -17,6 +17,7 @@ interface PosHeaderProps {
   user: AuthUser | null;
   primaryRole: string;
   handleLogout: () => void;
+  onHelpClick: () => void;
 }
 
 export const PosHeader: React.FC<PosHeaderProps> = ({
@@ -32,6 +33,7 @@ export const PosHeader: React.FC<PosHeaderProps> = ({
   user,
   primaryRole,
   handleLogout,
+  onHelpClick,
 }) => {
   return (
     <header className="shrink-0 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-sm">
@@ -127,6 +129,16 @@ export const PosHeader: React.FC<PosHeaderProps> = ({
             )}
           </button>
 
+          <button
+            type="button"
+            onClick={onHelpClick}
+            className="cursor-pointer p-2 min-h-10 min-w-10 flex items-center justify-center bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-all active:scale-95"
+            title="Bantuan Pintasan Keyboard"
+            aria-label="Bantuan Pintasan Keyboard"
+          >
+            <HelpCircle className="h-4 w-4" />
+          </button>
+
           {/* Avatar ringkas — tablet */}
           <div
             className="hidden sm:flex lg:hidden h-9 w-9 rounded-lg bg-indigo-100 dark:bg-indigo-950/50 items-center justify-center text-indigo-700 dark:text-indigo-300 font-bold text-xs uppercase shrink-0"
@@ -145,9 +157,9 @@ export const PosHeader: React.FC<PosHeaderProps> = ({
               <p className="text-xs font-semibold text-slate-800 dark:text-slate-100 truncate">
                 {user?.name || 'Operator'}
               </p>
-              <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">{user?.email}</p>
+              <p className="text-[10px] text-slate-500 dark:text-slate-300 font-medium truncate">{user?.email}</p>
             </div>
-            <span className="hidden xl:inline text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 uppercase tracking-wide shrink-0">
+            <span className="hidden xl:inline text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-indigo-100 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-200 uppercase tracking-wide shrink-0">
               {primaryRole}
             </span>
           </div>

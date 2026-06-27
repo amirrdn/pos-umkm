@@ -13,7 +13,7 @@ export function PosQuickPickRow({ products, getRemainingStock, onAddToCart }: Po
 
   return (
     <div className="mb-4 shrink-0">
-      <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">
+      <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
         Barang Terakhir
       </p>
       <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none snap-x">

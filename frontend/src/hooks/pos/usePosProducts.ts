@@ -63,14 +63,46 @@ export function usePosProducts({
         const data = await getProductsApi();
         if (cancelled) return;
 
-        const mappedProducts = (data.data as PosCatalogProduct[]).map((item, index: number) => {
-          const fallbacks = [
-            'https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&q=80&w=600',
-            'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&q=80&w=600',
-            'https://images.unsplash.com/photo-1555507036-ab1f4038808a?auto=format&fit=crop&q=80&w=600',
-            'https://images.unsplash.com/photo-1556679343-c7306c1976bc?auto=format&fit=crop&q=80&w=600',
-            'https://images.unsplash.com/photo-1536256263959-770b48d82b0a?auto=format&fit=crop&q=80&w=600'
-          ];
+        const mappedProducts = (data.data as PosCatalogProduct[]).map((item) => {
+          const nameLower = item.name.toLowerCase();
+          const categoryName = item.category?.name || 'Umum';
+          const catLower = categoryName.toLowerCase();
+
+          const isDrink =
+            catLower.includes('minuman') ||
+            catLower.includes('drink') ||
+            catLower.includes('beverage') ||
+            nameLower.includes('teh') ||
+            nameLower.includes('kopi') ||
+            nameLower.includes('es ') ||
+            nameLower.includes('susu') ||
+            nameLower.includes('jus') ||
+            nameLower.includes('water') ||
+            nameLower.includes('vanilla');
+
+          const isFood =
+            catLower.includes('makanan') ||
+            catLower.includes('food') ||
+            catLower.includes('bakery') ||
+            nameLower.includes('croissant') ||
+            nameLower.includes('roti') ||
+            nameLower.includes('nasi') ||
+            nameLower.includes('mie') ||
+            nameLower.includes('cake') ||
+            nameLower.includes('bread') ||
+            nameLower.includes('mentega');
+
+          let fallbackUrl = 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&q=80&w=600';
+          if (isDrink) {
+            fallbackUrl = nameLower.includes('kopi')
+              ? 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&q=80&w=600'
+              : 'https://images.unsplash.com/photo-1556679343-c7306c1976bc?auto=format&fit=crop&q=80&w=600';
+          } else if (isFood) {
+            fallbackUrl = nameLower.includes('croissant')
+              ? 'https://images.unsplash.com/photo-1555507036-ab1f4038808a?auto=format&fit=crop&q=80&w=600'
+              : 'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&q=80&w=600';
+          }
+
           const mainImage = item.images && item.images.length > 0
             ? (item.images.find((img: ProductApiImage) => img.isMain)?.url || item.images[0].url)
             : null;
@@ -84,8 +116,8 @@ export function usePosProducts({
             price: Number(item.sellingPrice),
             stock: item.stock,
             minStock: item.minStock ?? 0,
-            category: item.category?.name || 'Umum',
-            imageUrl: finalImageUrl || fallbacks[index % fallbacks.length]
+            category: categoryName,
+            imageUrl: finalImageUrl || fallbackUrl
           };
         });
 

@@ -1,4 +1,4 @@
-import React, { useRef, useMemo } from 'react';
+import React, { useRef, useMemo, useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { AlertTriangle, CheckCircle } from 'lucide-react';
 import { usePos } from '../hooks/usePos';
@@ -18,12 +18,32 @@ import { PosStatusBar } from './pos/PosStatusBar';
 import { PosCheckoutConfirmModal } from './pos/PosCheckoutConfirmModal';
 import { PosShiftDrawer } from './pos/PosShiftDrawer';
 import { PosOnboarding } from './pos/PosOnboarding';
+import { PosHelpModal } from './pos/PosHelpModal';
 
 export const PosView: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const printComponentRef = useRef<HTMLDivElement>(null);
   const pos = usePos({ printRef: printComponentRef });
+  const [showHelpModal, setShowHelpModal] = useState<boolean>(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const isTyping =
+        target?.tagName === 'INPUT' ||
+        target?.tagName === 'TEXTAREA' ||
+        target?.tagName === 'SELECT' ||
+        target?.isContentEditable;
+
+      if (e.key === '?' && !isTyping) {
+        e.preventDefault();
+        setShowHelpModal(true);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const {
     focusSearchInput,
@@ -122,6 +142,7 @@ export const PosView: React.FC = () => {
         user={pos.user}
         primaryRole={pos.primaryRole}
         handleLogout={pos.handleLogout}
+        onHelpClick={() => setShowHelpModal(true)}
       />
 
       <PosStatusBar
@@ -166,6 +187,7 @@ export const PosView: React.FC = () => {
           onSearchKeyDown={pos.handleSearchKeyDown}
           addToCart={pos.handleAddToCart}
           getRemainingStock={pos.getRemainingStock}
+          hasProducts={pos.products.length > 0}
         />
 
         <PosCartPanel
@@ -264,6 +286,10 @@ export const PosView: React.FC = () => {
           handleCreateCustomerSubmit={pos.handleCreateCustomerSubmit}
           isCreatingCustomer={pos.isCreatingCustomer}
         />
+      )}
+
+      {showHelpModal && (
+        <PosHelpModal onClose={() => setShowHelpModal(false)} />
       )}
     </div>
   );

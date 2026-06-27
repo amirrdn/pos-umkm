@@ -21,6 +21,7 @@ interface PosProductGridProps {
   onSearchKeyDown: (event: React.KeyboardEvent<HTMLInputElement>) => void;
   addToCart: (product: Omit<CartItem, 'quantity'>) => void;
   getRemainingStock: (productId: string, originalStock: number) => number;
+  hasProducts: boolean;
 }
 
 export const PosProductGrid: React.FC<PosProductGridProps> = ({
@@ -38,6 +39,7 @@ export const PosProductGrid: React.FC<PosProductGridProps> = ({
   onSearchKeyDown,
   addToCart,
   getRemainingStock,
+  hasProducts,
 }) => {
   const navigate = useNavigate();
 
@@ -81,8 +83,11 @@ export const PosProductGrid: React.FC<PosProductGridProps> = ({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={onSearchKeyDown}
-            className="w-full pl-11 pr-4 py-3 text-base bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 placeholder-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all shadow-sm"
+            className="w-full pl-11 pr-12 py-3 text-base bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 placeholder-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all shadow-sm"
           />
+          <div className="absolute right-3.5 top-1/2 -translate-y-1/2 hidden sm:flex items-center justify-center h-6 w-6 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-400 dark:text-slate-500 pointer-events-none select-none">
+            /
+          </div>
         </div>
       </div>
 
@@ -128,12 +133,12 @@ export const PosProductGrid: React.FC<PosProductGridProps> = ({
                       alt={product.name}
                       className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
-                    <span className="absolute top-2 left-2 bg-indigo-600 text-white px-3 py-1 rounded-lg text-xs font-bold shadow-md">
+                    <span className="absolute top-2 left-2 bg-white/90 dark:bg-slate-900/80 text-slate-800 dark:text-slate-100 backdrop-blur-xs border border-slate-200/10 px-2.5 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-wider shadow-sm">
                       {product.category}
                     </span>
                     {isLowStock && (
-                      <span className="absolute top-2 right-2 bg-red-600 text-white px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1 shadow-md">
-                        <AlertTriangle className="h-4 w-4" />
+                      <span className="absolute top-2 right-2 bg-amber-500/10 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30 px-2 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1 shadow-sm backdrop-blur-xs">
+                        <AlertTriangle className="h-3.5 w-3.5" />
                         Mau Habis
                       </span>
                     )}
@@ -160,7 +165,7 @@ export const PosProductGrid: React.FC<PosProductGridProps> = ({
 
                   <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between">
                     <div>
-                      <p className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                       <p className="text-xs font-bold text-slate-500 dark:text-slate-300">
                         Kode: {product.sku}
                       </p>
                       <h3 className="font-bold text-slate-800 dark:text-slate-100 text-base mt-1 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
@@ -176,12 +181,12 @@ export const PosProductGrid: React.FC<PosProductGridProps> = ({
                       <span
                         className={`text-sm font-bold flex items-center gap-1.5 ${
                           isOutOfStock
-                            ? 'text-red-600'
+                            ? 'text-red-600 dark:text-red-400'
                             : isLowStock
-                            ? 'text-red-600'
+                            ? 'text-amber-700 dark:text-amber-400'
                             : remainingStock <= 5
-                            ? 'text-orange-600'
-                            : 'text-slate-600 dark:text-slate-400'
+                            ? 'text-orange-600 dark:text-orange-400'
+                            : 'text-slate-600 dark:text-slate-300'
                         }`}
                       >
                         <Package className="h-4 w-4" />
@@ -201,7 +206,7 @@ export const PosProductGrid: React.FC<PosProductGridProps> = ({
               );
             })}
           </div>
-        ) : (
+        ) : !hasProducts ? (
           <div className="h-60 w-full flex flex-col items-center justify-center border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-3xl bg-white dark:bg-slate-900 p-6 text-center">
             <Coffee className="h-16 w-16 text-slate-300 dark:text-slate-600 mb-4" />
             <p className="font-bold text-slate-700 dark:text-slate-200 text-lg">Barang Belum Ada</p>
@@ -214,6 +219,25 @@ export const PosProductGrid: React.FC<PosProductGridProps> = ({
               className="cursor-pointer mt-4 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold transition-colors"
             >
               Buka Master Produk
+            </button>
+          </div>
+        ) : (
+          <div className="h-60 w-full flex flex-col items-center justify-center border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-3xl bg-white dark:bg-slate-900 p-6 text-center">
+            <Search className="h-16 w-16 text-slate-300 dark:text-slate-600 mb-4" />
+            <p className="font-bold text-slate-700 dark:text-slate-200 text-lg">Pencarian Tidak Ditemukan</p>
+            <p className="text-slate-500 dark:text-slate-400 text-sm mt-2 max-w-md">
+              Tidak ada barang yang cocok dengan kata kunci "{searchQuery}". Coba periksa ejaan atau gunakan kategori lain.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setSearchQuery('');
+                setSelectedCategory('SEMUA');
+                setInStockOnly(false);
+              }}
+              className="cursor-pointer mt-4 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold transition-colors"
+            >
+              Bersihkan Pencarian
             </button>
           </div>
         )}

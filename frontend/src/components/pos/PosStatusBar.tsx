@@ -1,4 +1,4 @@
-import { Clock, ShoppingBag, Store, Wifi, WifiOff } from 'lucide-react';
+import { Clock, ShoppingBag, Store, Wifi, WifiOff, Barcode } from 'lucide-react';
 
 export interface PosStatusBarProps {
   activeOutletName: string | null;
@@ -73,6 +73,11 @@ export function PosStatusBar({
             <span className="text-rose-600 dark:text-rose-400">Offline</span>
           </>
         )}
+      </div>
+
+      <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-500">
+        <Barcode className="h-3.5 w-3.5 text-indigo-500" />
+        <span>Pemindai Siap</span>
       </div>
     </div>
   );
