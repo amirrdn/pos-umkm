@@ -1,31 +1,25 @@
 import React, { useRef, useMemo, useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { AlertTriangle, CheckCircle } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 import { usePos } from '../hooks/usePos';
 import { usePosKeyboard } from '../hooks/usePosKeyboard';
-import { ShiftModal } from './ShiftModal';
-import { CloseShiftModal } from './CloseShiftModal';
 import { ReceiptTemplate } from './ReceiptTemplate';
 import { PosHeader } from './pos/PosHeader';
 import { PosNavigation } from './pos/PosNavigation';
 import { PosProductGrid } from './pos/PosProductGrid';
 import { PosCartPanel } from './pos/PosCartPanel';
-import { PosSuccessModal } from './pos/PosSuccessModal';
-import { PosQrisModal } from './pos/PosQrisModal';
-import { PosAddCustomerModal } from './pos/PosAddCustomerModal';
 import { PosSubscriptionBanner } from './pos/PosSubscriptionBanner';
 import { PosStatusBar } from './pos/PosStatusBar';
-import { PosCheckoutConfirmModal } from './pos/PosCheckoutConfirmModal';
-import { PosShiftDrawer } from './pos/PosShiftDrawer';
-import { PosOnboarding } from './pos/PosOnboarding';
-import { PosHelpModal } from './pos/PosHelpModal';
+import { ModalRenderer } from './PosView/modal-stack/ModalRenderer';
+import { PosAlertBanner } from './pos/PosAlertBanner';
+import { PosCartAddedSnackbar } from './pos/PosCartAddedSnackbar';
 
 export const PosView: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const printComponentRef = useRef<HTMLDivElement>(null);
   const pos = usePos({ printRef: printComponentRef });
-  const [showHelpModal, setShowHelpModal] = useState<boolean>(false);
+  const [showHelpModal, setShowHelpModal] = useState(false);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -73,54 +67,30 @@ export const PosView: React.FC = () => {
 
   usePosKeyboard(keyboardHandlers);
 
+  const modalVisibility = {
+    shiftRequired: pos.hasCheckedActiveShift && !pos.activeShift && !pos.isShiftLoading,
+    closeShift: pos.showCloseShiftModal,
+    checkoutConfirm: pos.showCheckoutConfirm,
+    qris: pos.showQrisModal,
+    success: pos.showSuccessModal,
+    shiftDrawer: pos.showShiftDrawer,
+    addCustomer: pos.showAddCustomerModal,
+    onboarding: pos.showOnboarding,
+    help: showHelpModal,
+  };
+
   return (
     <div className="h-screen w-screen bg-slate-50 dark:bg-slate-950 flex flex-col font-sans overflow-hidden transition-colors duration-150">
-      {pos.hasCheckedActiveShift && !pos.activeShift && !pos.isShiftLoading && (
-        <ShiftModal
-          cashierName={pos.user?.name || 'Kasir'}
-          onOpen={pos.handleOpenShift}
-          isLoading={pos.isShiftLoading}
-        />
-      )}
-
-      {pos.showCloseShiftModal && pos.activeShift && (
-        <CloseShiftModal
-          shift={pos.activeShift}
-          onClose={pos.handleCloseShift}
-          onCancel={() => pos.setShowCloseShiftModal(false)}
-          isLoading={pos.isShiftLoading}
-          cartItemCount={pos.cartItemCount}
-          hasPendingQris={pos.showQrisModal}
-        />
-      )}
-
       <div className="hidden print:block">
         <ReceiptTemplate ref={printComponentRef} transactionData={pos.currentTransaction} />
       </div>
 
-      {pos.notification && (
-        <div
-          className={`fixed top-4 right-4 z-50 flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg border transition-all duration-300 transform translate-y-0 ${
-            pos.notification.type === 'success'
-              ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300'
-              : 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-300'
-          }`}
-        >
-          {pos.notification.type === 'success' ? (
-            <CheckCircle className="h-5 w-5 text-emerald-600 shrink-0" />
-          ) : (
-            <AlertTriangle className="h-5 w-5 text-rose-600 shrink-0" />
-          )}
-          <span className="text-sm font-medium">{pos.notification.message}</span>
-          <button
-            type="button"
-            onClick={() => pos.setNotification(null)}
-            className="cursor-pointer ml-2 hover:opacity-75 text-xs font-bold"
-          >
-            ✕
-          </button>
-        </div>
-      )}
+      <PosAlertBanner
+        alert={pos.notification}
+        onDismiss={() => pos.setNotification(null)}
+      />
+
+      <PosCartAddedSnackbar feedback={pos.cartFeedback} />
 
       {pos.shiftError && (
         <div className="shrink-0 px-4 py-2 bg-rose-50 dark:bg-rose-950/30 border-b border-rose-200 dark:border-rose-900 flex items-center gap-2 text-rose-700 dark:text-rose-400 text-sm">
@@ -222,75 +192,60 @@ export const PosView: React.FC = () => {
         />
       </main>
 
-      {pos.showSuccessModal && pos.currentTransaction && (
-        <PosSuccessModal
-          currentTransaction={pos.currentTransaction}
-          cashReceived={pos.cashReceived}
-          setCashReceived={pos.setCashReceived}
-          handlePrint={pos.handlePrint}
-          handleSendWhatsApp={pos.handleSendWhatsApp}
-          handleFinishTransaction={pos.handleFinishTransaction}
-        />
-      )}
-
-      {pos.showQrisModal && (
-        <PosQrisModal
-          qrisUrl={pos.qrisUrl}
-          qrisInvoiceNumber={pos.qrisInvoiceNumber}
-          qrisGrandTotal={pos.qrisGrandTotal}
-          qrisFullscreen={pos.qrisFullscreen}
-          qrisPaymentStatus={pos.qrisPaymentStatus}
-          setQrisFullscreen={pos.setQrisFullscreen}
-          handleCancelQris={pos.handleCancelQris}
-          handleOpenCustomerDisplay={pos.handleOpenCustomerDisplay}
-          showToast={pos.showToast}
-        />
-      )}
-
-      {pos.showCheckoutConfirm && (
-        <PosCheckoutConfirmModal
-          itemCount={pos.cartItemCount}
-          grandTotal={pos.grandTotal}
-          paymentMethod={pos.paymentMethod}
-          submitting={pos.isSubmitting}
-          onClose={() => pos.setShowCheckoutConfirm(false)}
-          onConfirm={() => void pos.executeCheckout()}
-        />
-      )}
-
-      {pos.showShiftDrawer && (
-        <PosShiftDrawer
-          shift={pos.activeShift}
-          onClose={() => pos.setShowShiftDrawer(false)}
-          onCloseShift={() => pos.setShowCloseShiftModal(true)}
-        />
-      )}
-
-      {pos.showOnboarding && (
-        <PosOnboarding
-          step={pos.onboardingStep}
-          onNext={pos.advanceOnboarding}
-          onSkip={pos.completeOnboarding}
-        />
-      )}
-
-      {pos.showAddCustomerModal && (
-        <PosAddCustomerModal
-          setShowAddCustomerModal={pos.setShowAddCustomerModal}
-          newCustName={pos.newCustName}
-          setNewCustName={pos.setNewCustName}
-          newCustPhone={pos.newCustPhone}
-          setNewCustPhone={pos.setNewCustPhone}
-          newCustEmail={pos.newCustEmail}
-          setNewCustEmail={pos.setNewCustEmail}
-          handleCreateCustomerSubmit={pos.handleCreateCustomerSubmit}
-          isCreatingCustomer={pos.isCreatingCustomer}
-        />
-      )}
-
-      {showHelpModal && (
-        <PosHelpModal onClose={() => setShowHelpModal(false)} />
-      )}
+      <ModalRenderer
+        visibility={modalVisibility}
+        cashierName={pos.user?.name || 'Kasir'}
+        shiftData={{
+          activeShift: pos.activeShift,
+          isShiftLoading: pos.isShiftLoading,
+          handleOpenShift: pos.handleOpenShift,
+          handleCloseShift: pos.handleCloseShift,
+          setShowCloseShiftModal: pos.setShowCloseShiftModal,
+          setShowShiftDrawer: pos.setShowShiftDrawer,
+          cartItemCount: pos.cartItemCount,
+        }}
+        checkoutData={{
+          handleCheckout: pos.handleCheckout,
+          executeCheckout: pos.executeCheckout,
+          grandTotal: pos.grandTotal,
+          paymentMethod: pos.paymentMethod,
+          isSubmitting: pos.isSubmitting,
+          cartItemCount: pos.cartItemCount,
+          handlePrint: pos.handlePrint,
+          handleSendWhatsApp: pos.handleSendWhatsApp,
+          handleFinishTransaction: pos.handleFinishTransaction,
+          handleCancelQris: pos.handleCancelQris,
+          handleOpenCustomerDisplay: pos.handleOpenCustomerDisplay,
+          setShowCheckoutConfirm: pos.setShowCheckoutConfirm,
+          showToast: pos.showToast,
+        }}
+        transactionData={pos.currentTransaction}
+        cashReceived={pos.cashReceived}
+        setCashReceived={pos.setCashReceived}
+        customerData={{
+          setShowAddCustomerModal: pos.setShowAddCustomerModal,
+          newCustName: pos.newCustName,
+          setNewCustName: pos.setNewCustName,
+          newCustPhone: pos.newCustPhone,
+          setNewCustPhone: pos.setNewCustPhone,
+          newCustEmail: pos.newCustEmail,
+          setNewCustEmail: pos.setNewCustEmail,
+          isCreatingCustomer: pos.isCreatingCustomer,
+          handleCreateCustomerSubmit: pos.handleCreateCustomerSubmit,
+        }}
+        qrisData={{
+          qrisUrl: pos.qrisUrl,
+          qrisInvoiceNumber: pos.qrisInvoiceNumber,
+          qrisGrandTotal: pos.qrisGrandTotal,
+          qrisFullscreen: pos.qrisFullscreen,
+          qrisPaymentStatus: pos.qrisPaymentStatus,
+          setQrisFullscreen: pos.setQrisFullscreen,
+        }}
+        onboardingStep={pos.onboardingStep}
+        advanceOnboarding={pos.advanceOnboarding}
+        completeOnboarding={pos.completeOnboarding}
+        onCloseHelp={() => setShowHelpModal(false)}
+      />
     </div>
   );
 };

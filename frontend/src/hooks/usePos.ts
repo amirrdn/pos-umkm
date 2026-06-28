@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, type RefObject } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef, type RefObject } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCartStore } from '../store/useCartStore';
 import { useShallow } from 'zustand/react/shallow';
@@ -73,16 +73,38 @@ export function usePos({ printRef }: UsePosOptions) {
   const subscriptionBypass = platformAdmin || subscription?.platformAdminBypass === true;
 
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [cartFeedback, setCartFeedback] = useState<{
+    name: string;
+    price: number;
+    quantity: number;
+  } | null>(null);
   const [showCartPanel, setShowCartPanel] = useState<boolean>(false);
+  const notificationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cartFeedbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isOnline, setIsOnline] = useState<boolean>(() =>
     typeof navigator !== 'undefined' ? navigator.onLine : true
   );
 
   const showToast = useCallback((type: 'success' | 'error', message: string) => {
+    if (notificationTimeoutRef.current) {
+      clearTimeout(notificationTimeoutRef.current);
+    }
     setNotification({ type, message });
-    setTimeout(() => {
+    notificationTimeoutRef.current = setTimeout(() => {
       setNotification(null);
-    }, 6000);
+      notificationTimeoutRef.current = null;
+    }, 5000);
+  }, []);
+
+  const showCartAdded = useCallback((payload: { name: string; price: number; quantity: number }) => {
+    if (cartFeedbackTimeoutRef.current) {
+      clearTimeout(cartFeedbackTimeoutRef.current);
+    }
+    setCartFeedback(payload);
+    cartFeedbackTimeoutRef.current = setTimeout(() => {
+      setCartFeedback(null);
+      cartFeedbackTimeoutRef.current = null;
+    }, 2200);
   }, []);
 
   const handleLogout = useCallback(() => {
@@ -146,19 +168,6 @@ export function usePos({ printRef }: UsePosOptions) {
     resolveSilentOutlet();
   }, [platformAdmin, activeOutletId, isAuthenticated, setActiveOutlet]);
 
-  // Handle mobile cart drawer overflow hidden
-  useEffect(() => {
-    if (showCartPanel) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
-    return () => {
-      document.body.style.overflow = '';
-    };
-  }, [showCartPanel]);
-
-  // Handle media query change to close mobile cart drawer
   useEffect(() => {
     const mq = window.matchMedia('(min-width: 1024px)');
     const onChange = () => {
@@ -191,7 +200,14 @@ export function usePos({ printRef }: UsePosOptions) {
   // Call Sub-Hooks
   const onboarding = usePosOnboarding();
   const customer = usePosCustomer({ activeOutletId, showToast });
-  const products = usePosProducts({ isAuthenticated, activeOutletId, platformAdmin, showToast, checkTokenExpiration });
+  const products = usePosProducts({
+    isAuthenticated,
+    activeOutletId,
+    platformAdmin,
+    showToast,
+    showCartAdded,
+    checkTokenExpiration,
+  });
   const shift = usePosShift({ isAuthenticated, user, showToast, checkTokenExpiration, handleLogout });
   const checkout = usePosCheckout({
     user,
@@ -233,6 +249,7 @@ export function usePos({ printRef }: UsePosOptions) {
     isSubmitting: checkout.isSubmitting,
     notification,
     setNotification,
+    cartFeedback,
     searchQuery: products.searchQuery,
     setSearchQuery: products.setSearchQuery,
     selectedCategory: products.selectedCategory,

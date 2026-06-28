@@ -87,7 +87,7 @@ export function MutationModal({
                 </span>
                 :{' '}
                 {mutationStockLoading ? (
-                  <span className="italic">memuat...</span>
+                  <span className="inline-block h-3.5 w-12 bg-slate-200 dark:bg-slate-700 rounded animate-pulse align-middle" />
                 ) : (
                   <span className="font-bold text-slate-800 dark:text-slate-200 font-mono">
                     {mutationOutletStock ?? selectedProduct.stock} unit

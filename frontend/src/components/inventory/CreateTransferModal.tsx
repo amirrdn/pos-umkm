@@ -58,7 +58,7 @@ export function CreateTransferModal({
         <form onSubmit={handleTransferSubmit}>
           <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
             {transferFormError && (
-              <div className="flex items-center gap-2.5 p-3.5 bg-rose-550/10 border border-rose-500/20 rounded-xl text-rose-700 dark:text-rose-305 text-xs font-semibold">
+              <div className="flex items-center gap-2.5 p-3.5 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 rounded-xl text-rose-700 dark:text-rose-300 text-xs font-semibold">
                 <AlertCircle className="w-4 h-4 flex-shrink-0" />
                 <p>{transferFormError}</p>
               </div>
@@ -103,7 +103,7 @@ export function CreateTransferModal({
                 placeholder="Contoh: Pemindahan stok sisa, Restock bulanan cabang"
                 value={transferForm.note}
                 onChange={(e) => setTransferForm({ ...transferForm, note: e.target.value })}
-                className="w-full px-4 py-2.5 bg-slate-555 dark:bg-slate-955 border border-slate-200 dark:border-slate-800 focus:border-indigo-550 rounded-xl text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 transition-all"
+                className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 focus:border-indigo-500 rounded-xl text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 transition-all"
               />
             </div>
 
@@ -127,11 +127,21 @@ export function CreateTransferModal({
               </div>
 
               {sourceOutletLoading && (
-                <p className="text-xs text-slate-500 italic animate-pulse">Memuat data produk dan stok dari outlet pengirim...</p>
+                <div className="space-y-3">
+                  {[1, 2].map((n) => (
+                    <div key={n} className="flex flex-col sm:flex-row items-start sm:items-center gap-3 bg-slate-50 dark:bg-slate-900/40 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 animate-pulse">
+                      <div className="flex-1 w-full h-9 bg-slate-200 dark:bg-slate-800 rounded-lg" />
+                      <div className="w-full sm:w-32 h-9 bg-slate-200 dark:bg-slate-800 rounded-lg" />
+                      <div className="w-12 h-6 bg-slate-200 dark:bg-slate-800 rounded" />
+                      <div className="w-8 h-8 bg-slate-200 dark:bg-slate-800 rounded-lg" />
+                    </div>
+                  ))}
+                  <p className="text-xs text-slate-500 italic">Memuat data produk dan stok dari outlet pengirim...</p>
+                </div>
               )}
 
               {!transferForm.fromOutletId && (
-                <div className="text-center p-6 bg-slate-555 dark:bg-slate-955 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-500">
+                <div className="text-center p-6 bg-slate-50 dark:bg-slate-955/40 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-500">
                   Pilih outlet asal terlebih dahulu untuk mulai memilih produk.
                 </div>
               )}
@@ -141,7 +151,7 @@ export function CreateTransferModal({
                 const availableStock = selectedSourceProd ? selectedSourceProd.stock : 0;
 
                 return (
-                  <div key={index} className="flex flex-col sm:flex-row items-start sm:items-center gap-3 bg-slate-555 dark:bg-slate-955/40 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 relative group">
+                  <div key={index} className="flex flex-col sm:flex-row items-start sm:items-center gap-3 bg-slate-50 dark:bg-slate-900/40 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 relative group">
                     <div className="flex-1 w-full space-y-1">
                       <AppSelect
                         size="sm"

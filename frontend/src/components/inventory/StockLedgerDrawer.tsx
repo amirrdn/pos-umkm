@@ -1,4 +1,4 @@
-import { History, X, Loader2, CornerDownRight } from 'lucide-react';
+import { History, X, CornerDownRight } from 'lucide-react';
 import {
   getLedgerQuantitySignAndColor,
   getLedgerTypeBadgeClass,
@@ -44,9 +44,26 @@ export function StockLedgerDrawer({
 
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
           {ledgerLoading ? (
-            <div className="flex flex-col items-center justify-center py-20 gap-3">
-              <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
-              <p className="text-slate-500 dark:text-slate-400 text-xs">Memuat riwayat mutasi stok...</p>
+            <div className="relative border-l border-slate-200 dark:border-slate-800 pl-4 space-y-6">
+              {[1, 2, 3].map((n) => (
+                <div key={n} className="relative group animate-pulse">
+                  <div className="absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full bg-slate-200 dark:bg-slate-700 border border-slate-200 dark:border-slate-800" />
+                  <div className="bg-slate-50 dark:bg-slate-950/40 border border-slate-200 dark:border-slate-800 rounded-xl p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="h-4 w-16 bg-slate-200 dark:bg-slate-800 rounded" />
+                      <div className="h-3.5 w-24 bg-slate-200 dark:bg-slate-800 rounded" />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="h-4 w-28 bg-slate-200 dark:bg-slate-800 rounded" />
+                      <div className="h-3.5 w-20 bg-slate-200 dark:bg-slate-800 rounded" />
+                    </div>
+                    <div className="h-8 w-full bg-slate-100 dark:bg-slate-900/30 rounded border border-slate-200 dark:border-slate-800/80" />
+                    <div className="flex justify-end">
+                      <div className="h-3 w-16 bg-slate-200 dark:bg-slate-800 rounded" />
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           ) : ledgerEntries.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-center gap-3">

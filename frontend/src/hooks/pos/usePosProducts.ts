@@ -14,6 +14,7 @@ interface UsePosProductsOptions {
   activeOutletId: string | null;
   platformAdmin: boolean;
   showToast: (type: 'success' | 'error', message: string) => void;
+  showCartAdded: (payload: { name: string; price: number; quantity: number }) => void;
   checkTokenExpiration: (err: unknown) => boolean;
 }
 
@@ -22,6 +23,7 @@ export function usePosProducts({
   activeOutletId,
   platformAdmin,
   showToast,
+  showCartAdded,
   checkTokenExpiration,
 }: UsePosProductsOptions) {
   const { cart, addToCart, updateQuantity } = useCartStore(
@@ -165,13 +167,18 @@ export function usePosProducts({
       lastScannedRef.current = { sku: product.sku, time: now };
 
       addToCart(product);
+      const cartItem = useCartStore.getState().cart.find((item) => item.productId === product.productId);
       const nextRecent = pushRecentProductId(product.productId);
       setRecentProductIds(nextRecent);
       setCartBadgePulse(true);
       setTimeout(() => setCartBadgePulse(false), 600);
-      showToast('success', `${product.name} ditambahkan ke keranjang.`);
+      showCartAdded({
+        name: product.name,
+        price: product.price,
+        quantity: cartItem?.quantity ?? 1,
+      });
     },
-    [addToCart, showToast]
+    [addToCart, showCartAdded]
   );
 
   useEffect(() => {

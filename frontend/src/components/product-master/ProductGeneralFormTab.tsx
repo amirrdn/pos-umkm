@@ -58,7 +58,7 @@ export function ProductGeneralFormTab({
 }: ProductGeneralFormTabProps) {
   return (
     <>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-1.5">
           <div className="flex justify-between items-center">
             <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">SKU / Kode Barang</label>
@@ -126,7 +126,7 @@ export function ProductGeneralFormTab({
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="space-y-1.5">
           <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Harga Beli</label>
           <div className="relative">
@@ -199,7 +199,7 @@ export function ProductGeneralFormTab({
           Gambar Produk ({images.length}/8)
         </label>
 
-        <div className="grid grid-cols-4 gap-3 max-h-48 overflow-y-auto pr-1">
+        <div className="grid grid-cols-3 sm:grid-cols-4 gap-3 max-h-48 overflow-y-auto pr-1">
           {images.map((img, index) => {
             const displayUrl = resolveProductImageUrl(img.url);
             return (

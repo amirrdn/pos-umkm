@@ -23,7 +23,7 @@ export function ProductOutletsFormTab({
   onSaveMinStock,
 }: ProductOutletsFormTabProps) {
   return (
-    <div className="space-y-4 max-h-[450px] overflow-y-auto pr-1">
+    <div className="space-y-4">
       <p className="text-[11px] text-slate-500 dark:text-slate-400">
         Tentukan harga jual khusus dan batas limit stok minimum untuk masing-masing cabang. Jika harga khusus dikosongkan, sistem akan otomatis menggunakan harga jual utama (Rp {sellingPrice.toLocaleString('id-ID')}).
       </p>
@@ -44,7 +44,7 @@ export function ProductOutletsFormTab({
                 </span>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Harga Jual Khusus</label>
                   <div className="flex gap-1.5">
