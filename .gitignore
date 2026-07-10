@@ -1,11 +1,14 @@
 # SaaSPOS — Monorepo (backend + frontend)
 
-# --- Dokumen perencanaan lokal (tidak di-commit) ---
+.cursorrules
+.cursorignore
+AGENTS.md
+LEAN-CTX.md
+
+doc/
 product_roadmap.md
 task.md
-plan_multi_outlet.md
-plan_subscription.md
-plan_gap_remediation.md
+plan_*.md
 
 # --- Dependencies ---
 node_modules/
