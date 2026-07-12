@@ -4,6 +4,13 @@ import {
   mapProductsWithComputedStock,
   seedOutletStocksForNewProduct,
 } from '../domain/inventory';
+import { cacheGetOrSet } from '../lib/cache';
+import {
+  posCatalogCacheKey,
+  CACHE_TTL,
+  invalidatePosCatalogForTenant,
+  invalidatePosCatalogForOutlet,
+} from '../lib/cacheKeys';
 
 interface CreateProductInput {
   categoryId: string;
@@ -47,6 +54,13 @@ const PRODUCT_LIST_INCLUDE = {
 export class ProductService {
   /** Katalog POS — select minimal per outlet, tanpa nested outlet / semua cabang. */
   async getPosCatalogProducts(tenantId: string, outletId: string) {
+    const key = posCatalogCacheKey(tenantId, outletId);
+    return cacheGetOrSet(key, CACHE_TTL.POS_CATALOG, () =>
+      this.fetchPosCatalogFromDb(tenantId, outletId)
+    );
+  }
+
+  private async fetchPosCatalogFromDb(tenantId: string, outletId: string) { 
     const products = await prisma.product.findMany({
       where: { tenantId, deletedAt: null },
       select: {
@@ -54,11 +68,11 @@ export class ProductService {
         sku: true,
         name: true,
         sellingPrice: true,
-        category: { select: { name: true } },
+        category: { select: { id: true, name: true, slug: true } },
         images: {
-          orderBy: [{ isMain: 'desc' }, { id: 'asc' }],
+          orderBy: [{ isMain: 'desc' }, {id: 'asc'}],
           take: 1,
-          select: { url: true, isMain: true },
+          select: { url: true, isMain: true}
         },
         outletStocks: {
           where: { outletId },
@@ -71,7 +85,7 @@ export class ProductService {
           take: 1,
         },
       },
-      orderBy: { name: 'asc' },
+      orderBy: { name: 'asc'},
     });
 
     return products.map((product) => {
@@ -81,18 +95,14 @@ export class ProductService {
         id: product.id,
         sku: product.sku,
         name: product.name,
-        sellingPrice:
-          priceOverride !== null && priceOverride !== undefined
-            ? priceOverride
-            : product.sellingPrice,
-        stock: stockRow?.stock ?? 0,
-        minStock: stockRow?.minStock ?? 0,
+        sellingPrice: priceOverride !== null && priceOverride !== undefined ? priceOverride : product.sellingPrice,
+        stock: stockRow ? stockRow.stock : 0,
+        minStock: stockRow ? stockRow.minStock : 0,
         category: product.category,
-        images: product.images,
+        images: product.images
       };
     });
   }
-
   async getAllProducts(tenantId: string, outletId?: string | null) {
     const products = await prisma.product.findMany({
       where: { tenantId, deletedAt: null },
@@ -176,14 +186,16 @@ export class ProductService {
           images: { select: { id: true, url: true, isMain: true } },
         },
       });
-
+      
       await seedOutletStocksForNewProduct(tx, {
         tenantId,
         productId: product.id,
         mainStock: data.stock ?? 0,
       });
 
-      return { ...product, stock: data.stock ?? 0 };
+      const result = { ...product, stock: data.stock ?? 0 };
+      await invalidatePosCatalogForTenant(tenantId);
+      return result;
     });
   }
 
@@ -217,7 +229,7 @@ export class ProductService {
       }
     }
 
-    return prisma.product.update({
+    const updated = await prisma.product.update({
       where: { id: productId },
       data: {
         categoryId: data.categoryId,
@@ -240,6 +252,9 @@ export class ProductService {
         images: { select: { id: true, url: true, isMain: true } },
       },
     });
+
+    await invalidatePosCatalogForTenant(tenantId);
+    return updated;
   }
 
   async deleteProduct(tenantId: string, productId: string) {
@@ -252,10 +267,13 @@ export class ProductService {
       throw new Error('Produk tidak ditemukan atau Anda tidak memiliki hak akses menghapusnya.');
     }
 
-    return prisma.product.update({
+    const deleted = await prisma.product.update({
       where: { id: productId },
       data: { deletedAt: new Date() },
     });
+
+    await invalidatePosCatalogForTenant(tenantId);
+    return deleted;
   }
 
   async setPriceOverride(
@@ -279,11 +297,14 @@ export class ProductService {
       throw new Error('Produk atau outlet tidak ditemukan.');
     }
 
-    return prisma.outletProductPrice.upsert({
+    const result = await prisma.outletProductPrice.upsert({
       where: { outletId_productId: { outletId, productId } },
       create: { tenantId, outletId, productId, price },
       update: { price },
     });
+
+    await invalidatePosCatalogForOutlet(tenantId, outletId);
+    return result;
   }
 
   async deletePriceOverride(tenantId: string, outletId: string, productId: string) {
@@ -296,9 +317,12 @@ export class ProductService {
       throw new Error('Harga khusus tidak ditemukan.');
     }
 
-    return prisma.outletProductPrice.delete({
+    const deleted = await prisma.outletProductPrice.delete({
       where: { outletId_productId: { outletId, productId } },
     });
+
+    await invalidatePosCatalogForOutlet(tenantId, outletId);
+    return deleted;
   }
 
   async setMinStock(
@@ -322,11 +346,14 @@ export class ProductService {
       throw new Error('Produk atau outlet tidak ditemukan.');
     }
 
-    return prisma.outletStock.upsert({
+    const result = await prisma.outletStock.upsert({
       where: { outletId_productId: { outletId, productId } },
       create: { tenantId, outletId, productId, stock: 0, minStock },
       update: { minStock },
     });
+
+    await invalidatePosCatalogForOutlet(tenantId, outletId);
+    return result;
   }
 
   async getOutletSettingsForProduct(tenantId: string, productId: string) {

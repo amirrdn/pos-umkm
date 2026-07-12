@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import 'express-async-errors';
 import dotenv from 'dotenv';
+import { pingRedis } from './lib/redis';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import cors from 'cors';
@@ -88,13 +89,13 @@ app.use('/api', apiRateLimiter);
 // DAFTAR ROUTE APLIKASI
 // ==========================================
 
-app.get('/health', (_req: Request, res: Response) => {
+app.get('/health', async (_req, res) => {
+  const redisOk = await pingRedis();
   res.status(200).json({
     status: 'ok',
-    message: 'Backend SaaS POS berjalan dengan baik.'
-  });
+    redis: process.env.REDIS_ENABLED === 'true' ? (redisOk ? 'up' : 'down') : 'disabled',
+  })
 });
-
 app.use('/api/auth', authRoutes);
 
 app.use('/api/products', productRoutes);
@@ -143,6 +144,12 @@ app.use(errorHandler);
 const server = app.listen(PORT, () => {
   startNotificationSchedulers();
   logInfo('server', `Server berjalan di port ${PORT}`);
+
+  void pingRedis().then((ok) => {
+    if (process.env.REDIS_ENABLED === 'true') {
+      logInfo('redis', ok ? 'Redis OK' : 'Redis unavailable - fallback to DB');
+    }
+  })
 });
 
 server.timeout = 300000;

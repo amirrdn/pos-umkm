@@ -16,6 +16,14 @@ services:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - pos_network
+  redis:
+    image: redis:7-alpine
+    container_name: saas_pos_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    networks:
+      - pos_network
 
 # Definisi Volume untuk persistensi data database
 volumes:

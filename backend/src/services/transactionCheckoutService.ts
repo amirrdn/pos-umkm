@@ -13,6 +13,7 @@ import { SubscriptionService, TIER_LIMITS } from './subscriptionService';
 import { isSubscriptionExpired } from '../lib/subscription';
 import { decrementOutletStockBulk } from '../domain/inventory/stock.repository';
 import { logError } from '../lib/logger';
+import { invalidatePosCatalogForOutlet } from '../lib/cacheKeys';
 
 const checkoutTransactionInclude = {
   items: {
@@ -87,6 +88,7 @@ export async function processCheckout(command: CheckoutCommand): Promise<Checkou
     }
     throw error;
   }
+  void invalidatePosCatalogForOutlet(command.tenantId, command.outletId!);
 
   if (command.paymentMethod === 'QRIS') {
     return finalizeQrisCheckout(result);
