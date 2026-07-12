@@ -2,13 +2,9 @@
 
 .cursorrules
 .cursorignore
-AGENTS.md
-LEAN-CTX.md
 
+# Local docs & plans (README.md + SECURITY.md di root tetap di-track)
 doc/
-product_roadmap.md
-task.md
-plan_*.md
 
 # --- Dependencies ---
 node_modules/
