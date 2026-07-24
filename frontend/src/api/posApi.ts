@@ -2,7 +2,12 @@ import { apiClient } from './apiClient';
 import type { ApiSuccessResponse } from './types';
 
 export interface CheckoutPayload {
-  paymentMethod: string;
+  paymentMethod?: string;
+  payments?: {
+    paymentMethod: string;
+    amount: number;
+    referenceNumber?: string;
+  }[];
   discountType?: 'PERCENT' | 'NOMINAL';
   discountValue?: number;
   applyTax?: boolean;

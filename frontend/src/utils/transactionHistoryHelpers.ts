@@ -67,7 +67,19 @@ export function buildWhatsAppInvoiceText(
 
   const formattedDate = formatTransactionDateTime(transaction.createdAt);
   const tenantName = getTenantDisplayName(user?.tenantId);
-  const paymentDetail = `Metode: ${transaction.paymentMethod === 'CASH' ? 'TUNAI' : 'QRIS'}`;
+  const paymentLabel =
+    transaction.paymentMethod === 'SPLIT' || (transaction.payments && transaction.payments.length > 1)
+      ? `CAMPURAN (${
+          transaction.payments && transaction.payments.length > 0
+            ? transaction.payments
+                .map((p) => `${p.paymentMethod === 'CASH' ? 'Tunai' : 'QRIS'}: Rp ${Number(p.amount).toLocaleString('id-ID')}`)
+                .join(', ')
+            : 'Tunai + QRIS'
+        })`
+      : transaction.paymentMethod === 'CASH'
+      ? 'TUNAI'
+      : 'QRIS';
+  const paymentDetail = `Metode: ${paymentLabel}`;
 
   let customerDetail = '';
   if (transaction.customer) {

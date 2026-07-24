@@ -41,7 +41,11 @@ export const PosSuccessModal: React.FC<PosSuccessModalProps> = ({
             <div className="flex justify-between items-center text-xs text-slate-500 dark:text-slate-400">
               <span>Metode Pembayaran</span>
               <span className="font-bold text-slate-700 dark:text-slate-200">
-                {currentTransaction.paymentMethod === 'CASH' ? 'TUNAI' : 'QRIS'}
+                {currentTransaction.paymentMethod === 'CASH'
+                  ? 'TUNAI'
+                  : currentTransaction.paymentMethod === 'SPLIT'
+                  ? 'CAMPURAN'
+                  : 'QRIS'}
               </span>
             </div>
             <div className="flex justify-between items-center text-xs text-slate-500 dark:text-slate-400">

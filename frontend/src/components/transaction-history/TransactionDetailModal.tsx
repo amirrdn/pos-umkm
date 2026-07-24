@@ -119,7 +119,22 @@ export function TransactionDetailModal({
                   <CreditCard className="w-4 h-4 text-slate-400" /> Metode Pembayaran
                 </span>
                 <span className="font-extrabold text-slate-800 dark:text-slate-200">
-                  {transaction.paymentMethod === 'CASH' ? 'TUNAI (CASH)' : 'QRIS'}
+                  {transaction.paymentMethod === 'SPLIT' || (transaction.payments && transaction.payments.length > 1)
+                    ? `CAMPURAN (${
+                        transaction.payments && transaction.payments.length > 0
+                          ? transaction.payments
+                              .map(
+                                (p) =>
+                                  `${p.paymentMethod === 'CASH' ? 'Tunai' : 'QRIS'}: Rp ${Number(
+                                    p.amount
+                                  ).toLocaleString('id-ID')}`
+                              )
+                              .join(', ')
+                          : 'Tunai + QRIS'
+                      })`
+                    : transaction.paymentMethod === 'CASH'
+                    ? 'TUNAI (CASH)'
+                    : 'QRIS'}
                 </span>
               </div>
             </div>

@@ -3,6 +3,7 @@ import { useCartStore } from '../../store/useCartStore';
 import { useShallow } from 'zustand/react/shallow';
 import { getRecentProductIds, pushRecentProductId } from '../../utils/posRecentProducts';
 import { getProductsApi, type PosCatalogProduct } from '../../api/posApi';
+import { saveCatalogOffline, getCatalogOffline } from '../../utils/offlineSync';
 import {
   type Product,
   type ProductApiImage,
@@ -124,12 +125,16 @@ export function usePosProducts({
         });
 
         setProducts(mappedProducts);
+        saveCatalogOffline(mappedProducts);
       } catch (err: unknown) {
         if (cancelled) return;
         console.error('Fetch Products Error:', err);
-        if (!checkTokenExpiration(err)) {
-          const msg = err instanceof Error ? err.message : 'Koneksi ke API produk gagal.';
-          showToast('error', msg);
+        const offlineProducts = getCatalogOffline<Product>();
+        if (offlineProducts.length > 0) {
+          setProducts(offlineProducts);
+          showToast('error', 'Offline Mode: Menggunakan katalog produk lokal.');
+        } else if (!checkTokenExpiration(err)) {
+          showToast('error', 'Koneksi ke server gagal. Gagal mengambil katalog produk.');
         }
       } finally {
         if (!cancelled) {

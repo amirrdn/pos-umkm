@@ -24,9 +24,9 @@ async function main() {
       email: 'info@tokoutama.com',
       phone: '081234567890',
       status: 'ACTIVE',
-      subscriptionTier: 'FREE',
+      subscriptionTier: 'ENTERPRISE',
       subscriptionStatus: 'ACTIVE',
-      subscriptionExpiresAt: null
+      subscriptionExpiresAt: new Date('2027-12-31T23:59:59Z')
     }
   });
   console.log('🏢 Tenant [Toko Utama] berhasil di-seed.');

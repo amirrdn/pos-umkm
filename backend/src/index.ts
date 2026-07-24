@@ -11,6 +11,7 @@ import { authMiddleware } from './middlewares/authMiddleware';
 import { tenantMiddleware } from './middlewares/tenantMiddleware';
 import { requireRole } from './middlewares/roleMiddleware';
 import { startNotificationSchedulers } from './lib/notificationScheduler';
+import { startQueueWorkers } from './lib/queue';
 import { logInfo } from './lib/logger';
 import authRoutes from './routes/authRoutes';
 import productRoutes from './routes/productRoutes';
@@ -26,6 +27,9 @@ import transferRoutes from './routes/transferRoutes';
 import notificationRoutes from './routes/notificationRoutes';
 import subscriptionRoutes from './routes/subscriptionRoutes';
 import platformRoutes from './routes/platformRoutes';
+import supplierRoutes from './routes/supplierRoutes';
+import poRoutes from './routes/poRoutes';
+import salesReturnRoutes from './routes/salesReturnRoutes';
 import { checkSubscriptionStatus } from './middlewares/subscriptionGuard';
 import { errorHandler } from './middlewares/errorHandler';
 import { apiRateLimiter } from './middlewares/apiRateLimiter';
@@ -124,6 +128,12 @@ app.use('/api/subscriptions', subscriptionRoutes);
 
 app.use('/api/platform', platformRoutes);
 
+app.use('/api/suppliers', supplierRoutes);
+
+app.use('/api/purchase-orders', poRoutes);
+
+app.use('/api/sales-returns', salesReturnRoutes);
+
 app.get(
   '/api/admin/dashboard',
   authMiddleware,
@@ -143,6 +153,7 @@ app.use(errorHandler);
 
 const server = app.listen(PORT, () => {
   startNotificationSchedulers();
+  startQueueWorkers();
   logInfo('server', `Server berjalan di port ${PORT}`);
 
   void pingRedis().then((ok) => {

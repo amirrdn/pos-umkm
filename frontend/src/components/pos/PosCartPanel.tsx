@@ -14,6 +14,10 @@ interface PosCartPanelProps {
   removeFromCart: (id: string) => void;
   paymentMethod: string;
   setPaymentMethod: (method: string) => void;
+  splitCashAmount?: number | '';
+  setSplitCashAmount?: (val: number | '') => void;
+  splitQrisAmount?: number | '';
+  setSplitQrisAmount?: (val: number | '') => void;
   selectedCustomer: Customer | null;
   setSelectedCustomer: (cust: Customer | null) => void;
   customerQuery: string;

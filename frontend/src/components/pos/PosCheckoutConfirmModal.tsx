@@ -27,7 +27,11 @@ export function PosCheckoutConfirmModal({
           <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">Konfirmasi Pembayaran</h3>
           <p className="text-sm text-slate-500 dark:text-slate-400">
             {itemCount} item · Rp {grandTotal.toLocaleString('id-ID')} ·{' '}
-            {paymentMethod === 'CASH' ? 'Tunai' : 'QRIS'}
+            {paymentMethod === 'CASH'
+              ? 'Tunai'
+              : paymentMethod === 'SPLIT'
+              ? 'Campuran'
+              : 'QRIS'}
           </p>
         </div>
 
