@@ -1,5 +1,10 @@
-// Konfigurasi URL API Backend untuk Lingkungan Produksi dan Pengembangan
-export const API_BASE_URL = import.meta.env.VITE_API_URL;
+// Dev: set VITE_API_URL ke origin backend (mis. http://localhost:3000).
+// Prod (Vercel): biarkan kosong → same-origin /api/* di-proxy lewat vercel.json.
+const rawApiBaseUrl = import.meta.env.VITE_API_URL;
+export const API_BASE_URL =
+  typeof rawApiBaseUrl === 'string' && rawApiBaseUrl.trim() !== ''
+    ? rawApiBaseUrl.trim()
+    : undefined;
 export const API_TIMEOUT_MS = 300000; // 5 Menit
 
 export const MIDTRANS_IS_PRODUCTION =

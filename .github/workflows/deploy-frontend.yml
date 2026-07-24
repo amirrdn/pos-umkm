@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -33,6 +34,29 @@ jobs:
       - name: Pull Vercel Environment Information
         run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
         working-directory: ./frontend
+
+      # vercel pull / vercel build menginjeksikan env dari Vercel dashboard.
+      # Jika VITE_API_URL terisi di sana (secret/URL salah), axios baseURL jadi
+      # prefix path → POST /{value}/api/... miss rewrite → 405 di SPA.
+      # Paksa kosong = same-origin /api/* → vercel.json → Render.
+      - name: Force empty VITE_API_URL (same-origin proxy)
+        working-directory: ./frontend
+        run: |
+          set -euo pipefail
+          for f in \
+            .env \
+            .env.local \
+            .env.production \
+            .env.production.local \
+            .vercel/.env.production.local
+          do
+            if [ -f "$f" ]; then
+              sed -i -E '/^VITE_API_URL=/d' "$f"
+            fi
+          done
+          echo 'VITE_API_URL=' >> .env.production.local
+          # Best-effort: hapus dari project Vercel agar pull berikutnya bersih
+          vercel env rm VITE_API_URL production --yes --token="${{ secrets.VERCEL_TOKEN }}" || true
 
       - name: Build Project Artifacts
         run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
