@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { RotateCcw, Plus, Search, Eye, X } from 'lucide-react';
 import { AppShellHeader } from '../AppShellHeader';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -25,9 +25,8 @@ export function SalesReturnView() {
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
-      setLoading(true);
       const [returnData, txData] = await Promise.all([
         getSalesReturnsApi(),
         getTransactionHistoryApi(),
@@ -39,11 +38,12 @@ export function SalesReturnView() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void fetchData();
+  }, [fetchData]);
 
   const handleTransactionChange = (txId: string) => {
     setSelectedTxId(txId);
