@@ -5,8 +5,8 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "NODE_OPTIONS=--max-old-space-size=512 ts-node-dev --respawn --transpile-only src/index.ts",
-    "build": "prisma generate && prisma db push && tsc",
-    "start": "node --max-old-space-size=384 dist/index.js",
+    "build": "DATABASE_URL=postgresql://dummy DIRECT_URL=postgresql://dummy prisma generate && tsc",
+    "start": "npx prisma db push && node --max-old-space-size=384 dist/index.js",
     "start:migrate": "prisma migrate deploy && node dist/index.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
