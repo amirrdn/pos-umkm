@@ -169,6 +169,10 @@ export const PosView: React.FC = () => {
           removeFromCart={pos.removeFromCart}
           paymentMethod={pos.paymentMethod}
           setPaymentMethod={pos.setPaymentMethod}
+          splitCashAmount={pos.splitCashAmount}
+          setSplitCashAmount={pos.setSplitCashAmount}
+          splitQrisAmount={pos.splitQrisAmount}
+          setSplitQrisAmount={pos.setSplitQrisAmount}
           selectedCustomer={pos.selectedCustomer}
           setSelectedCustomer={pos.setSelectedCustomer}
           customerQuery={pos.customerQuery}

@@ -6,6 +6,10 @@ import type { Customer } from '../../store/useCustomerStore';
 export interface PosPaymentSheetProps {
   paymentMethod: string;
   setPaymentMethod: (method: string) => void;
+  splitCashAmount?: number | '';
+  setSplitCashAmount?: (val: number | '') => void;
+  splitQrisAmount?: number | '';
+  setSplitQrisAmount?: (val: number | '') => void;
   selectedCustomer: Customer | null;
   setSelectedCustomer: (cust: Customer | null) => void;
   customerQuery: string;
@@ -23,6 +27,10 @@ export interface PosPaymentSheetProps {
 export function PosPaymentSheet({
   paymentMethod,
   setPaymentMethod,
+  splitCashAmount = '',
+  setSplitCashAmount,
+  splitQrisAmount = '',
+  setSplitQrisAmount,
   selectedCustomer,
   setSelectedCustomer,
   customerQuery,
@@ -45,32 +53,74 @@ export function PosPaymentSheet({
           <DollarSign className="h-5 w-5 text-indigo-500" />
           Cara Pembayaran
         </label>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-3 gap-2">
           <button
             type="button"
             onClick={() => setPaymentMethod('CASH')}
-            className={`cursor-pointer flex flex-col items-center justify-center gap-2 py-4 rounded-xl border-2 text-sm font-bold transition-all ${
+            className={`cursor-pointer flex flex-col items-center justify-center gap-1.5 py-3 rounded-xl border-2 text-xs font-bold transition-all ${
               paymentMethod === 'CASH'
                 ? 'bg-indigo-50 dark:bg-indigo-950/30 border-indigo-600 dark:border-indigo-500 text-indigo-700 dark:text-indigo-400'
                 : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/60'
             }`}
           >
-            <DollarSign className="h-5 w-5" />
+            <DollarSign className="h-4 w-4" />
             Tunai
           </button>
           <button
             type="button"
             onClick={() => setPaymentMethod('QRIS')}
-            className={`cursor-pointer flex flex-col items-center justify-center gap-2 py-4 rounded-xl border-2 text-sm font-bold transition-all ${
+            className={`cursor-pointer flex flex-col items-center justify-center gap-1.5 py-3 rounded-xl border-2 text-xs font-bold transition-all ${
               paymentMethod === 'QRIS'
                 ? 'bg-indigo-50 dark:bg-indigo-950/30 border-indigo-600 dark:border-indigo-500 text-indigo-700 dark:text-indigo-400'
                 : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/60'
             }`}
           >
-            <CreditCard className="h-5 w-5" />
+            <CreditCard className="h-4 w-4" />
             QRIS
           </button>
+          <button
+            type="button"
+            onClick={() => setPaymentMethod('SPLIT')}
+            className={`cursor-pointer flex flex-col items-center justify-center gap-1.5 py-3 rounded-xl border-2 text-xs font-bold transition-all ${
+              paymentMethod === 'SPLIT'
+                ? 'bg-indigo-50 dark:bg-indigo-950/30 border-indigo-600 dark:border-indigo-500 text-indigo-700 dark:text-indigo-400'
+                : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/60'
+            }`}
+          >
+            <Plus className="h-4 w-4" />
+            Campuran
+          </button>
         </div>
+
+        {paymentMethod === 'SPLIT' && (
+          <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-indigo-200 dark:border-indigo-800/60 space-y-2.5">
+            <p className="text-xs font-semibold text-indigo-700 dark:text-indigo-400">Pembayaran Campuran (Split Payment)</p>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">Nominal Tunai (Rp)</label>
+                <input
+                  type="number"
+                  min="0"
+                  placeholder="0"
+                  value={splitCashAmount}
+                  onChange={(e) => setSplitCashAmount?.(e.target.value === '' ? '' : Number(e.target.value))}
+                  className="w-full px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 placeholder-slate-400 font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded-lg"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">Nominal QRIS (Rp)</label>
+                <input
+                  type="number"
+                  min="0"
+                  placeholder="0"
+                  value={splitQrisAmount}
+                  onChange={(e) => setSplitQrisAmount?.(e.target.value === '' ? '' : Number(e.target.value))}
+                  className="w-full px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 placeholder-slate-400 font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded-lg"
+                />
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="space-y-3">

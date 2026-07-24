@@ -31,6 +31,9 @@ import {
   TransactionHistory,
   UserDocumentation,
   VerifyEmailView,
+  SupplierManagementView,
+  PurchaseOrderView,
+  SalesReturnView,
 } from './routes/lazyPages';
 
 const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode; allowedRoles?: string[] }) => {
@@ -212,6 +215,33 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={[TENANT_OWNER_ROLE, PLATFORM_ADMIN_ROLE]}>
                 <OutletManagementView />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin/suppliers"
+            element={
+              <ProtectedRoute allowedRoles={[TENANT_OWNER_ROLE, ROLE_MANAGER, PLATFORM_ADMIN_ROLE, ROLE_INVENTORY]}>
+                <SupplierManagementView />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin/purchase-orders"
+            element={
+              <ProtectedRoute allowedRoles={[TENANT_OWNER_ROLE, ROLE_MANAGER, PLATFORM_ADMIN_ROLE, ROLE_INVENTORY]}>
+                <PurchaseOrderView />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin/sales-returns"
+            element={
+              <ProtectedRoute allowedRoles={[TENANT_OWNER_ROLE, ROLE_MANAGER, PLATFORM_ADMIN_ROLE, ROLE_CASHIER]}>
+                <SalesReturnView />
               </ProtectedRoute>
             }
           />

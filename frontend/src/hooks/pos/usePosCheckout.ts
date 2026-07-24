@@ -3,6 +3,7 @@ import { useCartStore } from '../../store/useCartStore';
 import { useShallow } from 'zustand/react/shallow';
 import { POS_CHECKOUT_CONFIRM_KEY } from '../../utils/posRecentProducts';
 import { getTransactionStatusApi, checkoutApi } from '../../api/posApi';
+import { enqueueOfflineTransaction, syncOfflineQueue } from '../../utils/offlineSync';
 import type { Customer } from '../../store/useCustomerStore';
 import type { AuthUser } from '../../store/useAuthStore';
 import type { SubscriptionDetails } from '../../store/useSubscriptionStore';
@@ -52,6 +53,8 @@ export function usePosCheckout({
   );
 
   const [paymentMethod, setPaymentMethod] = useState<string>('CASH');
+  const [splitCashAmount, setSplitCashAmount] = useState<number | ''>('');
+  const [splitQrisAmount, setSplitQrisAmount] = useState<number | ''>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [currentTransaction, setCurrentTransaction] = useState<PosReceiptTransaction | null>(null);
   const [cashReceived, setCashReceived] = useState<number | ''>('');
@@ -67,6 +70,17 @@ export function usePosCheckout({
 
   const customerWindowRef = useRef<Window | null>(null);
   const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    const handleOnline = async () => {
+      const res = await syncOfflineQueue(checkoutApi);
+      if (res.synced > 0) {
+        showToast('success', `${res.synced} Transaksi offline berhasil disinkronkan ke server!`);
+      }
+    };
+    window.addEventListener('online', handleOnline);
+    return () => window.removeEventListener('online', handleOnline);
+  }, [showToast]);
 
   const checkoutConfirmEnabled = useMemo(() => {
     try {
@@ -187,15 +201,22 @@ export function usePosCheckout({
     setIsSubmitting(true);
 
     const payload = {
-      paymentMethod,
+      paymentMethod: paymentMethod === 'SPLIT' ? undefined : paymentMethod,
+      payments:
+        paymentMethod === 'SPLIT'
+          ? [
+              { paymentMethod: 'CASH', amount: Number(splitCashAmount) || 0 },
+              { paymentMethod: 'QRIS', amount: Number(splitQrisAmount) || 0 },
+            ]
+          : undefined,
       discountType,
       discountValue,
       applyTax,
       customerId: selectedCustomer?.id || null,
-      items: cart.map(item => ({
+      items: cart.map((item) => ({
         productId: item.productId,
-        quantity: item.quantity
-      }))
+        quantity: item.quantity,
+      })),
     };
 
     try {
@@ -211,11 +232,12 @@ export function usePosCheckout({
         })
       );
 
-      if (paymentMethod === 'QRIS') {
+      const hasQrisUrl = Boolean(data.data.qrisUrl);
+      if (paymentMethod === 'QRIS' || (paymentMethod === 'SPLIT' && hasQrisUrl)) {
         setQrisPaymentStatus('waiting');
         setQrisUrl(data.data.qrisUrl || '');
         setQrisInvoiceNumber(data.data.invoiceNumber);
-        setQrisGrandTotal(Number(data.data.grandTotal));
+        setQrisGrandTotal(Number(splitQrisAmount) || Number(data.data.grandTotal));
         setShowQrisModal(true);
         startQrisPolling(data.data.invoiceNumber);
         showToast('success', 'QRIS Dinamis berhasil dibuat. Silakan scan pembayaran.');
@@ -232,10 +254,13 @@ export function usePosCheckout({
         setShowSuccessModal(true);
         showToast('success', `Transaksi Berhasil! Invoice: ${data.data.invoiceNumber}`);
       }
-
     } catch (err: unknown) {
       console.error('Error Checkout:', err);
-      if (!checkTokenExpiration(err)) {
+      if (!navigator.onLine || (err instanceof Error && (err.message.includes('Network Error') || err.message.includes('Failed to fetch')))) {
+        const offlineItem = enqueueOfflineTransaction(payload);
+        showToast('error', `Offline Mode: Transaksi ${offlineItem.offlineId} disimpan secara lokal & akan disinkronkan saat online.`);
+        clearCart();
+      } else if (!checkTokenExpiration(err)) {
         const msg = err instanceof Error ? err.message : 'Koneksi ke server gagal. Gagal melakukan checkout.';
         showToast('error', msg);
       }
@@ -244,6 +269,8 @@ export function usePosCheckout({
     }
   }, [
     paymentMethod,
+    splitCashAmount,
+    splitQrisAmount,
     discountType,
     discountValue,
     applyTax,
@@ -256,6 +283,7 @@ export function usePosCheckout({
     grandTotal,
     checkTokenExpiration,
     setSelectedCustomer,
+    clearCart,
   ]);
 
   const handleCheckout = useCallback(async () => {
@@ -306,6 +334,10 @@ export function usePosCheckout({
   return {
     paymentMethod,
     setPaymentMethod,
+    splitCashAmount,
+    setSplitCashAmount,
+    splitQrisAmount,
+    setSplitQrisAmount,
     isSubmitting,
     setIsSubmitting,
     currentTransaction,

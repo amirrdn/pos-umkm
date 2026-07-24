@@ -21,6 +21,11 @@ export interface TransactionRecord {
   discount?: number;
   tax?: number;
   paymentMethod?: string;
+  payments?: {
+    id: string;
+    paymentMethod: string;
+    amount: number;
+  }[];
   qrisUrl?: string | null;
   customer?: {
     id: string;

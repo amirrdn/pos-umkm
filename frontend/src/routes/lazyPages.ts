@@ -79,3 +79,16 @@ export const OutletManagementView = lazyNamed(
 export const CustomerDisplay = lazy(() => import('../components/CustomerDisplay'));
 export const BillingDashboard = lazy(() => import('../components/BillingDashboard'));
 export const SubscriptionPricing = lazy(() => import('../components/SubscriptionPricing'));
+
+export const SupplierManagementView = lazyNamed(
+  () => import('../components/supplier-management/SupplierManagementView'),
+  'SupplierManagementView'
+);
+export const PurchaseOrderView = lazyNamed(
+  () => import('../components/purchase-order/PurchaseOrderView'),
+  'PurchaseOrderView'
+);
+export const SalesReturnView = lazyNamed(
+  () => import('../components/sales-return/SalesReturnView'),
+  'SalesReturnView'
+);

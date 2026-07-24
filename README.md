@@ -19,17 +19,16 @@ Sistem ini telah dilengkapi dengan fitur-fitur esensial tingkat produksi:
 2. **Sistem Multi-Outlet (Multi-Store/Branch)**: Dukungan multi-cabang terisolasi per lokasi. Stok produk, riwayat transaksi, kartu stok/mutasi barang, shift kasir, dan staf terisolasi secara dinamis berdasarkan outlet aktif kasir/karyawan. Owner dan Manager memiliki dashboard global untuk pengawasan seluruh outlet.
 3. **Role-Based Access Control (RBAC)**: Hak akses ketat yang memisahkan peran **Owner** (akses penuh laporan keuangan, inventaris, outlet, staf) dan **Kasir** (akses transaksi & riwayat dasar).
 4. **Point of Sale (POS) & Checkout ACID**: Pengurangan stok real-time yang aman menggunakan Prisma Interactive Transaction untuk menjamin integritas data penjualan.
-5. **Sistem Hutang & Piutang Pelanggan**: Mendukung metode pembayaran **HUTANG** untuk pelanggan terdaftar. Mencatat saldo berjalan berjalan, limit hutang, riwayat cicilan (`DebtPayment`), dan modul pelunasan terintegrasi di Dashboard Admin.
-6. **E-Wallet & QRIS Dinamis (Midtrans)**: Integrasi dengan Midtrans Sandbox untuk generator QRIS dinamis otomatis, status polling pembayaran real-time, status lunas, dan auto-rollback/restock jika transaksi kedaluwarsa atau dibatalkan.
-7. **QRIS Customer Display & Layanan Layar Kedua**: Mode fullscreen QRIS untuk display ke customer, serta pembukaan window layar kedua (`/customer-display`) untuk monitor eksternal.
-8. **Manajemen Shift Kerja & Laci Kas**: Kasir wajib mencatat modal awal sebelum transaksi dan melakukan rekonsiliasi uang fisik (kas aktual) saat tutup shift beserta deteksi selisih.
-9. **Laporan Penjualan per Kasir & Shift**: Grafik, tabel, dan rekapitulasi data penjualan real-time terpilah berdasarkan kasir dan shift kerja aktif.
-10. **Perhitungan HPP (COGS) & Laba Bersih**: Pencatatan otomatis harga beli (*snapshot* HPP) saat transaksi untuk menyajikan laporan Laba Bersih yang akurat, di samping Omset kotor.
-11. **Kartu Stok & Mutasi Barang (Stock Ledger)**: Log terperinci dari setiap perubahan stok barang (SALE, RESTOCK, ADJUSTMENT, RETURN) untuk pemantauan rantai pasok.
-12. **Diskon Global & Pajak PPN**: Dukungan fleksibilitas promosi nominal/persen serta kalkulasi wajib pajak (PPN 11%).
-13. **Cetak Struk Thermal & Integrasi WhatsApp**: Template struk belanja thermal format 58mm untuk printer thermal fisik dan fitur kirim struk belanja digital otomatis via WhatsApp.
-14. **Dashboard Analitik & Laba Rugi**: Visualisasi tren harian Omset vs Laba Bersih selama 30 hari menggunakan Recharts AreaChart serta pemeringkat 5 produk terlaris.
-15. **Sistem Langganan SaaS (Subscription Flow & Billing)**: Pembagian paket layanan (**FREE**, **GROWTH**, dan **ENTERPRISE**) dengan limitasi kuota data yang ketat di backend (jumlah produk, outlet, staf, dan transaksi bulanan). Terintegrasi dengan **Midtrans Snap & Webhook** untuk proses pembayaran tagihan langganan otomatis, serta mendukung alur *graceful downgrade* (menonaktifkan outlet cabang tambahan dan membekukan staf berlebih di atas kuota secara aman tanpa menghapus data).
+5. **E-Wallet & QRIS Dinamis (Midtrans)**: Integrasi dengan Midtrans Sandbox untuk generator QRIS dinamis otomatis, status polling pembayaran real-time, status lunas, dan auto-rollback/restock jika transaksi kedaluwarsa atau dibatalkan.
+6. **QRIS Customer Display & Layanan Layar Kedua**: Mode fullscreen QRIS untuk display ke customer, serta pembukaan window layar kedua (`/customer-display`) untuk monitor eksternal.
+7. **Manajemen Shift Kerja & Laci Kas**: Kasir wajib mencatat modal awal sebelum transaksi dan melakukan rekonsiliasi uang fisik (kas aktual) saat tutup shift beserta deteksi selisih.
+8. **Laporan Penjualan per Kasir & Shift**: Grafik, tabel, dan rekapitulasi data penjualan real-time terpilah berdasarkan kasir dan shift kerja aktif.
+9. **Perhitungan HPP (COGS) & Laba Bersih**: Pencatatan otomatis harga beli (*snapshot* HPP) saat transaksi untuk menyajikan laporan Laba Bersih yang akurat, di samping Omset kotor.
+10. **Kartu Stok & Mutasi Barang (Stock Ledger)**: Log terperinci dari setiap perubahan stok barang (SALE, RESTOCK, ADJUSTMENT, RETURN) untuk pemantauan rantai pasok.
+11. **Diskon Global & Pajak PPN**: Dukungan fleksibilitas promosi nominal/persen serta kalkulasi wajib pajak (PPN 11%).
+12. **Cetak Struk Thermal & Integrasi WhatsApp**: Template struk belanja thermal format 58mm untuk printer thermal fisik dan fitur kirim struk belanja digital otomatis via WhatsApp.
+13. **Dashboard Analitik & Laba Rugi**: Visualisasi tren harian Omset vs Laba Bersih selama 30 hari menggunakan Recharts AreaChart serta pemeringkat 5 produk terlaris.
+14. **Sistem Langganan SaaS (Subscription Flow & Billing)**: Pembagian paket layanan (**FREE**, **GROWTH**, dan **ENTERPRISE**) dengan limitasi kuota data yang ketat di backend (jumlah produk, outlet, staf, dan transaksi bulanan). Terintegrasi dengan **Midtrans Snap & Webhook** untuk proses pembayaran tagihan langganan otomatis, serta mendukung alur *graceful downgrade* (menonaktifkan outlet cabang tambahan dan membekukan staf berlebih di atas kuota secara aman tanpa menghapus data).
 
 ---
 

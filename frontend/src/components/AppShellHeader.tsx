@@ -17,6 +17,9 @@ import {
   LogOut,
   CreditCard,
   Sparkles,
+  Truck,
+  ShoppingCart,
+  RotateCcw,
 } from 'lucide-react';
 import { useThemeStore } from '../store/useThemeStore';
 import type { AuthUser } from '../store/useAuthStore';
@@ -110,6 +113,9 @@ export function AppShellHeader({
           { path: '/admin/products', label: 'Produk', icon: Package, show: true },
           { path: '/admin/categories', label: 'Kategori', shortLabel: 'Kat.', icon: Tag, show: true },
           { path: '/admin/inventory', label: 'Stok', icon: ArrowUpDown, badge: true, show: true },
+          { path: '/admin/suppliers', label: 'Supplier', icon: Truck, show: true },
+          { path: '/admin/purchase-orders', label: 'Kulakan', icon: ShoppingCart, show: true },
+          { path: '/admin/sales-returns', label: 'Retur', icon: RotateCcw, show: true },
         ]
       : []),
     ...(showAdminNav && showManagementNav

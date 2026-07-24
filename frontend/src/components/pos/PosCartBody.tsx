@@ -14,6 +14,10 @@ export interface PosCartBodyProps {
   removeFromCart: (id: string) => void;
   paymentMethod: string;
   setPaymentMethod: (method: string) => void;
+  splitCashAmount?: number | '';
+  setSplitCashAmount?: (val: number | '') => void;
+  splitQrisAmount?: number | '';
+  setSplitQrisAmount?: (val: number | '') => void;
   selectedCustomer: Customer | null;
   setSelectedCustomer: (cust: Customer | null) => void;
   customerQuery: string;
@@ -45,6 +49,10 @@ export function PosCartBody({
   removeFromCart,
   paymentMethod,
   setPaymentMethod,
+  splitCashAmount,
+  setSplitCashAmount,
+  splitQrisAmount,
+  setSplitQrisAmount,
   selectedCustomer,
   setSelectedCustomer,
   customerQuery,
@@ -105,6 +113,10 @@ export function PosCartBody({
           <PosPaymentSheet
             paymentMethod={paymentMethod}
             setPaymentMethod={setPaymentMethod}
+            splitCashAmount={splitCashAmount}
+            setSplitCashAmount={setSplitCashAmount}
+            splitQrisAmount={splitQrisAmount}
+            setSplitQrisAmount={setSplitQrisAmount}
             selectedCustomer={selectedCustomer}
             setSelectedCustomer={setSelectedCustomer}
             customerQuery={customerQuery}

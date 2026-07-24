@@ -21,6 +21,7 @@ const checkoutTransactionInclude = {
       product: { select: { name: true, sku: true } },
     },
   },
+  payments: true,
   customer: {
     select: {
       id: true,
@@ -90,8 +91,13 @@ export async function processCheckout(command: CheckoutCommand): Promise<Checkou
   }
   void invalidatePosCatalogForOutlet(command.tenantId, command.outletId!);
 
-  if (command.paymentMethod === 'QRIS') {
-    return finalizeQrisCheckout(result);
+  const qrisPayment =
+    command.paymentMethod === 'QRIS'
+      ? Number(result.grandTotal)
+      : command.payments?.find((p) => p.paymentMethod === 'QRIS')?.amount;
+
+  if (qrisPayment && qrisPayment > 0) {
+    return finalizeQrisCheckout(result, qrisPayment);
   }
 
   return { transaction: result };
@@ -213,7 +219,7 @@ async function executeCheckoutTransaction(
   try {
     const bulkItems = itemsToCreate.map((i) => ({ productId: i.productId, quantity: i.quantity }));
     const stockChanges = await decrementOutletStockBulk(tx, tenantId, outletId, bulkItems);
-    
+
     for (const change of stockChanges) {
       stockLedgerEntries.push({
         tenantId,
@@ -242,7 +248,31 @@ async function executeCheckoutTransaction(
     applyTax,
   });
 
+  let paymentsToCreate: { paymentMethod: string; amount: Prisma.Decimal; referenceNumber?: string | null }[] = [];
 
+  if (command.payments && command.payments.length > 0) {
+    const totalPaid = command.payments.reduce((acc, p) => acc + p.amount, 0);
+    if (new Prisma.Decimal(totalPaid).lessThan(grandTotal)) {
+      throw new CheckoutError(
+        `Total rincian pembayaran (Rp ${totalPaid.toLocaleString('id-ID')}) kurang dari total tagihan (Rp ${grandTotal.toNumber().toLocaleString('id-ID')}).`,
+        'PAYMENT_AMOUNT_INSUFFICIENT',
+        400
+      );
+    }
+    paymentsToCreate = command.payments.map((p) => ({
+      paymentMethod: p.paymentMethod,
+      amount: new Prisma.Decimal(p.amount),
+      referenceNumber: p.referenceNumber || null,
+    }));
+  } else {
+    paymentsToCreate = [
+      {
+        paymentMethod: paymentMethod ?? 'CASH',
+        amount: grandTotal,
+        referenceNumber: null,
+      },
+    ];
+  }
 
   if (customerId) {
     const customer = await tx.customer.findFirst({
@@ -291,6 +321,10 @@ async function executeCheckoutTransaction(
 
 
 
+  const primaryPaymentMethod =
+    paymentMethod ?? (paymentsToCreate.length > 1 ? 'SPLIT' : paymentsToCreate[0]?.paymentMethod || 'CASH');
+  const hasQrisPayment = paymentsToCreate.some((p) => p.paymentMethod === 'QRIS');
+
   const transaction = await tx.transaction.create({
     data: {
       tenantId,
@@ -298,13 +332,13 @@ async function executeCheckoutTransaction(
       outletId,
       shiftId: shiftId ?? null,
       customerId: customerId || null,
-      paymentMethod: paymentMethod ?? 'CASH',
+      paymentMethod: primaryPaymentMethod,
       invoiceNumber,
       subTotal,
       discount: discountAmount,
       tax: taxAmount,
       grandTotal,
-      status: paymentMethod === 'QRIS' ? 'PENDING' : 'COMPLETED',
+      status: hasQrisPayment ? 'PENDING' : 'COMPLETED',
       items: {
         create: itemsToCreate.map((item) => ({
           productId: item.productId,
@@ -313,6 +347,9 @@ async function executeCheckoutTransaction(
           costAtTransaction: item.costAtTransaction,
           subtotal: item.subtotal,
         })),
+      },
+      payments: {
+        create: paymentsToCreate,
       },
     },
     include: checkoutTransactionInclude,
@@ -332,12 +369,14 @@ async function executeCheckoutTransaction(
 }
 
 async function finalizeQrisCheckout(
-  transaction: CheckoutTransactionRecord
+  transaction: CheckoutTransactionRecord,
+  qrisAmount?: number
 ): Promise<CheckoutProcessResult> {
   try {
+    const chargeAmount = qrisAmount && qrisAmount > 0 ? qrisAmount : Number(transaction.grandTotal);
     const chargeRes = await MidtransService.createQrisCharge(
       transaction.invoiceNumber,
-      Number(transaction.grandTotal)
+      chargeAmount
     );
 
     const finalResult = await prisma.$executeRawWithTenant(

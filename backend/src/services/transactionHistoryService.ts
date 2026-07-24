@@ -21,6 +21,7 @@ const historyInclude = {
     },
   },
   outlet: true,
+  payments: true,
 } satisfies Prisma.TransactionInclude;
 
 export type TransactionHistoryRecord = Prisma.TransactionGetPayload<{
