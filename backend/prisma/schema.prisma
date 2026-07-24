@@ -387,13 +387,14 @@ model StockLedger {
 
 // 13. Customer (Database Pelanggan & Loyalty Points)
 model Customer {
-  id          String   @id @default(uuid())
-  tenantId    String
-  name        String
-  phone       String?
-  email       String?
-  points      Int      @default(0)
-  createdAt   DateTime @default(now())
+  id           String   @id @default(uuid())
+  tenantId     String
+  name         String
+  phone        String?
+  email        String?
+  points       Int      @default(0)
+  debtBalance  Decimal  @db.Decimal(12, 2) @default(0) // Saldo hutang pelanggan
+  createdAt    DateTime @default(now())
 
   tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   transactions Transaction[]
