@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Truck, Plus, Search, Edit2, Trash2, X, Phone, Mail, MapPin } from 'lucide-react';
 import { AppShellHeader } from '../AppShellHeader';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -32,9 +32,8 @@ export function SupplierManagementView() {
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
-  const fetchSuppliers = async () => {
+  const fetchSuppliers = useCallback(async () => {
     try {
-      setLoading(true);
       const data = await getSuppliersApi();
       setSuppliers(data);
     } catch {
@@ -42,11 +41,12 @@ export function SupplierManagementView() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    fetchSuppliers();
-  }, []);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void fetchSuppliers();
+  }, [fetchSuppliers]);
 
   const handleOpenModal = (supplier?: Supplier) => {
     setErrorMsg('');

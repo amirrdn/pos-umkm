@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { ShoppingCart, Plus, CheckCircle2, XCircle, Eye, X } from 'lucide-react';
 import { AppShellHeader } from '../AppShellHeader';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -33,9 +33,8 @@ export function PurchaseOrderView() {
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
-      setLoading(true);
       const [poData, supData, prodData] = await Promise.all([
         getPurchaseOrdersApi(),
         getSuppliersApi(),
@@ -49,11 +48,12 @@ export function PurchaseOrderView() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void fetchData();
+  }, [fetchData]);
 
   const handleAddItemRow = () => {
     setPoItems([...poItems, { productId: '', quantity: 1, costPrice: 0 }]);
