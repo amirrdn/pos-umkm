@@ -46,6 +46,7 @@ const { mockTx, mockPrisma } = vi.hoisted(() => {
         findUnique: vi.fn(),
         update: vi.fn(),
         findMany: vi.fn(),
+        findFirst: vi.fn(),
       },
       subscriptionHistory: {
         create: vi.fn(),
@@ -93,6 +94,8 @@ describe('SubscriptionService', () => {
       mockPrisma.outlet.count.mockResolvedValue(0);
       mockPrisma.user.count.mockResolvedValue(1);
       mockPrisma.transaction.count.mockResolvedValue(50);
+      // Mock for reconcileTenantSubscription if it's called
+      mockPrisma.subscriptionInvoice.findFirst.mockResolvedValue(null);
 
       const details = await SubscriptionService.getSubscriptionDetails(tenantId);
 
@@ -119,6 +122,8 @@ describe('SubscriptionService', () => {
       mockPrisma.outlet.count.mockResolvedValue(0);
       mockPrisma.user.count.mockResolvedValue(0);
       mockPrisma.transaction.count.mockResolvedValue(0);
+      // Mock for reconcileTenantSubscription if it's called
+      mockPrisma.subscriptionInvoice.findFirst.mockResolvedValue(null);
 
       await SubscriptionService.getSubscriptionDetails(tenantId, undefined, {
         subscriptionTier: SubscriptionTier.FREE,
@@ -142,6 +147,8 @@ describe('SubscriptionService', () => {
       mockPrisma.outlet.count.mockResolvedValue(5);
       mockPrisma.user.count.mockResolvedValue(10);
       mockPrisma.transaction.count.mockResolvedValue(500);
+      // Mock for reconcileTenantSubscription if it's called
+      mockPrisma.subscriptionInvoice.findFirst.mockResolvedValue(null);
 
       const details = await SubscriptionService.getSubscriptionDetails(tenantId, {
         bypassLimits: true,
@@ -169,6 +176,8 @@ describe('SubscriptionService', () => {
       mockPrisma.outlet.count.mockResolvedValue(1);
       mockPrisma.user.count.mockResolvedValue(2);
       mockPrisma.transaction.count.mockResolvedValue(150);
+      // Mock for reconcileTenantSubscription if it's called
+      mockPrisma.subscriptionInvoice.findFirst.mockResolvedValue(null);
 
       const details = await SubscriptionService.getSubscriptionDetails(tenantId);
 
@@ -194,6 +203,8 @@ describe('SubscriptionService', () => {
         subscriptionExpiresAt: null,
         lastBillingAt: null,
       });
+      // Mock for reconcileTenantSubscription if it's called within checkLimit functions
+      mockPrisma.subscriptionInvoice.findFirst.mockResolvedValue(null);
     });
 
     it('returns true if product limit is not reached', async () => {

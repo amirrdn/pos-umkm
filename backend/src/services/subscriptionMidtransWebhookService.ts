@@ -1,6 +1,7 @@
-import { SubscriptionStatus } from '@prisma/client';
 import { prisma } from '../lib/prisma';
+import { runInSystemContext } from '../lib/tenantContext';
 import { MidtransService } from './midtransService';
+import { applyPaidSubscriptionInvoice } from './subscriptionActivationService';
 
 export interface MidtransSubscriptionWebhookPayload {
   order_id: string;
@@ -57,52 +58,44 @@ export async function processSubscriptionMidtransWebhook(
     return invoice;
   }
 
-  return prisma.$transaction(async (tx) => {
-    if (isSubscriptionSuccessStatus(transaction_status)) {
-      const updatedInvoice = await tx.subscriptionInvoice.update({
-        where: { id: invoice.id },
-        data: {
-          status: 'PAID',
-          paidAt: new Date(),
-        },
-      });
+  return runInSystemContext('platform', () =>
+    prisma.$transaction(async (tx) => {
+      if (isSubscriptionSuccessStatus(transaction_status)) {
+        const updatedInvoice = await tx.subscriptionInvoice.update({
+          where: { id: invoice.id },
+          data: {
+            status: 'PAID',
+            paidAt: new Date(),
+          },
+        });
 
-      const activeTier = invoice.tier;
-      const currentExpiresAt = invoice.tenant.subscriptionExpiresAt;
-      const baseDate =
-        currentExpiresAt && currentExpiresAt > new Date() ? currentExpiresAt : new Date();
-      const nextExpiresAt = new Date(baseDate.getTime() + 30 * 24 * 60 * 60 * 1000);
+        await applyPaidSubscriptionInvoice(
+          {
+            id: invoice.id,
+            tenantId: invoice.tenantId,
+            invoiceNumber: invoice.invoiceNumber,
+            tier: invoice.tier,
+            paidAt: updatedInvoice.paidAt,
+            createdAt: invoice.createdAt,
+          },
+          {
+            subscriptionTier: invoice.tenant.subscriptionTier,
+            subscriptionExpiresAt: invoice.tenant.subscriptionExpiresAt,
+          },
+          tx
+        );
 
-      await tx.tenant.update({
-        where: { id: invoice.tenantId },
-        data: {
-          subscriptionTier: activeTier,
-          subscriptionStatus: SubscriptionStatus.ACTIVE,
-          subscriptionExpiresAt: nextExpiresAt,
-          lastBillingAt: new Date(),
-        },
-      });
+        return updatedInvoice;
+      }
 
-      await tx.subscriptionHistory.create({
-        data: {
-          tenantId: invoice.tenantId,
-          oldTier: invoice.tenant.subscriptionTier,
-          newTier: activeTier,
-          action: 'UPGRADE',
-          note: `Pembayaran sukses untuk invoice ${invoice.invoiceNumber}`,
-        },
-      });
+      if (isSubscriptionFailureStatus(transaction_status)) {
+        return tx.subscriptionInvoice.update({
+          where: { id: invoice.id },
+          data: { status: 'FAILED' },
+        });
+      }
 
-      return updatedInvoice;
-    }
-
-    if (isSubscriptionFailureStatus(transaction_status)) {
-      return tx.subscriptionInvoice.update({
-        where: { id: invoice.id },
-        data: { status: 'FAILED' },
-      });
-    }
-
-    return invoice;
-  });
+      return invoice;
+    })
+  );
 }

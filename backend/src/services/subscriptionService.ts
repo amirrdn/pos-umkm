@@ -1,6 +1,7 @@
 import { prisma } from '../lib/prisma';
 import type { TenantSubscriptionSnapshot } from '../lib/tenantTypes';
 import { SubscriptionTier, SubscriptionStatus } from '@prisma/client';
+import { reconcileTenantSubscription } from './subscriptionActivationService';
 
 export const TIER_PRICES = {
   [SubscriptionTier.FREE]: 0,
@@ -74,9 +75,14 @@ export class SubscriptionService {
     options?: SubscriptionAccessOptions,
     subscriptionSnapshot?: TenantSubscriptionSnapshot
   ) {
+    const effectiveSnapshot = subscriptionSnapshot ?? options?.subscriptionSnapshot;
+
+    if (!options?.bypassLimits && !effectiveSnapshot) {
+      await reconcileTenantSubscription(tenantId);
+    }
+
     const tenant =
-      subscriptionSnapshot ??
-      options?.subscriptionSnapshot ??
+      effectiveSnapshot ??
       (await prisma.tenant.findUnique({
         where: { id: tenantId },
         select: {

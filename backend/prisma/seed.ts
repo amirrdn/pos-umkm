@@ -12,11 +12,7 @@ async function main() {
   // Menggunakan ID statis agar sinkron dengan mock tenant di frontend/backend
   const tenant = await prisma.tenant.upsert({
     where: { id: 'tenant-uuid-xyz-123' },
-    update: {
-      subscriptionTier: 'FREE',
-      subscriptionStatus: 'ACTIVE',
-      subscriptionExpiresAt: null
-    },
+    update: {},
     create: {
       id: 'tenant-uuid-xyz-123',
       name: 'Toko Utama',
