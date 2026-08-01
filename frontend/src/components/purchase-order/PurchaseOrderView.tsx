@@ -140,6 +140,7 @@ export function PurchaseOrderView() {
   }, [page, limit, searchQuery, statusFilter, supplierFilter]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void fetchData();
   }, [fetchData]);
 
