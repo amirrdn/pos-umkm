@@ -69,17 +69,17 @@ function toTypeRow(
  * 3 query paralel: outlets + transaksi bulan ini (filter hari di memory).
  */
 export async function getOutletBreakdown(tenantId: string): Promise<OutletBreakdownResult> {
-  return prisma.$executeRawWithTenant(tenantId, async () => {
+  return prisma.$executeRawWithTenant(tenantId, async (tx) => {
     const dayStart = startOfLocalDay();
     const monthStart = startOfLocalMonth();
 
     const [outlets, monthTransactions] = await Promise.all([
-      prisma.outlet.findMany({
+      tx.outlet.findMany({
         where: { tenantId, deletedAt: null },
         select: { id: true, name: true, type: true, code: true },
         orderBy: [{ type: 'asc' }, { createdAt: 'asc' }],
       }),
-      prisma.transaction.findMany({
+      tx.transaction.findMany({
         where: {
           tenantId,
           status: 'COMPLETED',

@@ -3,7 +3,9 @@ import { tenantStorage, getSystemContext, tenantRlsTxStorage } from './tenantCon
 
 const globalForPrisma = globalThis as unknown as { prisma?: TenantScopedPrismaClient };
 
-const APP_POOL_LIMIT = Number(process.env.PRISMA_APP_CONNECTION_LIMIT ?? 5);
+// Free-tier production: 3 koneksi cukup karena semua analytics query kini reuse tx yang sama.
+// Supabase free tier default max 5-10 direct connections; sisakan untuk tenantMiddleware.
+const APP_POOL_LIMIT = Number(process.env.PRISMA_APP_CONNECTION_LIMIT ?? 3);
 const SYSTEM_POOL_LIMIT = Number(process.env.PRISMA_SYSTEM_CONNECTION_LIMIT ?? 2);
 
 /**

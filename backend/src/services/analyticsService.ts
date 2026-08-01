@@ -27,7 +27,7 @@ function completedTxWhere(tenantId: string, outletId?: string | null, since?: Da
  */
 export class AnalyticsService {
   async getSummary(tenantId: string, outletId?: string | null) {
-    return prisma.$executeRawWithTenant(tenantId, async () => {
+    return prisma.$executeRawWithTenant(tenantId, async (tx) => {
       const dayStart = startOfLocalDay();
       const monthStart = startOfLocalMonth();
 
@@ -36,25 +36,25 @@ export class AnalyticsService {
 
       const [todayRevenueAggregate, monthRevenueAggregate, todayTransactionsCount, todayTransactions, monthTransactions] =
         await Promise.all([
-          prisma.transaction.aggregate({ _sum: { grandTotal: true }, where: todayWhere }),
-          prisma.transaction.aggregate({ _sum: { grandTotal: true }, where: monthWhere }),
-          prisma.transaction.count({ where: todayWhere }),
-          prisma.transaction.findMany({
+          tx.transaction.aggregate({ _sum: { grandTotal: true }, where: todayWhere }),
+          tx.transaction.aggregate({ _sum: { grandTotal: true }, where: monthWhere }),
+          tx.transaction.count({ where: todayWhere }),
+          tx.transaction.findMany({
             where: todayWhere,
             select: { discount: true, items: { select: TX_ITEMS_SELECT } },
           }),
-          prisma.transaction.findMany({
+          tx.transaction.findMany({
             where: monthWhere,
             select: { discount: true, items: { select: TX_ITEMS_SELECT } },
           }),
         ]);
 
       const profitToday = todayTransactions.reduce(
-        (sum, tx) => sum + calculateTransactionProfit(tx),
+        (sum, t) => sum + calculateTransactionProfit(t),
         0
       );
       const profitMonth = monthTransactions.reduce(
-        (sum, tx) => sum + calculateTransactionProfit(tx),
+        (sum, t) => sum + calculateTransactionProfit(t),
         0
       );
 
@@ -69,12 +69,12 @@ export class AnalyticsService {
   }
 
   async getRevenueAndProfitTrend(tenantId: string, outletId?: string | null) {
-    return prisma.$executeRawWithTenant(tenantId, async () => {
+    return prisma.$executeRawWithTenant(tenantId, async (tx) => {
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29);
       thirtyDaysAgo.setHours(0, 0, 0, 0);
 
-      const transactions = await prisma.transaction.findMany({
+      const transactions = await tx.transaction.findMany({
         where: completedTxWhere(tenantId, outletId, thirtyDaysAgo),
         select: {
           createdAt: true,
@@ -124,8 +124,8 @@ export class AnalyticsService {
   }
 
   async getBestSellers(tenantId: string, outletId?: string | null) {
-    return prisma.$executeRawWithTenant(tenantId, async () => {
-      const bestSellersGroupBy = await prisma.transactionItem.groupBy({
+    return prisma.$executeRawWithTenant(tenantId, async (tx) => {
+      const bestSellersGroupBy = await tx.transactionItem.groupBy({
         by: ['productId'],
         where: { transaction: completedTxWhere(tenantId, outletId) },
         _sum: { quantity: true },
@@ -136,7 +136,7 @@ export class AnalyticsService {
       if (bestSellersGroupBy.length === 0) return [];
 
       const productIds = bestSellersGroupBy.map((item) => item.productId);
-      const products = await prisma.product.findMany({
+      const products = await tx.product.findMany({
         where: { tenantId, id: { in: productIds } },
         select: { id: true, name: true, sku: true },
       });
@@ -154,8 +154,8 @@ export class AnalyticsService {
   }
 
   async getCashierReports(tenantId: string, outletId?: string | null) {
-    return prisma.$executeRawWithTenant(tenantId, async () => {
-      const transactions = await prisma.transaction.findMany({
+    return prisma.$executeRawWithTenant(tenantId, async (tx) => {
+      const transactions = await tx.transaction.findMany({
         where: completedTxWhere(tenantId, outletId),
         select: {
           userId: true,
@@ -164,6 +164,7 @@ export class AnalyticsService {
         },
       });
 
+      // loadTenantUsersByIds menggunakan prisma system context (user bukan RLS-scoped)
       const userMap = await loadTenantUsersByIds(
         tenantId,
         transactions.map((transaction) => transaction.userId)
@@ -182,10 +183,10 @@ export class AnalyticsService {
         }
       >();
 
-      for (const tx of transactions) {
-        const user = resolveTenantUser(userMap, tx.userId);
-        const current = reportMap.get(tx.userId) ?? {
-          cashierId: tx.userId,
+      for (const txRow of transactions) {
+        const user = resolveTenantUser(userMap, txRow.userId);
+        const current = reportMap.get(txRow.userId) ?? {
+          cashierId: txRow.userId,
           name: user.name,
           email: user.email,
           totalTransactions: 0,
@@ -194,13 +195,13 @@ export class AnalyticsService {
           qrisSales: 0,
         };
 
-        const amount = Number(tx.grandTotal);
+        const amount = Number(txRow.grandTotal);
         current.totalTransactions += 1;
         current.totalSales += amount;
-        if (tx.paymentMethod === 'CASH') current.cashSales += amount;
-        else if (tx.paymentMethod === 'QRIS') current.qrisSales += amount;
+        if (txRow.paymentMethod === 'CASH') current.cashSales += amount;
+        else if (txRow.paymentMethod === 'QRIS') current.qrisSales += amount;
 
-        reportMap.set(tx.userId, current);
+        reportMap.set(txRow.userId, current);
       }
 
       return Array.from(reportMap.values());
@@ -208,8 +209,8 @@ export class AnalyticsService {
   }
 
   async getShiftReports(tenantId: string, outletId?: string | null) {
-    return prisma.$executeRawWithTenant(tenantId, async () => {
-      const shifts = await prisma.shift.findMany({
+    return prisma.$executeRawWithTenant(tenantId, async (tx) => {
+      const shifts = await tx.shift.findMany({
         where: {
           tenantId,
           ...(outletId ? { outletId } : {}),
@@ -232,6 +233,7 @@ export class AnalyticsService {
         orderBy: { startTime: 'desc' },
       });
 
+      // loadTenantUsersByIds menggunakan prisma system context (user bukan RLS-scoped)
       const userMap = await loadTenantUsersByIds(
         tenantId,
         shifts.map((shift) => shift.userId)
@@ -242,11 +244,11 @@ export class AnalyticsService {
         let cashSales = 0;
         let qrisSales = 0;
 
-        for (const tx of shift.transactions) {
-          const amount = Number(tx.grandTotal);
+        for (const txRow of shift.transactions) {
+          const amount = Number(txRow.grandTotal);
           totalSales += amount;
-          if (tx.paymentMethod === 'CASH') cashSales += amount;
-          else if (tx.paymentMethod === 'QRIS') qrisSales += amount;
+          if (txRow.paymentMethod === 'CASH') cashSales += amount;
+          else if (txRow.paymentMethod === 'QRIS') qrisSales += amount;
         }
 
         return {
@@ -273,3 +275,8 @@ export class AnalyticsService {
     return getOutletBreakdown(tenantId);
   }
 }
+
+
+
+
+
