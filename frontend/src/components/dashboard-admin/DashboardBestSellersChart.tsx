@@ -1,4 +1,4 @@
-import { Award, Loader2, ShoppingCart } from 'lucide-react';
+import { Trophy, Loader2, ShoppingCart } from 'lucide-react';
 import {
   Bar,
   BarChart,
@@ -28,7 +28,7 @@ export function DashboardBestSellersChart({ loading, bestSellers }: DashboardBes
         <div>
           <h3 className="text-base font-extrabold text-slate-900 dark:text-slate-50 flex items-center gap-2">
             <div className="p-2 bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 rounded-xl border border-amber-500/20">
-              <Award className="w-4 h-4" />
+              <Trophy className="w-4 h-4" />
             </div>
             5 Produk Terlaris (Kuantitas)
           </h3>
