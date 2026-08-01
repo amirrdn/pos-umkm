@@ -1,5 +1,5 @@
-import { SubscriptionStatus, SubscriptionTier, type Prisma } from '@prisma/client';
-import { prisma } from '../lib/prisma';
+import { SubscriptionStatus, SubscriptionTier } from '@prisma/client';
+import { prisma, type PrismaTx } from '../lib/prisma';
 import { runInSystemContext } from '../lib/tenantContext';
 
 const TIER_RANK: Record<SubscriptionTier, number> = {
@@ -25,7 +25,7 @@ type TenantSubscriptionSnapshot = {
 export async function applyPaidSubscriptionInvoice(
   invoice: PaidInvoiceSnapshot,
   tenant: TenantSubscriptionSnapshot,
-  tx: Prisma.TransactionClient
+  tx: PrismaTx
 ) {
   const activeTier = invoice.tier;
   const currentExpiresAt = tenant.subscriptionExpiresAt;
