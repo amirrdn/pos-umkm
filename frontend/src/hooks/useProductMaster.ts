@@ -101,7 +101,13 @@ export function useProductMaster() {
   const fetchProducts = useCallback(async (selectedOutletId: string) => {
     setLoading(true);
     try {
-      setProducts(await getProductsApi(selectedOutletId || undefined));
+      setProducts(
+        await getProductsApi({
+          outletId: selectedOutletId || undefined,
+          search: searchQuery || undefined,
+          categoryId: selectedCategoryId || undefined,
+        })
+      );
     } catch (err: unknown) {
       console.error(err);
       const message = err instanceof Error ? err.message : 'Koneksi ke API produk gagal.';
@@ -109,7 +115,7 @@ export function useProductMaster() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [searchQuery, selectedCategoryId]);
 
   const fetchCategories = useCallback(async () => {
     try {

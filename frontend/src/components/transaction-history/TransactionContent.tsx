@@ -28,7 +28,7 @@ export function TransactionContent({ transactionHistory }: TransactionContentPro
   } = transactionHistory;
 
   return (
-    <main className="flex-1 overflow-y-auto md:overflow-hidden p-4 md:p-6 flex flex-col gap-5 bg-slate-50 dark:bg-slate-950">
+    <main className="flex-1 overflow-y-auto p-4 md:p-6 flex flex-col gap-5 bg-slate-50 dark:bg-slate-950 min-h-0">
       {/* Panel Statistik Ringkasan */}
       <TransactionOverviewStats summaryStats={summaryStats} />
 

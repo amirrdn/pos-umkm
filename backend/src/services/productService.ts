@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { CategoryService } from './categoryService';
 import {
@@ -29,6 +30,13 @@ interface UpdateProductInput {
   purchasePrice?: number;
   sellingPrice?: number;
   images?: { url: string; isMain?: boolean }[];
+}
+
+export interface GetProductsParams {
+  tenantId: string;
+  outletId?: string | null;
+  search?: string;
+  categoryId?: string;
 }
 
 const PRODUCT_LIST_INCLUDE = {
@@ -103,9 +111,42 @@ export class ProductService {
       };
     });
   }
-  async getAllProducts(tenantId: string, outletId?: string | null) {
+
+  async getAllProducts(params: GetProductsParams | string, outletIdParam?: string | null) {
+    let tenantId: string;
+    let outletId: string | null | undefined;
+    let search: string | undefined;
+    let categoryId: string | undefined;
+
+    if (typeof params === 'object') {
+      tenantId = params.tenantId;
+      outletId = params.outletId;
+      search = params.search;
+      categoryId = params.categoryId;
+    } else {
+      tenantId = params;
+      outletId = outletIdParam;
+    }
+
+    const where: Prisma.ProductWhereInput = {
+      tenantId,
+      deletedAt: null,
+    };
+
+    if (search && search.trim() !== '') {
+      const q = search.trim();
+      where.OR = [
+        { name: { contains: q, mode: 'insensitive' } },
+        { sku: { contains: q, mode: 'insensitive' } },
+      ];
+    }
+
+    if (categoryId && categoryId.trim() !== '') {
+      where.categoryId = categoryId;
+    }
+
     const products = await prisma.product.findMany({
-      where: { tenantId, deletedAt: null },
+      where,
       include: {
         ...PRODUCT_LIST_INCLUDE,
         outletStocks: {

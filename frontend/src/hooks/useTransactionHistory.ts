@@ -45,7 +45,14 @@ export function useTransactionHistory() {
     setError(null);
 
     try {
-      setTransactions(await getTransactionHistoryApi());
+      setTransactions(
+        await getTransactionHistoryApi({
+          search: searchQuery || undefined,
+          status: selectedStatus !== 'ALL' ? selectedStatus : undefined,
+          paymentMethod: selectedPayment !== 'ALL' ? selectedPayment : undefined,
+          dateRange: selectedDateRange !== 'ALL' ? selectedDateRange : undefined,
+        })
+      );
     } catch (err) {
       console.error(err);
       const message =
@@ -54,7 +61,7 @@ export function useTransactionHistory() {
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated, user, searchQuery, selectedStatus, selectedPayment, selectedDateRange]);
 
   useEffect(() => {
     void (async () => {

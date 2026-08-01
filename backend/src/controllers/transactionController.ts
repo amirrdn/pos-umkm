@@ -93,9 +93,43 @@ export async function getHistory(req: Request, res: Response) {
       });
     }
 
+    const {
+      search,
+      status,
+      paymentMethod,
+      payment,
+      dateRange,
+      date,
+      startDate,
+      endDate,
+      limit,
+      page,
+    } = req.query;
+
+    const parsedLimit = limit ? parseInt(String(limit), 10) : undefined;
+    const parsedPage = page ? parseInt(String(page), 10) : undefined;
+
     const transactions = await getTransactionHistory({
       tenantId,
       outletId: req.outletId,
+      search: typeof search === 'string' ? search : undefined,
+      status: typeof status === 'string' ? status : undefined,
+      paymentMethod:
+        typeof paymentMethod === 'string'
+          ? paymentMethod
+          : typeof payment === 'string'
+            ? payment
+            : undefined,
+      dateRange:
+        typeof dateRange === 'string'
+          ? dateRange
+          : typeof date === 'string'
+            ? date
+            : undefined,
+      startDate: typeof startDate === 'string' ? startDate : undefined,
+      endDate: typeof endDate === 'string' ? endDate : undefined,
+      limit: Number.isInteger(parsedLimit) && (parsedLimit ?? 0) > 0 ? parsedLimit : undefined,
+      page: Number.isInteger(parsedPage) && (parsedPage ?? 0) > 0 ? parsedPage : undefined,
     });
 
     return res.status(200).json({

@@ -26,36 +26,40 @@ export function TransactionListPanel({
 }: TransactionListPanelProps) {
   if (loading) {
     return (
-      <div className="flex-1 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/60 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col">
+      <div className="flex-1 min-h-[560px] lg:min-h-[640px] bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-xs overflow-hidden flex flex-col backdrop-blur-md">
         {/* Skeleton Tabel Desktop */}
         <div className="hidden md:block flex-1 overflow-auto animate-pulse">
           <table className="w-full border-collapse text-left text-xs">
             <thead>
-              <tr className="bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider border-b border-slate-100 dark:border-slate-700">
-                <th className="py-4 px-6 w-1/4">Nomor Invoice</th>
-                <th className="py-4 px-6 w-1/4">Tanggal & Waktu</th>
-                <th className="py-4 px-6 w-1/6">Status</th>
-                <th className="py-4 px-6 w-1/6">Total Tagihan</th>
-                <th className="py-4 px-6 text-center w-1/6">Aksi</th>
+              <tr className="bg-slate-100/90 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 font-extrabold uppercase tracking-wider border-b-2 border-slate-200 dark:border-slate-700">
+                <th className="py-5 px-6.5 w-1/4">Nomor Invoice</th>
+                <th className="py-5 px-6.5 w-1/4">Tanggal & Waktu</th>
+                <th className="py-5 px-6.5 w-1/5">Pelanggan</th>
+                <th className="py-5 px-6.5 w-1/6">Status</th>
+                <th className="py-5 px-6.5 w-1/6">Total Tagihan</th>
+                <th className="py-5 px-6.5 text-center w-1/6">Aksi</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-150/60 dark:divide-slate-800/80">
-              {[...Array(5)].map((_, idx) => (
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
+              {[...Array(8)].map((_, idx) => (
                 <tr key={idx} className="border-b border-slate-100 dark:border-slate-800">
-                  <td className="py-4 px-6">
-                    <div className="h-4.5 bg-slate-200 dark:bg-slate-800 rounded-xl w-32" />
+                  <td className="py-5.5 px-6.5">
+                    <div className="h-5 bg-slate-200/70 dark:bg-slate-800 rounded-xl w-36" />
                   </td>
-                  <td className="py-4 px-6">
-                    <div className="h-4 bg-slate-200 dark:bg-slate-800 rounded-xl w-40" />
+                  <td className="py-5.5 px-6.5">
+                    <div className="h-4 bg-slate-200/70 dark:bg-slate-800 rounded-xl w-40" />
                   </td>
-                  <td className="py-4 px-6">
-                    <div className="h-6.5 bg-slate-200 dark:bg-slate-800 rounded-full w-20" />
+                  <td className="py-5.5 px-6.5">
+                    <div className="h-4 bg-slate-200/70 dark:bg-slate-800 rounded-xl w-28" />
                   </td>
-                  <td className="py-4 px-6">
-                    <div className="h-4.5 bg-slate-200 dark:bg-slate-800 rounded-xl w-24" />
+                  <td className="py-5.5 px-6.5">
+                    <div className="h-7 bg-slate-200/70 dark:bg-slate-800 rounded-full w-24" />
                   </td>
-                  <td className="py-4 px-6 flex justify-center gap-2">
-                    <div className="h-8.5 bg-slate-200 dark:bg-slate-800 rounded-xl w-20" />
+                  <td className="py-5.5 px-6.5">
+                    <div className="h-5 bg-slate-200/70 dark:bg-slate-800 rounded-xl w-28" />
+                  </td>
+                  <td className="py-5.5 px-6.5 flex justify-center gap-2">
+                    <div className="h-9 bg-slate-200/70 dark:bg-slate-800 rounded-xl w-24" />
                   </td>
                 </tr>
               ))}
@@ -63,44 +67,28 @@ export function TransactionListPanel({
           </table>
         </div>
 
-        {/* Skeleton Kartu Mobile */}
-        <div className="block md:hidden flex-1 overflow-auto p-4 space-y-3 animate-pulse">
+        {/* Skeleton Mobile */}
+        <div className="block md:hidden p-4 space-y-3.5 animate-pulse">
           {[...Array(4)].map((_, idx) => (
-            <div key={idx} className="p-4 bg-white dark:bg-slate-900 border border-slate-150 dark:border-slate-800/60 rounded-2xl space-y-3 shadow-sm">
-              <div className="flex justify-between items-center">
-                <div className="h-4.5 bg-slate-200 dark:bg-slate-850 rounded-xl w-32" />
-                <div className="h-6 bg-slate-200 dark:bg-slate-850 rounded-full w-16" />
-              </div>
-              <div className="space-y-1.5">
-                <div className="h-3.5 bg-slate-200 dark:bg-slate-855 rounded-xl w-44" />
-                <div className="h-3.5 bg-slate-200 dark:bg-slate-855 rounded-xl w-36" />
-              </div>
-              <div className="flex justify-between items-center pt-2 border-t border-slate-100 dark:border-slate-800/80">
-                <div className="h-4.5 bg-slate-200 dark:bg-slate-855 rounded-xl w-24" />
-                <div className="flex gap-2">
-                  <div className="h-8 bg-slate-200 dark:bg-slate-855 rounded-xl w-10" />
-                  <div className="h-8 bg-slate-200 dark:bg-slate-855 rounded-xl w-16" />
-                </div>
-              </div>
-            </div>
+            <div key={idx} className="h-36 bg-slate-100 dark:bg-slate-800 rounded-3xl" />
           ))}
         </div>
       </div>
     );
   }
 
-  // Tampilan Error
   if (error) {
     return (
-      <div className="flex-1 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/60 dark:border-slate-800 shadow-sm flex flex-col items-center justify-center gap-3 text-center py-20 px-6">
-        <div className="bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 p-3 rounded-full border border-rose-100 dark:border-rose-900/50">
-          <X className="h-6 w-6" />
+      <div className="flex-1 min-h-[560px] lg:min-h-[640px] bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 p-8 flex flex-col items-center justify-center text-center shadow-xs">
+        <div className="w-14 h-14 bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 rounded-2xl flex items-center justify-center mb-4 border border-rose-200 dark:border-rose-800">
+          <X className="w-7 h-7" />
         </div>
-        <p className="text-sm font-bold text-rose-600 dark:text-rose-450">{error}</p>
+        <h4 className="text-base font-extrabold text-slate-900 dark:text-slate-100 mb-1">Gagal Memuat Transaksi</h4>
+        <p className="text-xs text-slate-500 max-w-md mb-5">{error}</p>
         <button
           type="button"
           onClick={onRefresh}
-          className="cursor-pointer bg-indigo-650 hover:bg-indigo-700 active:scale-95 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-md transition-all"
+          className="cursor-pointer px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-extrabold text-xs transition-all shadow-sm active:scale-95"
         >
           Coba Lagi
         </button>
@@ -108,28 +96,25 @@ export function TransactionListPanel({
     );
   }
 
-  // Tampilan Kosong (Empty State)
   if (transactions.length === 0) {
     return (
-      <div className="flex-1 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/60 dark:border-slate-800 shadow-sm flex flex-col items-center justify-center text-center py-20 px-6">
-        <div className="bg-slate-50 dark:bg-slate-800 text-slate-400 p-4.5 rounded-full mb-3 border border-slate-100 dark:border-slate-750">
-          <History className="h-7 w-7" />
+      <div className="flex-1 min-h-[560px] lg:min-h-[640px] bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 p-8 flex flex-col items-center justify-center text-center shadow-xs backdrop-blur-md">
+        <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 rounded-3xl flex items-center justify-center mb-4 border border-slate-200 dark:border-slate-700">
+          <History className="w-8 h-8 opacity-60" />
         </div>
-        <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">
-          {isFiltered ? 'Hasil Pencarian Tidak Ditemukan' : 'Tidak Ada Transaksi'}
-        </h4>
-        <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 max-w-sm">
+        <h4 className="text-base font-extrabold text-slate-900 dark:text-slate-100 mb-1">Belum Ada Transaksi</h4>
+        <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mb-5">
           {isFiltered
-            ? 'Tidak ada riwayat transaksi yang cocok dengan filter atau kata kunci pencarian Anda.'
-            : 'Belum ada riwayat transaksi yang tercatat di tenant Anda.'}
+            ? 'Tidak ada transaksi yang cocok dengan kriteria filter saat ini.'
+            : 'Belum ada riwayat penjualan terekam di sistem.'}
         </p>
         {isFiltered && resetFilters && (
           <button
             type="button"
             onClick={resetFilters}
-            className="cursor-pointer mt-4 bg-indigo-650 hover:bg-indigo-700 active:scale-95 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-sm transition-all"
+            className="cursor-pointer px-5 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 rounded-2xl font-extrabold text-xs transition-all shadow-2xs active:scale-95"
           >
-            Atur Ulang Filter
+            Bersihkan Filter
           </button>
         )}
       </div>
@@ -137,51 +122,51 @@ export function TransactionListPanel({
   }
 
   return (
-    <div className="flex-1 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/60 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col">
-      {/* Tampilan Tabel DESKTOP (md ke atas) */}
+    <div className="flex-1 min-h-[560px] lg:min-h-[640px] bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-xs hover:shadow-md dark:shadow-none overflow-hidden flex flex-col backdrop-blur-md transition-all">
+      {/* Tampilan Tabel DESKTOP & TABLET */}
       <div className="hidden md:block flex-1 overflow-auto">
         <table className="w-full border-collapse text-left text-xs">
           <thead>
-            <tr className="bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider border-b border-slate-155 dark:border-slate-700">
-              <th className="py-3.5 px-6">Nomor Invoice</th>
-              <th className="py-3.5 px-6">Tanggal & Waktu</th>
-              <th className="py-3.5 px-6">Pelanggan</th>
-              <th className="py-3.5 px-6">Status</th>
-              <th className="py-3.5 px-6">Total Tagihan</th>
-              <th className="py-3.5 px-6 text-center">Aksi</th>
+            <tr className="bg-slate-100/90 dark:bg-slate-800/80 text-slate-700 dark:text-slate-200 font-extrabold uppercase tracking-wider text-[11px] border-b-2 border-slate-200/90 dark:border-slate-700 sticky top-0 z-10 backdrop-blur-md">
+              <th className="py-5 px-6.5">Nomor Invoice</th>
+              <th className="py-5 px-6.5">Tanggal & Waktu</th>
+              <th className="py-5 px-6.5">Pelanggan</th>
+              <th className="py-5 px-6.5">Status</th>
+              <th className="py-5 px-6.5">Total Tagihan</th>
+              <th className="py-5 px-6.5 text-center">Aksi</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80 font-medium text-slate-700 dark:text-slate-300">
+          <tbody className="divide-y divide-slate-100 dark:divide-slate-800/70">
             {transactions.map((tx) => (
               <tr
                 key={tx.id}
                 onClick={() => onSelectTransaction(tx)}
-                className="cursor-pointer hover:bg-indigo-50/40 dark:hover:bg-indigo-950/20 active:bg-indigo-100/30 dark:active:bg-indigo-950/40 transition-colors border-b border-slate-100 dark:border-slate-800"
+                className="group hover:bg-indigo-50/60 dark:hover:bg-slate-800/60 transition-colors duration-150 cursor-pointer"
               >
                 {/* Invoice ID */}
-                <td className="py-3.5 px-6 font-bold text-slate-900 dark:text-slate-100 font-mono tracking-wide text-xs">
+                <td className="py-5.5 px-6.5 font-bold text-slate-900 dark:text-slate-50 font-mono tracking-wide text-xs group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                   {tx.invoiceNumber}
                 </td>
                 {/* Tanggal & Waktu */}
-                <td className="py-3.5 px-6 text-slate-500 dark:text-slate-400">
+                <td className="py-5.5 px-6.5 text-slate-600 dark:text-slate-400 font-medium">
                   {formatTransactionDateTime(tx.createdAt)}
                 </td>
                 {/* Nama Pelanggan */}
-                <td className="py-3.5 px-6 font-semibold text-slate-750 dark:text-slate-250">
+                <td className="py-5.5 px-6.5 font-bold text-slate-800 dark:text-slate-200">
                   {tx.customer?.name || (
-                    <span className="text-slate-400 font-normal italic">Umum / Walk-in</span>
+                    <span className="text-slate-400 dark:text-slate-500 font-medium italic">Umum / Walk-in</span>
                   )}
                 </td>
                 {/* Status */}
-                <td className="py-3.5 px-6">
+                <td className="py-5.5 px-6.5">
                   <TransactionStatusBadge status={tx.status} />
                 </td>
                 {/* Total Tagihan */}
-                <td className="py-3.5 px-6 font-extrabold text-indigo-600 dark:text-indigo-400 text-sm">
+                <td className="py-5.5 px-6.5 font-black text-indigo-700 dark:text-indigo-400 text-sm font-mono tracking-tight">
                   {formatTransactionRupiah(tx.grandTotal)}
                 </td>
                 {/* Tombol Aksi */}
-                <td className="py-3.5 px-6 text-center" onClick={(e) => e.stopPropagation()}>
+                <td className="py-5.5 px-6.5 text-center" onClick={(e) => e.stopPropagation()}>
                   <div className="inline-flex items-center gap-2">
                     {/* Tombol WhatsApp (Cepat) */}
                     {onSendWhatsApp && (
@@ -189,9 +174,9 @@ export function TransactionListPanel({
                         type="button"
                         onClick={() => onSendWhatsApp(tx)}
                         title="Kirim Struk via WhatsApp"
-                        className="cursor-pointer p-2 rounded-xl border border-emerald-200 dark:border-emerald-800/80 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-450 hover:bg-emerald-100 dark:hover:bg-emerald-900/45 active:scale-90 transition-all shadow-sm"
+                        className="cursor-pointer p-2.5 rounded-xl border border-emerald-300 dark:border-emerald-800/80 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 hover:border-emerald-400 dark:hover:bg-emerald-900/60 active:scale-90 transition-all shadow-2xs"
                       >
-                        <MessageCircle className="w-3.5 h-3.5" />
+                        <MessageCircle className="w-4 h-4" />
                       </button>
                     )}
                     {/* Tombol Detail */}
@@ -199,9 +184,9 @@ export function TransactionListPanel({
                       type="button"
                       onClick={() => onSelectTransaction(tx)}
                       title="Lihat Detail Transaksi"
-                      className="cursor-pointer inline-flex items-center gap-1 bg-slate-50 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 border border-slate-200 dark:border-slate-700 hover:border-indigo-200 dark:hover:border-indigo-800 text-slate-600 dark:text-slate-300 hover:text-indigo-800 dark:hover:text-indigo-400 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95"
+                      className="cursor-pointer inline-flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 border border-slate-300 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-800 text-slate-800 dark:text-slate-200 hover:text-indigo-700 dark:hover:text-indigo-300 px-3.5 py-2 rounded-xl text-xs font-extrabold transition-all shadow-2xs active:scale-95"
                     >
-                      <Eye className="w-3.5 h-3.5" />
+                      <Eye className="w-4 h-4" />
                       Detail
                     </button>
                   </div>
@@ -212,39 +197,39 @@ export function TransactionListPanel({
         </table>
       </div>
 
-      {/* Tampilan Kartu MOBILE (di bawah md) */}
-      <div className="block md:hidden flex-1 overflow-auto p-4 space-y-3 bg-slate-50/30 dark:bg-slate-950/10">
+      {/* Tampilan Kartu MOBILE */}
+      <div className="block md:hidden flex-1 overflow-auto p-4 space-y-3.5 bg-slate-50/50 dark:bg-slate-950/20">
         {transactions.map((tx) => (
           <div
             key={tx.id}
             onClick={() => onSelectTransaction(tx)}
-            className="cursor-pointer bg-white dark:bg-slate-900 border border-slate-200/50 dark:border-slate-800 p-4.5 rounded-2xl shadow-sm hover:shadow-md transition-all active:scale-[0.99] flex flex-col gap-3 relative"
+            className="cursor-pointer bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 p-5 rounded-3xl shadow-xs hover:shadow-md transition-all active:scale-[0.99] flex flex-col gap-3.5 relative"
           >
             {/* Header Kartu: Invoice & Status */}
             <div className="flex justify-between items-center gap-3">
-              <span className="font-mono font-bold text-xs text-slate-900 dark:text-white tracking-wide">
+              <span className="font-mono font-black text-xs text-slate-900 dark:text-white tracking-wide">
                 {tx.invoiceNumber}
               </span>
               <TransactionStatusBadge status={tx.status} />
             </div>
 
             {/* Detail/Metadata Kartu */}
-            <div className="space-y-1 text-xs text-slate-500 dark:text-slate-400">
-              <p>{formatTransactionDateTime(tx.createdAt)}</p>
-              <p className="font-semibold text-slate-700 dark:text-slate-300">
+            <div className="space-y-1 text-xs text-slate-600 dark:text-slate-400">
+              <p className="font-medium">{formatTransactionDateTime(tx.createdAt)}</p>
+              <p className="font-bold text-slate-800 dark:text-slate-200">
                 Pelanggan: {tx.customer?.name || (
-                  <span className="text-slate-400 font-normal italic">Umum / Walk-in</span>
+                  <span className="text-slate-400 dark:text-slate-500 font-medium italic">Umum / Walk-in</span>
                 )}
               </p>
             </div>
 
             {/* Footer Kartu: Total & Tombol Aksi */}
-            <div className="flex justify-between items-center gap-3 pt-3 border-t border-slate-100 dark:border-slate-800/80">
+            <div className="flex justify-between items-center gap-3 pt-3.5 border-t border-slate-100 dark:border-slate-800">
               <div className="flex flex-col">
-                <span className="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-bold tracking-wider">
+                <span className="text-[10px] text-slate-500 dark:text-slate-400 uppercase font-extrabold tracking-wider">
                   Total Tagihan
                 </span>
-                <span className="font-black text-sm text-indigo-600 dark:text-indigo-400 mt-0.5">
+                <span className="font-black text-base text-indigo-700 dark:text-indigo-400 mt-0.5 font-mono">
                   {formatTransactionRupiah(tx.grandTotal)}
                 </span>
               </div>
@@ -254,7 +239,7 @@ export function TransactionListPanel({
                     type="button"
                     onClick={() => onSendWhatsApp(tx)}
                     title="Kirim Struk via WhatsApp"
-                    className="cursor-pointer p-2.5 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-450 hover:bg-emerald-100/80 dark:hover:bg-emerald-900/40 active:scale-90 transition-all shadow-sm"
+                    className="cursor-pointer p-2.5 rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 active:scale-90 transition-all shadow-2xs"
                   >
                     <MessageCircle className="w-4 h-4" />
                   </button>
@@ -263,7 +248,7 @@ export function TransactionListPanel({
                   type="button"
                   onClick={() => onSelectTransaction(tx)}
                   title="Lihat Detail Transaksi"
-                  className="cursor-pointer inline-flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 border border-slate-200 dark:border-slate-700 hover:border-indigo-200 dark:hover:border-indigo-800 text-slate-650 dark:text-slate-300 hover:text-indigo-800 dark:hover:text-indigo-400 px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95"
+                  className="cursor-pointer inline-flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 border border-slate-300 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-800 text-slate-800 dark:text-slate-200 hover:text-indigo-700 dark:hover:text-indigo-300 px-4 py-2 rounded-xl text-xs font-extrabold transition-all shadow-2xs active:scale-95"
                 >
                   <Eye className="w-4 h-4" />
                   Detail

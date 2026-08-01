@@ -1,5 +1,16 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { CreatePOInput } from '../schemas/po.schema';
+
+export interface GetPOQueryOptions {
+  tenantId: string;
+  search?: string;
+  status?: string;
+  supplierId?: string;
+  outletId?: string;
+  page?: number;
+  limit?: number;
+}
 
 export class POService {
   private generatePONumber(): string {
@@ -9,25 +20,103 @@ export class POService {
     return `PO-${dateStr}-${randomSuffix}`;
   }
 
-  async getAllPO(tenantId: string) {
-    return prisma.purchaseOrder.findMany({
-      where: { tenantId },
-      include: {
-        supplier: true,
-        createdBy: {
-          select: { id: true, name: true, email: true },
-        },
-        outlet: {
-          select: { id: true, name: true },
-        },
-        items: {
+  async getAllPO(options: GetPOQueryOptions | string) {
+    let tenantId: string;
+    let search: string | undefined;
+    let status: string | undefined;
+    let supplierId: string | undefined;
+    let outletId: string | undefined;
+    let page = 1;
+    let limit = 10;
+
+    if (typeof options === 'object') {
+      tenantId = options.tenantId;
+      search = options.search;
+      status = options.status;
+      supplierId = options.supplierId;
+      outletId = options.outletId;
+      page = options.page && options.page > 0 ? Number(options.page) : 1;
+      limit = options.limit && options.limit > 0 ? Number(options.limit) : 10;
+    } else {
+      tenantId = options;
+    }
+
+    const where: Prisma.PurchaseOrderWhereInput = {
+      tenantId,
+    };
+
+    if (search && search.trim() !== '') {
+      const q = search.trim();
+      where.OR = [
+        { poNumber: { contains: q, mode: 'insensitive' } },
+        { supplier: { name: { contains: q, mode: 'insensitive' } } },
+      ];
+    }
+
+    if (status && status.trim() !== '') {
+      where.status = status as any;
+    }
+
+    if (supplierId && supplierId.trim() !== '') {
+      where.supplierId = supplierId;
+    }
+
+    if (outletId && outletId.trim() !== '') {
+      where.outletId = outletId;
+    }
+
+    const [totalCount, orders, allTenantPOs, pendingCount, receivedCount, cancelledCount] =
+      await Promise.all([
+        prisma.purchaseOrder.count({ where }),
+        prisma.purchaseOrder.findMany({
+          where,
+          skip: (page - 1) * limit,
+          take: limit,
           include: {
-            product: true,
+            supplier: true,
+            createdBy: {
+              select: { id: true, name: true, email: true },
+            },
+            outlet: {
+              select: { id: true, name: true },
+            },
+            items: {
+              include: {
+                product: true,
+              },
+            },
           },
+          orderBy: { createdAt: 'desc' },
+        }),
+        prisma.purchaseOrder.aggregate({
+          where: { tenantId },
+          _sum: { totalAmount: true },
+          _count: { id: true },
+        }),
+        prisma.purchaseOrder.count({ where: { tenantId, status: { in: ['DRAFT', 'ORDERED'] } } }),
+        prisma.purchaseOrder.count({ where: { tenantId, status: 'RECEIVED' } }),
+        prisma.purchaseOrder.count({ where: { tenantId, status: 'CANCELLED' } }),
+      ]);
+
+    const totalPages = Math.ceil(totalCount / limit) || 1;
+
+    return {
+      orders,
+      pagination: {
+        page,
+        limit,
+        totalCount,
+        totalPages,
+        hasMore: page < totalPages,
+        summary: {
+          totalOrders: allTenantPOs._count.id || 0,
+          pendingCount,
+          receivedCount,
+          cancelledCount,
+          totalAmount: Number(allTenantPOs._sum.totalAmount || 0),
         },
       },
-      orderBy: { createdAt: 'desc' },
-    });
+    };
   }
 
   async getPOById(tenantId: string, id: string) {

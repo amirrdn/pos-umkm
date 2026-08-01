@@ -48,9 +48,43 @@ export interface CreatePOPayload {
   }[];
 }
 
-export async function getPurchaseOrdersApi(): Promise<PurchaseOrder[]> {
-  const response = await apiClient.get<ApiSuccessResponse<PurchaseOrder[]>>('/api/purchase-orders');
-  return response.data.data ?? [];
+export interface POQueryParams {
+  search?: string;
+  status?: string;
+  supplierId?: string;
+  outletId?: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface POPaginationMeta {
+  page: number;
+  limit: number;
+  totalCount: number;
+  totalPages: number;
+  hasMore: boolean;
+  summary: {
+    totalOrders: number;
+    pendingCount: number;
+    receivedCount: number;
+    cancelledCount: number;
+    totalAmount: number;
+  };
+}
+
+export interface POPaginatedResponse {
+  orders: PurchaseOrder[];
+  pagination?: POPaginationMeta;
+}
+
+export async function getPurchaseOrdersApi(params?: POQueryParams): Promise<POPaginatedResponse> {
+  const response = await apiClient.get<
+    ApiSuccessResponse<PurchaseOrder[]> & { pagination?: POPaginationMeta }
+  >('/api/purchase-orders', { params });
+  return {
+    orders: response.data.data ?? [],
+    pagination: response.data.pagination,
+  };
 }
 
 export async function getPurchaseOrderByIdApi(id: string): Promise<PurchaseOrder> {

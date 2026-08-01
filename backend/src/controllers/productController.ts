@@ -17,10 +17,22 @@ export async function getAllProducts(req: Request, res: Response) {
       outletId = (req.query.outletId as string) || req.outletId || null;
     }
 
+    const { search, categoryId, category } = req.query;
+
     const usePosCatalog = Boolean(outletId) && req.query.context !== 'master';
     const products = usePosCatalog
       ? await productService.getPosCatalogProducts(tenantId, outletId!)
-      : await productService.getAllProducts(tenantId, outletId);
+      : await productService.getAllProducts({
+          tenantId,
+          outletId,
+          search: typeof search === 'string' ? search : undefined,
+          categoryId:
+            typeof categoryId === 'string'
+              ? categoryId
+              : typeof category === 'string'
+                ? category
+                : undefined,
+        });
 
     return res.status(200).json({
       success: true,

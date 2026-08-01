@@ -9,7 +9,13 @@ const outletService = new OutletService();
 
 export async function getAllOutlets(req: Request, res: Response) {
   try {
-    const tenantId = req.tenantId!;
+    const tenantId = req.tenantId || req.user?.tenantId;
+    if (!tenantId || tenantId === 'undefined' || tenantId === 'null') {
+      return res.status(400).json({
+        success: false,
+        message: 'Akses Ditolak: Konteks tenant tidak ditemukan.',
+      });
+    }
     const operationalOnly = req.query.operationalOnly === 'true';
     const outlets = await outletService.getAllOutlets(tenantId, operationalOnly);
 

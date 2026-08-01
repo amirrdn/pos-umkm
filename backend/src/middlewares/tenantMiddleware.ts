@@ -80,7 +80,7 @@ export async function tenantMiddleware(req: Request, res: Response, next: NextFu
       tenantId = req.user.tenantId ?? undefined;
     }
 
-    if (!tenantId) {
+    if (!tenantId || tenantId === 'undefined' || tenantId === 'null' || tenantId.trim() === '') {
       return res.status(400).json({
         success: false,
         message: 'Akses Ditolak: Header tenant (x-tenant-id) atau konteks tenant tidak ditemukan.',

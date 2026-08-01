@@ -35,42 +35,66 @@ function formatTrendTooltipValue(value: number, name: string): [string, string] 
 
 export function DashboardTrendChart({ loading, trendData }: DashboardTrendChartProps) {
   const { theme } = useThemeStore();
-  const axisStroke = theme === 'light' ? '#475569' : '#94a3b8';
+  const axisStroke = theme === 'light' ? '#64748b' : '#94a3b8';
 
   return (
-    <div className="bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 shadow-sm dark:shadow-lg mb-8 backdrop-blur-sm">
-      <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-4 flex items-center gap-2">
-        <LineChartIcon className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
-        Tren Penjualan, Laba & Pelanggan (30 Hari)
-      </h3>
+    <div className="bg-white dark:bg-slate-900/80 border border-slate-200/90 dark:border-slate-800 rounded-3xl p-6 shadow-xs hover:shadow-md dark:shadow-none mb-8 backdrop-blur-md transition-all">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+        <div>
+          <h3 className="text-base font-extrabold text-slate-900 dark:text-slate-50 flex items-center gap-2">
+            <div className="p-2 bg-indigo-500/10 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 rounded-xl border border-indigo-500/20">
+              <LineChartIcon className="w-4 h-4" />
+            </div>
+            Tren Penjualan, Laba & Pelanggan (30 Hari)
+          </h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            Visualisasi dinamika pendapatan, margin laba bersih, dan volume transaksi harian.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+            <span className="w-2 h-2 rounded-full bg-indigo-500" />
+            Omset
+          </span>
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+            <span className="w-2 h-2 rounded-full bg-emerald-500" />
+            Laba
+          </span>
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-bold bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+            <span className="w-2 h-2 rounded-full bg-amber-500" />
+            Pelanggan
+          </span>
+        </div>
+      </div>
 
       {loading ? (
-        <div className="h-72 w-full bg-slate-100 dark:bg-slate-900/20 animate-pulse rounded-2xl flex items-center justify-center">
-          <Loader2 className="w-7 h-7 text-indigo-500 animate-spin" />
+        <div className="h-80 w-full bg-slate-100/70 dark:bg-slate-800/40 animate-pulse rounded-2xl flex items-center justify-center">
+          <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
         </div>
       ) : trendData.length === 0 ? (
-        <div className="h-72 w-full border border-dashed border-slate-300 dark:border-slate-800 rounded-2xl flex flex-col items-center justify-center text-slate-500">
-          <TrendingDown className="w-8 h-8 mb-2 opacity-40" />
-          <p className="text-xs">Belum ada transaksi terekam selama 30 hari terakhir.</p>
+        <div className="h-80 w-full border border-dashed border-slate-300 dark:border-slate-800 rounded-2xl flex flex-col items-center justify-center text-slate-500">
+          <TrendingDown className="w-10 h-10 mb-2 opacity-40 text-slate-400" />
+          <p className="text-xs font-semibold">Belum ada transaksi terekam selama 30 hari terakhir.</p>
         </div>
       ) : (
-        <div className="h-72 w-full min-w-0">
-          <ResponsiveContainer width="100%" height={288} minWidth={0}>
-            <ComposedChart data={trendData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+        <div className="h-80 w-full min-w-0">
+          <ResponsiveContainer width="100%" height={320} minWidth={0}>
+            <ComposedChart data={trendData} margin={{ top: 12, right: 12, left: -10, bottom: 0 }}>
               <defs>
                 <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#6366f1" stopOpacity={0.18} />
+                  <stop offset="5%" stopColor="#6366f1" stopOpacity={0.25} />
                   <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
                 </linearGradient>
                 <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.18} />
+                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.25} />
                   <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid
-                strokeDasharray="3 3"
-                stroke={theme === 'light' ? '#e2e8f0' : '#334155'}
-                opacity={0.2}
+                strokeDasharray="4 4"
+                stroke={theme === 'light' ? '#cbd5e1' : '#334155'}
+                opacity={0.3}
               />
               <XAxis
                 dataKey="date"
@@ -83,7 +107,7 @@ export function DashboardTrendChart({ loading, trendData }: DashboardTrendChartP
                 stroke={axisStroke}
                 {...DASHBOARD_CHART_AXIS_PROPS}
                 tickFormatter={formatChartYAxisTick}
-                width={56}
+                width={62}
               />
               <YAxis
                 yAxisId="right"
@@ -91,7 +115,7 @@ export function DashboardTrendChart({ loading, trendData }: DashboardTrendChartP
                 stroke="#f59e0b"
                 {...DASHBOARD_CHART_AXIS_PROPS}
                 allowDecimals={false}
-                width={32}
+                width={36}
               />
               <Tooltip
                 contentStyle={getChartTooltipStyle(theme)}
@@ -99,7 +123,7 @@ export function DashboardTrendChart({ loading, trendData }: DashboardTrendChartP
               />
               <Legend
                 verticalAlign="top"
-                height={28}
+                height={32}
                 iconType="circle"
                 iconSize={8}
                 wrapperStyle={DASHBOARD_CHART_LEGEND_STYLE}
@@ -110,7 +134,7 @@ export function DashboardTrendChart({ loading, trendData }: DashboardTrendChartP
                 dataKey="revenue"
                 name="Omset Penjualan"
                 stroke="#6366f1"
-                strokeWidth={1.5}
+                strokeWidth={2.5}
                 fillOpacity={1}
                 fill="url(#colorRevenue)"
               />
@@ -120,7 +144,7 @@ export function DashboardTrendChart({ loading, trendData }: DashboardTrendChartP
                 dataKey="profit"
                 name="Laba Bersih"
                 stroke="#10b981"
-                strokeWidth={1.5}
+                strokeWidth={2.5}
                 fillOpacity={1}
                 fill="url(#colorProfit)"
               />
@@ -130,9 +154,9 @@ export function DashboardTrendChart({ loading, trendData }: DashboardTrendChartP
                 dataKey="customerTransactions"
                 name="Transaksi Pelanggan"
                 stroke="#f59e0b"
-                strokeWidth={2}
-                dot={false}
-                activeDot={{ r: 4 }}
+                strokeWidth={2.5}
+                dot={{ r: 2, fill: '#f59e0b' }}
+                activeDot={{ r: 5, fill: '#f59e0b' }}
               />
             </ComposedChart>
           </ResponsiveContainer>

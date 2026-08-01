@@ -16,10 +16,26 @@ interface ApiSuccessResponse<T> {
   data: T;
 }
 
-export async function getProductsApi(outletId?: string): Promise<MasterProduct[]> {
+export interface GetProductsApiOptions {
+  outletId?: string;
+  search?: string;
+  categoryId?: string;
+}
+
+export async function getProductsApi(
+  options?: GetProductsApiOptions | string
+): Promise<MasterProduct[]> {
+  const opts = typeof options === 'string' ? { outletId: options } : options || {};
   const response = await apiClient.get<ApiSuccessResponse<Parameters<typeof mapApiProductToMasterProduct>[0][]>>(
     '/api/products',
-    { params: { context: 'master', ...(outletId ? { outletId } : {}) } }
+    {
+      params: {
+        context: 'master',
+        ...(opts.outletId ? { outletId: opts.outletId } : {}),
+        ...(opts.search ? { search: opts.search } : {}),
+        ...(opts.categoryId ? { categoryId: opts.categoryId } : {}),
+      },
+    }
   );
   return (response.data.data || []).map(mapApiProductToMasterProduct);
 }

@@ -27,234 +27,244 @@ function completedTxWhere(tenantId: string, outletId?: string | null, since?: Da
  */
 export class AnalyticsService {
   async getSummary(tenantId: string, outletId?: string | null) {
-    const dayStart = startOfLocalDay();
-    const monthStart = startOfLocalMonth();
+    return prisma.$executeRawWithTenant(tenantId, async () => {
+      const dayStart = startOfLocalDay();
+      const monthStart = startOfLocalMonth();
 
-    const todayWhere = completedTxWhere(tenantId, outletId, dayStart);
-    const monthWhere = completedTxWhere(tenantId, outletId, monthStart);
+      const todayWhere = completedTxWhere(tenantId, outletId, dayStart);
+      const monthWhere = completedTxWhere(tenantId, outletId, monthStart);
 
-    const [todayRevenueAggregate, monthRevenueAggregate, todayTransactionsCount, todayTransactions, monthTransactions] =
-      await Promise.all([
-        prisma.transaction.aggregate({ _sum: { grandTotal: true }, where: todayWhere }),
-        prisma.transaction.aggregate({ _sum: { grandTotal: true }, where: monthWhere }),
-        prisma.transaction.count({ where: todayWhere }),
-        prisma.transaction.findMany({
-          where: todayWhere,
-          select: { discount: true, items: { select: TX_ITEMS_SELECT } },
-        }),
-        prisma.transaction.findMany({
-          where: monthWhere,
-          select: { discount: true, items: { select: TX_ITEMS_SELECT } },
-        }),
-      ]);
+      const [todayRevenueAggregate, monthRevenueAggregate, todayTransactionsCount, todayTransactions, monthTransactions] =
+        await Promise.all([
+          prisma.transaction.aggregate({ _sum: { grandTotal: true }, where: todayWhere }),
+          prisma.transaction.aggregate({ _sum: { grandTotal: true }, where: monthWhere }),
+          prisma.transaction.count({ where: todayWhere }),
+          prisma.transaction.findMany({
+            where: todayWhere,
+            select: { discount: true, items: { select: TX_ITEMS_SELECT } },
+          }),
+          prisma.transaction.findMany({
+            where: monthWhere,
+            select: { discount: true, items: { select: TX_ITEMS_SELECT } },
+          }),
+        ]);
 
-    const profitToday = todayTransactions.reduce(
-      (sum, tx) => sum + calculateTransactionProfit(tx),
-      0
-    );
-    const profitMonth = monthTransactions.reduce(
-      (sum, tx) => sum + calculateTransactionProfit(tx),
-      0
-    );
+      const profitToday = todayTransactions.reduce(
+        (sum, tx) => sum + calculateTransactionProfit(tx),
+        0
+      );
+      const profitMonth = monthTransactions.reduce(
+        (sum, tx) => sum + calculateTransactionProfit(tx),
+        0
+      );
 
-    return {
-      revenueToday: Number(todayRevenueAggregate._sum.grandTotal ?? 0),
-      revenueMonth: Number(monthRevenueAggregate._sum.grandTotal ?? 0),
-      transactionsTodayCount: todayTransactionsCount,
-      profitToday,
-      profitMonth,
-    };
+      return {
+        revenueToday: Number(todayRevenueAggregate._sum.grandTotal ?? 0),
+        revenueMonth: Number(monthRevenueAggregate._sum.grandTotal ?? 0),
+        transactionsTodayCount: todayTransactionsCount,
+        profitToday,
+        profitMonth,
+      };
+    });
   }
 
   async getRevenueAndProfitTrend(tenantId: string, outletId?: string | null) {
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29);
-    thirtyDaysAgo.setHours(0, 0, 0, 0);
+    return prisma.$executeRawWithTenant(tenantId, async () => {
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29);
+      thirtyDaysAgo.setHours(0, 0, 0, 0);
 
-    const transactions = await prisma.transaction.findMany({
-      where: completedTxWhere(tenantId, outletId, thirtyDaysAgo),
-      select: {
-        createdAt: true,
-        grandTotal: true,
-        discount: true,
-        customerId: true,
-        items: { select: TX_ITEMS_SELECT },
-      },
-      orderBy: { createdAt: 'asc' },
-    });
-
-    const trendMap = new Map<string, { revenue: number; profit: number; customerTransactions: number }>();
-
-    for (let i = 29; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      const dateStr = d
-        .toLocaleDateString('id-ID', { year: 'numeric', month: '2-digit', day: '2-digit' })
-        .split('/')
-        .reverse()
-        .join('-');
-      trendMap.set(dateStr, { revenue: 0, profit: 0, customerTransactions: 0 });
-    }
-
-    for (const tx of transactions) {
-      const dateStr = tx.createdAt
-        .toLocaleDateString('id-ID', { year: 'numeric', month: '2-digit', day: '2-digit' })
-        .split('/')
-        .reverse()
-        .join('-');
-
-      const current = trendMap.get(dateStr) ?? { revenue: 0, profit: 0, customerTransactions: 0 };
-      trendMap.set(dateStr, {
-        revenue: current.revenue + Number(tx.grandTotal),
-        profit: current.profit + calculateTransactionProfit(tx),
-        customerTransactions: current.customerTransactions + (tx.customerId ? 1 : 0),
+      const transactions = await prisma.transaction.findMany({
+        where: completedTxWhere(tenantId, outletId, thirtyDaysAgo),
+        select: {
+          createdAt: true,
+          grandTotal: true,
+          discount: true,
+          customerId: true,
+          items: { select: TX_ITEMS_SELECT },
+        },
+        orderBy: { createdAt: 'asc' },
       });
-    }
 
-    return Array.from(trendMap.entries()).map(([date, data]) => ({
-      date,
-      revenue: Math.round(data.revenue),
-      profit: Math.round(data.profit),
-      customerTransactions: data.customerTransactions,
-    }));
+      const trendMap = new Map<string, { revenue: number; profit: number; customerTransactions: number }>();
+
+      for (let i = 29; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const dateStr = d
+          .toLocaleDateString('id-ID', { year: 'numeric', month: '2-digit', day: '2-digit' })
+          .split('/')
+          .reverse()
+          .join('-');
+        trendMap.set(dateStr, { revenue: 0, profit: 0, customerTransactions: 0 });
+      }
+
+      for (const tx of transactions) {
+        const dateStr = tx.createdAt
+          .toLocaleDateString('id-ID', { year: 'numeric', month: '2-digit', day: '2-digit' })
+          .split('/')
+          .reverse()
+          .join('-');
+
+        const current = trendMap.get(dateStr) ?? { revenue: 0, profit: 0, customerTransactions: 0 };
+        trendMap.set(dateStr, {
+          revenue: current.revenue + Number(tx.grandTotal),
+          profit: current.profit + calculateTransactionProfit(tx),
+          customerTransactions: current.customerTransactions + (tx.customerId ? 1 : 0),
+        });
+      }
+
+      return Array.from(trendMap.entries()).map(([date, data]) => ({
+        date,
+        revenue: Math.round(data.revenue),
+        profit: Math.round(data.profit),
+        customerTransactions: data.customerTransactions,
+      }));
+    });
   }
 
   async getBestSellers(tenantId: string, outletId?: string | null) {
-    const bestSellersGroupBy = await prisma.transactionItem.groupBy({
-      by: ['productId'],
-      where: { transaction: completedTxWhere(tenantId, outletId) },
-      _sum: { quantity: true },
-      orderBy: { _sum: { quantity: 'desc' } },
-      take: 5,
-    });
+    return prisma.$executeRawWithTenant(tenantId, async () => {
+      const bestSellersGroupBy = await prisma.transactionItem.groupBy({
+        by: ['productId'],
+        where: { transaction: completedTxWhere(tenantId, outletId) },
+        _sum: { quantity: true },
+        orderBy: { _sum: { quantity: 'desc' } },
+        take: 5,
+      });
 
-    if (bestSellersGroupBy.length === 0) return [];
+      if (bestSellersGroupBy.length === 0) return [];
 
-    const productIds = bestSellersGroupBy.map((item) => item.productId);
-    const products = await prisma.product.findMany({
-      where: { id: { in: productIds } },
-      select: { id: true, name: true, sku: true },
-    });
+      const productIds = bestSellersGroupBy.map((item) => item.productId);
+      const products = await prisma.product.findMany({
+        where: { tenantId, id: { in: productIds } },
+        select: { id: true, name: true, sku: true },
+      });
 
-    return bestSellersGroupBy.map((item) => {
-      const product = products.find((p) => p.id === item.productId);
-      return {
-        productId: item.productId,
-        name: product?.name ?? 'Produk Tidak Dikenal',
-        sku: product?.sku ?? '',
-        totalQuantity: item._sum.quantity ?? 0,
-      };
+      return bestSellersGroupBy.map((item) => {
+        const product = products.find((p) => p.id === item.productId);
+        return {
+          productId: item.productId,
+          name: product?.name ?? 'Produk Tidak Dikenal',
+          sku: product?.sku ?? '',
+          totalQuantity: item._sum.quantity ?? 0,
+        };
+      });
     });
   }
 
   async getCashierReports(tenantId: string, outletId?: string | null) {
-    const transactions = await prisma.transaction.findMany({
-      where: completedTxWhere(tenantId, outletId),
-      select: {
-        userId: true,
-        grandTotal: true,
-        paymentMethod: true,
-      },
-    });
+    return prisma.$executeRawWithTenant(tenantId, async () => {
+      const transactions = await prisma.transaction.findMany({
+        where: completedTxWhere(tenantId, outletId),
+        select: {
+          userId: true,
+          grandTotal: true,
+          paymentMethod: true,
+        },
+      });
 
-    const userMap = await loadTenantUsersByIds(
-      tenantId,
-      transactions.map((transaction) => transaction.userId)
-    );
+      const userMap = await loadTenantUsersByIds(
+        tenantId,
+        transactions.map((transaction) => transaction.userId)
+      );
 
-    const reportMap = new Map<
-      string,
-      {
-        cashierId: string;
-        name: string;
-        email: string;
-        totalTransactions: number;
-        totalSales: number;
-        cashSales: number;
-        qrisSales: number;
+      const reportMap = new Map<
+        string,
+        {
+          cashierId: string;
+          name: string;
+          email: string;
+          totalTransactions: number;
+          totalSales: number;
+          cashSales: number;
+          qrisSales: number;
+        }
+      >();
+
+      for (const tx of transactions) {
+        const user = resolveTenantUser(userMap, tx.userId);
+        const current = reportMap.get(tx.userId) ?? {
+          cashierId: tx.userId,
+          name: user.name,
+          email: user.email,
+          totalTransactions: 0,
+          totalSales: 0,
+          cashSales: 0,
+          qrisSales: 0,
+        };
+
+        const amount = Number(tx.grandTotal);
+        current.totalTransactions += 1;
+        current.totalSales += amount;
+        if (tx.paymentMethod === 'CASH') current.cashSales += amount;
+        else if (tx.paymentMethod === 'QRIS') current.qrisSales += amount;
+
+        reportMap.set(tx.userId, current);
       }
-    >();
 
-    for (const tx of transactions) {
-      const user = resolveTenantUser(userMap, tx.userId);
-      const current = reportMap.get(tx.userId) ?? {
-        cashierId: tx.userId,
-        name: user.name,
-        email: user.email,
-        totalTransactions: 0,
-        totalSales: 0,
-        cashSales: 0,
-        qrisSales: 0,
-      };
-
-      const amount = Number(tx.grandTotal);
-      current.totalTransactions += 1;
-      current.totalSales += amount;
-      if (tx.paymentMethod === 'CASH') current.cashSales += amount;
-      else if (tx.paymentMethod === 'QRIS') current.qrisSales += amount;
-
-      reportMap.set(tx.userId, current);
-    }
-
-    return Array.from(reportMap.values());
+      return Array.from(reportMap.values());
+    });
   }
 
   async getShiftReports(tenantId: string, outletId?: string | null) {
-    const shifts = await prisma.shift.findMany({
-      where: {
-        tenantId,
-        ...(outletId ? { outletId } : {}),
-      },
-      select: {
-        id: true,
-        userId: true,
-        startTime: true,
-        endTime: true,
-        cashStart: true,
-        cashExpected: true,
-        cashActual: true,
-        difference: true,
-        status: true,
-        transactions: {
-          where: { status: 'COMPLETED' },
-          select: { grandTotal: true, paymentMethod: true },
+    return prisma.$executeRawWithTenant(tenantId, async () => {
+      const shifts = await prisma.shift.findMany({
+        where: {
+          tenantId,
+          ...(outletId ? { outletId } : {}),
         },
-      },
-      orderBy: { startTime: 'desc' },
-    });
+        select: {
+          id: true,
+          userId: true,
+          startTime: true,
+          endTime: true,
+          cashStart: true,
+          cashExpected: true,
+          cashActual: true,
+          difference: true,
+          status: true,
+          transactions: {
+            where: { status: 'COMPLETED' },
+            select: { grandTotal: true, paymentMethod: true },
+          },
+        },
+        orderBy: { startTime: 'desc' },
+      });
 
-    const userMap = await loadTenantUsersByIds(
-      tenantId,
-      shifts.map((shift) => shift.userId)
-    );
+      const userMap = await loadTenantUsersByIds(
+        tenantId,
+        shifts.map((shift) => shift.userId)
+      );
 
-    return shifts.map((shift) => {
-      let totalSales = 0;
-      let cashSales = 0;
-      let qrisSales = 0;
+      return shifts.map((shift) => {
+        let totalSales = 0;
+        let cashSales = 0;
+        let qrisSales = 0;
 
-      for (const tx of shift.transactions) {
-        const amount = Number(tx.grandTotal);
-        totalSales += amount;
-        if (tx.paymentMethod === 'CASH') cashSales += amount;
-        else if (tx.paymentMethod === 'QRIS') qrisSales += amount;
-      }
+        for (const tx of shift.transactions) {
+          const amount = Number(tx.grandTotal);
+          totalSales += amount;
+          if (tx.paymentMethod === 'CASH') cashSales += amount;
+          else if (tx.paymentMethod === 'QRIS') qrisSales += amount;
+        }
 
-      return {
-        id: shift.id,
-        cashierName: resolveTenantUser(userMap, shift.userId).name,
-        startTime: shift.startTime,
-        endTime: shift.endTime,
-        cashStart: Number(shift.cashStart),
-        cashExpected: Number(shift.cashExpected),
-        cashActual: shift.cashActual ? Number(shift.cashActual) : null,
-        difference: shift.difference ? Number(shift.difference) : null,
-        status: shift.status,
-        totalSales,
-        cashSales,
-        qrisSales,
-        transactionCount: shift.transactions.length,
-      };
+        return {
+          id: shift.id,
+          cashierName: resolveTenantUser(userMap, shift.userId).name,
+          startTime: shift.startTime,
+          endTime: shift.endTime,
+          cashStart: Number(shift.cashStart),
+          cashExpected: Number(shift.cashExpected),
+          cashActual: shift.cashActual ? Number(shift.cashActual) : null,
+          difference: shift.difference ? Number(shift.difference) : null,
+          status: shift.status,
+          totalSales,
+          cashSales,
+          qrisSales,
+          transactionCount: shift.transactions.length,
+        };
+      });
     });
   }
 

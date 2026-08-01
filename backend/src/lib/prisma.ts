@@ -3,13 +3,17 @@ import { tenantStorage, getSystemContext, tenantRlsTxStorage } from './tenantCon
 
 const globalForPrisma = globalThis as unknown as { prisma?: TenantScopedPrismaClient };
 
-const APP_POOL_LIMIT = Number(process.env.PRISMA_APP_CONNECTION_LIMIT ?? 7);
-const SYSTEM_POOL_LIMIT = Number(process.env.PRISMA_SYSTEM_CONNECTION_LIMIT ?? 3);
+const APP_POOL_LIMIT = Number(process.env.PRISMA_APP_CONNECTION_LIMIT ?? 5);
+const SYSTEM_POOL_LIMIT = Number(process.env.PRISMA_SYSTEM_CONNECTION_LIMIT ?? 2);
 
 function datasourceWithPoolLimit(url: string | undefined, limit: number): string | undefined {
   if (!url) return undefined;
   try {
     const parsed = new URL(url);
+    if (parsed.hostname.includes('pooler.supabase.com') && (parsed.port === '5432' || !parsed.port)) {
+      parsed.port = '6543';
+      parsed.searchParams.set('pgbouncer', 'true');
+    }
     parsed.searchParams.set('connection_limit', String(limit));
     if (!parsed.searchParams.has('pool_timeout')) {
       parsed.searchParams.set('pool_timeout', '10');
@@ -190,6 +194,10 @@ const tenantScopedPrisma = basePrisma.$extends({
               } else if (operation === 'upsert' && createObj) {
                 createObj.tenantId = activeTenantId;
               }
+            }
+
+            if (tenantRlsTxStorage.getStore()) {
+              return query(args);
             }
 
             return runOnTenantRlsClient(model, operation, args, effectiveTenantId, query);

@@ -33,18 +33,18 @@ export function TransactionSearchBar({
   ];
 
   return (
-    <div className="bg-white dark:bg-slate-900 p-4.5 rounded-2xl border border-slate-200/60 dark:border-slate-800 shadow-sm flex flex-col gap-4 shrink-0">
+    <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-xs flex flex-col gap-4 shrink-0 backdrop-blur-md">
       {/* Baris Pertama: Pencarian Teks & Dropdown Filter & Refresh */}
-      <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center">
+      <div className="flex flex-col lg:flex-row gap-3.5 items-stretch lg:items-center">
         {/* Input Pencarian */}
         <div className="relative flex-1">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 focus-within:text-indigo-500 w-4.5 h-4.5 transition-colors" />
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 focus-within:text-indigo-600 dark:focus-within:text-indigo-400 w-4.5 h-4.5 transition-colors" />
           <input
             type="text"
             placeholder="Cari nomor invoice atau nama pelanggan..."
             value={searchQuery}
             onChange={(e) => onSearchQueryChange(e.target.value)}
-            className="w-full pl-10.5 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:focus:border-indigo-500 transition-all shadow-inner-sm"
+            className="w-full pl-10.5 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800/90 border border-slate-300 dark:border-slate-700 rounded-2xl text-sm font-semibold text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 dark:focus:border-indigo-400 transition-all shadow-2xs"
           />
         </div>
 
@@ -55,7 +55,7 @@ export function TransactionSearchBar({
             <select
               value={selectedPayment}
               onChange={(e) => onPaymentChange(e.target.value as typeof selectedPayment)}
-              className="cursor-pointer w-full sm:w-auto px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+              className="cursor-pointer w-full sm:w-auto px-4 py-2.5 bg-slate-50 dark:bg-slate-800/90 border border-slate-300 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-all hover:border-indigo-500"
             >
               <option value="ALL">Semua Pembayaran</option>
               <option value="CASH">Tunai (CASH)</option>
@@ -68,7 +68,7 @@ export function TransactionSearchBar({
             <select
               value={selectedDateRange}
               onChange={(e) => onDateRangeChange(e.target.value as typeof selectedDateRange)}
-              className="cursor-pointer w-full sm:w-auto px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+              className="cursor-pointer w-full sm:w-auto px-4 py-2.5 bg-slate-50 dark:bg-slate-800/90 border border-slate-300 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-all hover:border-indigo-500"
             >
               <option value="ALL">Semua Waktu</option>
               <option value="TODAY">Hari Ini</option>
@@ -81,16 +81,16 @@ export function TransactionSearchBar({
             type="button"
             onClick={onRefresh}
             disabled={loading}
-            className="cursor-pointer bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-200/60 dark:hover:bg-slate-700 active:scale-95 text-slate-700 dark:text-slate-300 px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm shrink-0"
+            className="cursor-pointer group bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-200/80 dark:hover:bg-slate-700 active:scale-95 text-slate-800 dark:text-slate-100 px-4 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-2xs shrink-0"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 ${loading ? 'animate-spin' : 'group-hover:rotate-180 duration-500'}`} />
             Segarkan
           </button>
         </div>
       </div>
 
       {/* Baris Kedua: Pills Status */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 -mb-1 scrollbar-none border-t border-slate-100 dark:border-slate-800/60 pt-3">
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 -mb-1 scrollbar-none border-t border-slate-100 dark:border-slate-800/60 pt-3">
         {statusOptions.map((opt) => {
           const isActive = selectedStatus === opt.value;
           return (
@@ -98,10 +98,10 @@ export function TransactionSearchBar({
               key={opt.value}
               type="button"
               onClick={() => onStatusChange(opt.value)}
-              className={`cursor-pointer px-3.5 py-1.5 rounded-full text-xs font-bold transition-all border whitespace-nowrap active:scale-95 ${
+              className={`cursor-pointer px-4 py-2 rounded-xl text-xs font-extrabold transition-all border whitespace-nowrap active:scale-95 ${
                 isActive
-                  ? 'bg-indigo-650 text-white border-indigo-600 shadow-sm shadow-indigo-100 dark:shadow-none'
-                  : 'bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 border-slate-200 dark:border-slate-750 hover:bg-slate-100 dark:hover:bg-slate-700/80'
+                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm shadow-indigo-200/50 dark:shadow-none dark:bg-indigo-600 dark:text-white dark:border-indigo-500'
+                  : 'bg-slate-50 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 border-slate-250 dark:border-slate-750 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-300 dark:hover:bg-slate-700 dark:hover:text-white'
               }`}
             >
               {opt.label}

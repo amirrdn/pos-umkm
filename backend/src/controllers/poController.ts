@@ -9,10 +9,22 @@ const poService = new POService();
 export async function getAllPO(req: Request, res: Response) {
   try {
     const tenantId = req.tenantId!;
-    const orders = await poService.getAllPO(tenantId);
+    const { search, status, supplierId, outletId, page, limit } = req.query;
+
+    const result = await poService.getAllPO({
+      tenantId,
+      search: typeof search === 'string' ? search : undefined,
+      status: typeof status === 'string' ? status : undefined,
+      supplierId: typeof supplierId === 'string' ? supplierId : undefined,
+      outletId: typeof outletId === 'string' ? outletId : undefined,
+      page: page ? Number(page) : 1,
+      limit: limit ? Number(limit) : 10,
+    });
+
     return res.status(200).json({
       success: true,
-      data: orders,
+      data: result.orders,
+      pagination: result.pagination,
     });
   } catch (error: unknown) {
     logError('GetAllPO error:', error);

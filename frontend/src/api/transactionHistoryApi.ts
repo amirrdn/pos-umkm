@@ -7,8 +7,23 @@ interface ApiResponse<T> {
   data: T;
 }
 
-export async function getTransactionHistoryApi(): Promise<TransactionRecord[]> {
-  const response = await apiClient.get<ApiResponse<TransactionRecord[]>>('/api/transactions/history');
+export interface GetTransactionHistoryApiParams {
+  search?: string;
+  status?: string;
+  paymentMethod?: string;
+  dateRange?: string;
+  startDate?: string;
+  endDate?: string;
+  limit?: number;
+  page?: number;
+}
+
+export async function getTransactionHistoryApi(
+  params?: GetTransactionHistoryApiParams
+): Promise<TransactionRecord[]> {
+  const response = await apiClient.get<ApiResponse<TransactionRecord[]>>('/api/transactions/history', {
+    params,
+  });
   return response.data.data || [];
 }
 

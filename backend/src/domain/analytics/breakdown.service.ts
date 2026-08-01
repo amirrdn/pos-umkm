@@ -69,24 +69,25 @@ function toTypeRow(
  * 3 query paralel: outlets + transaksi bulan ini (filter hari di memory).
  */
 export async function getOutletBreakdown(tenantId: string): Promise<OutletBreakdownResult> {
-  const dayStart = startOfLocalDay();
-  const monthStart = startOfLocalMonth();
+  return prisma.$executeRawWithTenant(tenantId, async () => {
+    const dayStart = startOfLocalDay();
+    const monthStart = startOfLocalMonth();
 
-  const [outlets, monthTransactions] = await Promise.all([
-    prisma.outlet.findMany({
-      where: { tenantId, deletedAt: null },
-      select: { id: true, name: true, type: true, code: true },
-      orderBy: [{ type: 'asc' }, { createdAt: 'asc' }],
-    }),
-    prisma.transaction.findMany({
-      where: {
-        tenantId,
-        status: 'COMPLETED',
-        createdAt: { gte: monthStart },
-      },
-      select: TX_SELECT,
-    }),
-  ]);
+    const [outlets, monthTransactions] = await Promise.all([
+      prisma.outlet.findMany({
+        where: { tenantId, deletedAt: null },
+        select: { id: true, name: true, type: true, code: true },
+        orderBy: [{ type: 'asc' }, { createdAt: 'asc' }],
+      }),
+      prisma.transaction.findMany({
+        where: {
+          tenantId,
+          status: 'COMPLETED',
+          createdAt: { gte: monthStart },
+        },
+        select: TX_SELECT,
+      }),
+    ]);
 
   const metricsByOutlet = new Map<string, OutletMetricsAccumulator>();
   const unassigned = emptyMetrics();
@@ -153,4 +154,5 @@ export async function getOutletBreakdown(tenantId: string): Promise<OutletBreakd
       BRANCH: toTypeRow(byOutlet, 'BRANCH'),
     },
   };
+  });
 }
