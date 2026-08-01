@@ -6,22 +6,32 @@ const globalForPrisma = globalThis as unknown as { prisma?: TenantScopedPrismaCl
 const APP_POOL_LIMIT = Number(process.env.PRISMA_APP_CONNECTION_LIMIT ?? 5);
 const SYSTEM_POOL_LIMIT = Number(process.env.PRISMA_SYSTEM_CONNECTION_LIMIT ?? 2);
 
+/**
+ * Deteksi Supabase Pooler:
+ * - Port 6543 = transaction mode (PgBouncer) → butuh pgbouncer=true, TIDAK support interactive tx.
+ * - Port 5432 di pooler.supabase.com = session mode → aman untuk SET CONFIG & interactive tx.
+ * JANGAN paksa port ke 6543; gunakan URL persis seperti yang di-set di env.
+ */
 function datasourceWithPoolLimit(url: string | undefined, limit: number): string | undefined {
   if (!url) return undefined;
   try {
     const parsed = new URL(url);
-    if (parsed.hostname.includes('pooler.supabase.com') && (parsed.port === '5432' || !parsed.port)) {
-      parsed.port = '6543';
+    const isSupabasePooler = parsed.hostname.includes('pooler.supabase.com');
+    const isTransactionModePort = parsed.port === '6543';
+
+    // Hanya set pgbouncer=true jika benar-benar transaction mode (port 6543).
+    if (isSupabasePooler && isTransactionModePort) {
       parsed.searchParams.set('pgbouncer', 'true');
     }
+
     parsed.searchParams.set('connection_limit', String(limit));
     if (!parsed.searchParams.has('pool_timeout')) {
-      parsed.searchParams.set('pool_timeout', '10');
+      parsed.searchParams.set('pool_timeout', '15');
     }
     return parsed.toString();
   } catch {
     const joiner = url.includes('?') ? '&' : '?';
-    return `${url}${joiner}connection_limit=${limit}&pool_timeout=10`;
+    return `${url}${joiner}connection_limit=${limit}&pool_timeout=15`;
   }
 }
 
@@ -74,7 +84,9 @@ function runOnTenantRlsClient<T>(
   return runWithTenantRlsSession(model, operation, args, tenantId) as Promise<T>;
 }
 
-/** set_config + query harus satu koneksi/tx — batch [raw, query(args)] tidak menjamin itu (PgBouncer/RLS). */
+/** set_config + query harus satu koneksi/tx.
+ * Timeout default dinaikkan ke 30 detik untuk mengakomodasi query analytics berat di production.
+ */
 async function runWithTenantRlsSession(
   model: string,
   operation: string,
@@ -82,16 +94,19 @@ async function runWithTenantRlsSession(
   tenantId: string
 ): Promise<unknown> {
   const clientKey = modelClientKey(model);
-  return basePrisma.$transaction(async (tx) => {
-    await tx.$executeRawUnsafe(
-      `SELECT set_config('app.current_tenant_id', $1, true)`,
-      tenantId
-    );
-    return tenantRlsTxStorage.run(tx as object, () => {
-      const delegate = (tx as unknown as Record<string, PrismaModelDelegate>)[clientKey];
-      return delegate[operation](args);
-    });
-  });
+  return basePrisma.$transaction(
+    async (tx) => {
+      await tx.$executeRawUnsafe(
+        `SELECT set_config('app.current_tenant_id', $1, true)`,
+        tenantId
+      );
+      return tenantRlsTxStorage.run(tx as object, () => {
+        const delegate = (tx as unknown as Record<string, PrismaModelDelegate>)[clientKey];
+        return delegate[operation](args);
+      });
+    },
+    { maxWait: 10_000, timeout: 30_000 }
+  );
 }
 
 const TENANT_SCOPED_MODELS = new Set(
@@ -230,12 +245,18 @@ async function executeRawWithTenant<T>(
     return callback(pinnedTx as PrismaTx);
   }
 
+  // Default timeout 30 detik — cukup untuk query analytics berat di production.
+  const resolvedOptions: TenantTransactionOptions = {
+    maxWait: options?.maxWait ?? 10_000,
+    timeout: options?.timeout ?? 30_000,
+  };
+
   return tenantScopedPrisma.$transaction(async (transaction) => {
     await transaction.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
     return tenantRlsTxStorage.run(transaction as object, () =>
       tenantStorage.run(tenantId, () => callback(transaction))
     );
-  }, options);
+  }, resolvedOptions);
 }
 
 export const prisma = new Proxy(
