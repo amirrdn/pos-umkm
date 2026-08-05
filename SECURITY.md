@@ -1,56 +1,56 @@
-# Kebijakan Keamanan (Security Policy)
+# Security Policy
 
-## Versi yang Didukung (Supported Versions)
+## Supported Versions
 
-Kami secara aktif mendukung dan menambal kerentanan keamanan pada versi-versi berikut:
+We actively support and patch security vulnerabilities in the following versions:
 
-| Versi | Didukung |
-|-------|----------|
-| main  | :white_check_mark: Ya |
-| < main| :x: Tidak |
+| Version | Supported |
+|---------|-----------|
+| main    | :white_check_mark: Yes |
+| < main  | :x: No |
 
-## Praktik Keamanan Produksi
+## Production Security Practices
 
 ### Database Row-Level Security (RLS)
-- Gunakan user database non-superuser (misalnya `app_user`) agar kebijakan RLS PostgreSQL diterapkan.
-- Migrasi `20260623120000_enable_rls` mengaktifkan `FORCE ROW LEVEL SECURITY` pada 15 tabel ber-`tenantId`.
-- Tabel `tenants`: jalankan `backend/scripts/tenant_table_rls.sql` — `app_user` hanya boleh SELECT/UPDATE baris sendiri (`id = app.current_tenant_id`). INSERT/DELETE tenant hanya via `postgres` (seed/migrasi).
+- Use a non-superuser database user (e.g., `app_user`) to ensure PostgreSQL RLS policies are enforced.
+- Migration `20260623120000_enable_rls` enables `FORCE ROW LEVEL SECURITY` on 15 tables containing `tenantId`.
+- For the `tenants` table: run `backend/scripts/tenant_table_rls.sql` — `app_user` is only allowed to SELECT/UPDATE their own row (`id = app.current_tenant_id`). INSERT/DELETE operations on tenants must only be executed via the `postgres` superuser (seeding/migrations).
 
-### Akses tabel `tenants` di aplikasi
-- **Jangan** melebar `runInSystemContext` / `DIRECT_URL` ke service bisnis.
-- `tenantMiddleware` resolve tenant sekali (app_user + RLS) → disimpan di `req.tenant`.
-- Route handler memakai `req.tenant` untuk metadata langganan/pengaturan; query data bisnis tetap lewat `app_user` + RLS pada tabel ber-`tenantId`.
-- `runInSystemContext` tetap hanya untuk auth login/register, platform admin, seed, dan skrip ops.
+### Accessing `tenants` Table in the Application
+- **Do not** expose `runInSystemContext` or `DIRECT_URL` to general business services.
+- `tenantMiddleware` resolves the tenant once (using `app_user` + RLS) and stores it in `req.tenant`.
+- Route handlers should use `req.tenant` for subscription and settings metadata; querying business data must go through `app_user` with RLS on the target tables.
+- `runInSystemContext` is strictly reserved for auth login/register, platform admin actions, seeding, and operations scripts.
 
-### Autentikasi
-- JWT disimpan di cookie `auth_token` dengan flag `httpOnly`, `sameSite: strict`, dan `secure` di produksi.
-- Endpoint `POST /api/auth/logout` menghapus cookie sesi.
+### Authentication
+- JWTs are stored in the `auth_token` cookie with `httpOnly`, `sameSite: strict`, and `secure` flags enabled in production.
+- The `POST /api/auth/logout` endpoint clears the session cookie.
 
 ### Rate Limiting
-- `/api/auth/*`: 20 request / 15 menit per IP.
-- `/api/*` (non-auth): 300 request / 15 menit per IP.
-- `POST /api/transactions/checkout`: 60 request / 15 menit per IP.
+- `/api/auth/*`: 20 requests / 15 minutes per IP.
+- `/api/*` (non-auth): 300 requests / 15 minutes per IP.
+- `POST /api/transactions/checkout`: 60 requests / 15 minutes per IP.
 
-### Pengujian RLS di CI (opsional)
-- Set `RLS_TEST_ROLE` ke role PostgreSQL non-superuser untuk menjalankan tes isolasi lintas tenant di `prismaRls.test.ts`.
+### RLS Testing in CI (Optional)
+- Set `RLS_TEST_ROLE` to a non-superuser PostgreSQL role to run cross-tenant isolation tests in `prismaRls.test.ts`.
 
-### Audit Trail Platform Admin
-- Inspeksi tenant admin platform dicatat sebagai `IMPERSONATE_START` / `IMPERSONATE_END` di `platform_audit_logs`.
-- Aksi tulis tenant oleh admin platform dicatat sebagai `TENANT_SCOPED_WRITE`.
-- Sesi inspeksi aktif disimpan di `platform_admin_sessions`.
+### Platform Admin Audit Trail
+- Platform admin tenant inspections are logged as `IMPERSONATE_START` / `IMPERSONATE_END` in `platform_audit_logs`.
+- Tenant write operations by platform admins are logged as `TENANT_SCOPED_WRITE`.
+- Active inspection sessions are stored in `platform_admin_sessions`.
 
-## Melaporkan Kerentanan (Reporting a Vulnerability)
+## Reporting a Vulnerability
 
-Jika Anda menemukan kerentanan keamanan dalam proyek ini, mohon laporkan secara privat kepada tim kami di **security@example.com**. 
+If you discover a security vulnerability in this project, please report it privately to our team at **security@example.com**.
 
-Laporan Anda diharapkan menyertakan:
-- Deskripsi detail mengenai kerentanan yang ditemukan.
-- Langkah-langkah untuk mereproduksi masalah tersebut (termasuk script proof-of-concept atau tangkapan layar jika ada).
-- Potensi dampak dari kerentanan tersebut.
+Your report should include:
+- A detailed description of the vulnerability.
+- Steps to reproduce the issue (including proof-of-concept scripts or screenshots if available).
+- The potential impact of the vulnerability.
 
-Kami meminta Anda untuk tidak melaporkan kerentanan keamanan melalui GitHub Issues publik demi keamanan data pengguna.
+Please do not report security vulnerabilities via public GitHub Issues to protect user data.
 
 ## SLA (Service Level Agreement)
 
-- **SLA Respons**: Kami akan meninjau dan merespons laporan Anda dalam waktu **48 jam**.
-- **SLA Pembaruan/Perbaikan**: Kami berkomitmen untuk merilis patch atau mitigasi untuk kerentanan yang terverifikasi dalam waktu **7 hari** setelah laporan awal diterima.
+- **Response SLA**: We will review and respond to your report within **48 hours**.
+- **Patch/Mitigation SLA**: We commit to releasing a patch or mitigation for verified vulnerabilities within **7 days** of the initial report.
