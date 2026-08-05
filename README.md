@@ -1,4 +1,4 @@
-# SaaSPOS UMKM - Platform Kasir Multi-Tenant & Inventaris
+# SaaSPOS UMKM - Multi-Tenant Cashier & Inventory Platform
 
 [![CI Quality Gate](https://github.com/amirrdn/pos-umkm/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/amirrdn/pos-umkm/actions/workflows/ci.yml)
 
@@ -7,136 +7,136 @@
 [![Prisma](https://img.shields.io/badge/Prisma-2D3748?style=flat-square&logo=prisma&logoColor=white)](https://www.prisma.io/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=flat-square&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 
-SaaSPOS UMKM adalah platform Point of Sale (POS) multi-tenant modern yang dirancang khusus untuk memfasilitasi kebutuhan operasional toko ritel berskala kecil dan menengah. Dengan arsitektur yang aman dan modular, sistem ini memisahkan data setiap toko secara aman menggunakan *Row-Level Isolation* berbasis tenant.
+SaaSPOS UMKM is a modern multi-tenant Point of Sale (POS) platform designed to facilitate the operational needs of small and medium-sized retail businesses. Featuring a secure and modular architecture, the system isolates each store's data using tenant-based *Row-Level Isolation*.
 
 ---
 
-## 🚀 Fitur Utama
+## 🚀 Key Features
 
-Sistem ini telah dilengkapi dengan fitur-fitur esensial tingkat produksi:
+This system is equipped with production-grade features:
 
-1. **Multi-Tenancy & Isolasi Data**: Isolasi data yang aman antar-tenant/toko menggunakan middleware dinamis (`x-tenant-id`) untuk keamanan operasional.
-2. **Sistem Multi-Outlet (Multi-Store/Branch)**: Dukungan multi-cabang terisolasi per lokasi. Stok produk, riwayat transaksi, kartu stok/mutasi barang, shift kasir, dan staf terisolasi secara dinamis berdasarkan outlet aktif kasir/karyawan. Owner dan Manager memiliki dashboard global untuk pengawasan seluruh outlet.
-3. **Role-Based Access Control (RBAC)**: Hak akses ketat yang memisahkan peran **Owner** (akses penuh laporan keuangan, inventaris, outlet, staf) dan **Kasir** (akses transaksi & riwayat dasar).
-4. **Point of Sale (POS) & Checkout ACID**: Pengurangan stok real-time yang aman menggunakan Prisma Interactive Transaction untuk menjamin integritas data penjualan.
-5. **E-Wallet & QRIS Dinamis (Midtrans)**: Integrasi dengan Midtrans Sandbox untuk generator QRIS dinamis otomatis, status polling pembayaran real-time, status lunas, dan auto-rollback/restock jika transaksi kedaluwarsa atau dibatalkan.
-6. **QRIS Customer Display & Layanan Layar Kedua**: Mode fullscreen QRIS untuk display ke customer, serta pembukaan window layar kedua (`/customer-display`) untuk monitor eksternal.
-7. **Manajemen Shift Kerja & Laci Kas**: Kasir wajib mencatat modal awal sebelum transaksi dan melakukan rekonsiliasi uang fisik (kas aktual) saat tutup shift beserta deteksi selisih.
-8. **Laporan Penjualan per Kasir & Shift**: Grafik, tabel, dan rekapitulasi data penjualan real-time terpilah berdasarkan kasir dan shift kerja aktif.
-9. **Perhitungan HPP (COGS) & Laba Bersih**: Pencatatan otomatis harga beli (*snapshot* HPP) saat transaksi untuk menyajikan laporan Laba Bersih yang akurat, di samping Omset kotor.
-10. **Kartu Stok & Mutasi Barang (Stock Ledger)**: Log terperinci dari setiap perubahan stok barang (SALE, RESTOCK, ADJUSTMENT, RETURN) untuk pemantauan rantai pasok.
-11. **Diskon Global & Pajak PPN**: Dukungan fleksibilitas promosi nominal/persen serta kalkulasi wajib pajak (PPN 11%).
-12. **Cetak Struk Thermal & Integrasi WhatsApp**: Template struk belanja thermal format 58mm untuk printer thermal fisik dan fitur kirim struk belanja digital otomatis via WhatsApp.
-13. **Dashboard Analitik & Laba Rugi**: Visualisasi tren harian Omset vs Laba Bersih selama 30 hari menggunakan Recharts AreaChart serta pemeringkat 5 produk terlaris.
-14. **Sistem Langganan SaaS (Subscription Flow & Billing)**: Pembagian paket layanan (**FREE**, **GROWTH**, dan **ENTERPRISE**) dengan limitasi kuota data yang ketat di backend (jumlah produk, outlet, staf, dan transaksi bulanan). Terintegrasi dengan **Midtrans Snap & Webhook** untuk proses pembayaran tagihan langganan otomatis, serta mendukung alur *graceful downgrade* (menonaktifkan outlet cabang tambahan dan membekukan staf berlebih di atas kuota secara aman tanpa menghapus data).
+1. **Multi-Tenancy & Data Isolation**: Secure data isolation between tenants/stores using dynamic middleware (`x-tenant-id`) for operational safety.
+2. **Multi-Outlet System (Multi-Store/Branch)**: Support for isolated multi-branch locations. Product stock, transaction history, stock cards/ledger, cashier shifts, and staff are dynamically isolated based on the cashier's or employee's active outlet. Owners and Managers have access to a global dashboard to monitor all outlets.
+3. **Role-Based Access Control (RBAC)**: Strict permission boundaries separating **Owners** (full access to financial reports, inventory, outlets, staff) and **Cashiers** (basic transaction & history access).
+4. **Point of Sale (POS) & ACID Checkout**: Real-time stock reduction handled via Prisma Interactive Transactions to guarantee sales data integrity.
+5. **Dynamic E-Wallet & QRIS (Midtrans)**: Integrated with Midtrans Sandbox for automatic dynamic QRIS generation, real-time payment polling, payment status resolution, and auto-rollback/restock if transaction expires or is cancelled.
+6. **QRIS Customer Display & Second Screen**: Fullscreen QRIS display for customers, supporting second-screen setups (`/customer-display`) on external monitors.
+7. **Cash Drawer & Shift Management**: Cashiers must record starting cash before making transactions and reconcile physical cash (actual cash) at shift closure, featuring automated discrepancy detection.
+8. **Sales Reports by Cashier & Shift**: Real-time charts, tables, and sales summaries segregated by cashier and active shift.
+9. **COGS (Cost of Goods Sold) & Net Profit Calculation**: Automatic snapshot of buy prices (COGS) at checkout to provide accurate Net Profit reports alongside gross Revenue.
+10. **Stock Ledger & Mutations**: Detailed history of stock movements (SALE, RESTOCK, ADJUSTMENT, RETURN) to track the supply chain.
+11. **Global Discounts & Tax (VAT)**: Support for flat and percentage-based promotions, as well as automatic tax calculation (11% VAT).
+12. **Thermal Receipt Printing & WhatsApp Integration**: Print-ready 58mm thermal receipt layouts and automatic digital receipt delivery via WhatsApp.
+13. **Analytical & Profit/Loss Dashboard**: Visualizations of 30-day Revenue vs Net Profit trends using Recharts AreaChart, along with top 5 best-selling products.
+14. **SaaS Subscription Flow & Billing**: Tiered service plans (**FREE**, **GROWTH**, and **ENTERPRISE**) with strict backend usage limits (number of products, outlets, staff, and monthly transactions). Integrated with **Midtrans Snap & Webhooks** for billing, supporting *graceful downgrades* (safely disabling extra outlets and freezing excess staff without deleting any data).
 
 ---
 
-## 🛠️ Stack Teknologi
+## 🛠️ Tech Stack
 
 ### Frontend
 - **Framework & Build Tools**: React 19, Vite, TypeScript
-- **State Management**: Zustand (dengan persistence untuk sesi login)
+- **State Management**: Zustand (with persistence for auth sessions)
 - **Styling**: Tailwind CSS
-- **Visualisasi Data**: Recharts (Line/Area/Bar charts)
-- **Icon**: Lucide React
-- **Pencetakan**: React-to-Print
+- **Data Visualization**: Recharts (Line/Area/Bar charts)
+- **Icons**: Lucide React
+- **Printing**: React-to-Print
 
 ### Backend
 - **Runtime & Web Framework**: Node.js, Express, TypeScript
 - **Database ORM**: Prisma ORM
 - **Database Engine**: PostgreSQL
-- **Validasi Schema**: Zod (type-safe validation)
-- **Keamanan**: Bcrypt (hashing sandi), JSON Web Token / JWT (otentikasi sesi)
-- **Media Upload**: Cloudinary (upload foto produk via `uploadMiddleware`)
+- **Schema Validation**: Zod (type-safe validation)
+- **Security**: Bcrypt (password hashing), JSON Web Token / JWT (session authentication)
+- **Media Uploads**: Cloudinary (product image uploads via `uploadMiddleware`)
 
 ---
 
-## 📁 Struktur Monorepo
+## 📁 Monorepo Structure
 
 ```text
 SaaSPOS/
 ├── backend/                  # REST API Service (Node.js/Express)
-│   ├── prisma/               # Schema Database, Seeder, dan Migrasi
+│   ├── prisma/               # Database Schema, Seeders, and Migrations
 │   └── src/
-│       ├── controllers/      # Layer Controller (Request/Response)
-│       ├── domain/           # Logic domain terisolasi (auth, inventory, outlet, dll.)
-│       ├── middlewares/      # Auth, Tenant, Role, dan Subscription Middlewares
-│       ├── routes/           # Endpoint Routing API
-│       ├── schemas/          # Validasi Skema Payload (Zod)
-│       └── services/         # Layer Logic Bisnis (Prisma transactions)
+│       ├── controllers/      # Controller Layer (Request/Response)
+│       ├── domain/           # Isolated domain logic (auth, inventory, outlet, etc.)
+│       ├── middlewares/      # Auth, Tenant, Role, and Subscription Middlewares
+│       ├── routes/           # API Endpoints
+│       ├── schemas/          # Zod Validation Schemas
+│       └── services/         # Business Logic Layer (Prisma transactions)
 ├── frontend/                 # Client SPA Application (React/Vite)
 │   ├── src/
-│   │   ├── api/              # Axios apiClient & modul pemanggilan API
-│   │   ├── components/       # Komponen UI Halaman (POS, Dashboard, dll)
+│   │   ├── api/              # Axios apiClient & API modules
+│   │   ├── components/       # UI Components (POS, Dashboard, etc.)
 │   │   ├── hooks/            # Custom React hooks
 │   │   ├── store/            # Zustand Stores (Cart, Auth, Shift, Outlet)
-│   │   └── config.ts         # Konfigurasi Endpoint Client
-└── README.md
+│   │   └── config.ts         # Client Endpoint Configuration
+│   └── README.md
 ```
 
 ---
 
-## ⚙️ Panduan Menjalankan Proyek Secara Lokal
+## ⚙️ Local Development Guide
 
-### Prasyarat
-- Node.js versi 18 atau lebih tinggi
-- Docker (Opsional, untuk container PostgreSQL)
+### Prerequisites
+- Node.js version 18 or higher
+- Docker (Optional, for PostgreSQL containerization)
 
-### 1. Kloning Repositori
+### 1. Clone the Repository
 ```bash
 git clone git@github.com:amirrdn/pos-umkm.git
 cd pos-umkm
 ```
 
-### 2. Setup Database (PostgreSQL)
-Jika Anda menggunakan Docker, Anda dapat menjalankan database PostgreSQL secara otomatis menggunakan berkas docker-compose yang tersedia di folder backend:
+### 2. Database Setup (PostgreSQL)
+If you prefer running PostgreSQL via Docker, spin up the database service defined in the backend folder:
 ```bash
 cd backend
 docker-compose up -d
 ```
 
-### 3. Konfigurasi Backend
-Buat berkas `.env` di dalam folder `backend/` dengan konfigurasi berikut:
+### 3. Backend Configuration
+Create a `.env` file inside the `backend/` directory:
 ```env
 PORT=3000
 DATABASE_URL="postgresql://postgres:pos_secure_pwd_2026@localhost:5432/saas_pos?schema=public"
-JWT_SECRET="rahasia_jwt_sangat_aman_2026"
+JWT_SECRET="very_secure_jwt_secret_2026"
 CORS_ORIGINS="http://localhost:5173,http://127.0.0.1:5173"
 APP_PUBLIC_URL="http://localhost:5173"
 ```
 
-> **Penting:** `JWT_SECRET` wajib diset — server akan gagal start jika variabel ini kosong. Lihat `backend/.env.example` untuk daftar lengkap variabel (Midtrans, email, Cloudinary, dll.).
+> **Important:** `JWT_SECRET` must be set — the server will fail to start if this variable is missing. Refer to `backend/.env.example` for the full list of variables (Midtrans, email services, Cloudinary, etc.).
 
-Instal dependensi, lakukan migrasi database, jalankan seeder data, dan jalankan server pengembangan:
+Install dependencies, run database migrations, seed initial data, and start the development server:
 ```bash
 npm install
 npx prisma migrate dev
 npx prisma db seed
 npm run dev
 ```
-Server backend akan berjalan di: `http://localhost:3000`
+The backend server will run on: `http://localhost:3000`
 
-### 4. Konfigurasi Frontend
-Masuk ke folder `frontend/`, instal dependensi, dan jalankan aplikasi:
+### 4. Frontend Configuration
+Navigate to the `frontend/` directory, install dependencies, and run the development build:
 ```bash
 cd ../frontend
 npm install
 npm run dev
 ```
-Aplikasi frontend akan berjalan di: `http://localhost:5173`
+The frontend application will run on: `http://localhost:5173`
 
 ---
 
-## 🔐 Akun Demo Bawaan (Hasil Seeder)
-Gunakan akun uji coba berikut setelah database berhasil di-seed:
+## 🔐 Default Demo Accounts (From Seeder)
+Use the following credentials after seeding the database:
 
-| Email | Kata Sandi | Peran |
+| Email | Password | Role |
 |---|---|---|
-| **owner@tokoutama.com** | `password123` | Owner (Akses penuh seluruh sistem & outlet) |
-| **kasir@tokoutama.com** | `password123` | Kasir (Akses POS cabang pusat / Toko Utama Pusat) |
+| **owner@tokoutama.com** | `password123` | Owner (Full access to the platform & all outlets) |
+| **kasir@tokoutama.com** | `password123` | Cashier (Accesses POS for the main outlet / Toko Utama Pusat) |
 
 ---
 
-## 📝 Lisensi
-Proyek ini dilindungi di bawah Lisensi [MIT](LICENSE).
+## 📝 License
+This project is licensed under the [MIT](LICENSE) License.
