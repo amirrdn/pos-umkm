@@ -34,9 +34,7 @@ export function TransactionSearchBar({
 
   return (
     <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-xs flex flex-col gap-4 shrink-0 backdrop-blur-md">
-      {/* Baris Pertama: Pencarian Teks & Dropdown Filter & Refresh */}
       <div className="flex flex-col lg:flex-row gap-3.5 items-stretch lg:items-center">
-        {/* Input Pencarian */}
         <div className="relative w-full max-w-sm">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 focus-within:text-indigo-600 dark:focus-within:text-indigo-400 w-4.5 h-4.5 transition-colors" />
           <input
@@ -48,9 +46,7 @@ export function TransactionSearchBar({
           />
         </div>
 
-        {/* Dropdown Filter */}
         <div className="flex flex-wrap items-center gap-3">
-          {/* Filter Metode Pembayaran */}
           <div className="relative flex-1 sm:flex-initial">
             <select
               value={selectedPayment}
@@ -63,7 +59,6 @@ export function TransactionSearchBar({
             </select>
           </div>
 
-          {/* Filter Waktu */}
           <div className="relative flex-1 sm:flex-initial">
             <select
               value={selectedDateRange}
@@ -76,7 +71,6 @@ export function TransactionSearchBar({
             </select>
           </div>
 
-          {/* Tombol Refresh */}
           <button
             type="button"
             onClick={onRefresh}
@@ -89,7 +83,6 @@ export function TransactionSearchBar({
         </div>
       </div>
 
-      {/* Baris Kedua: Pills Status */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1 -mb-1 scrollbar-none border-t border-slate-100 dark:border-slate-800/60 pt-3">
         {statusOptions.map((opt) => {
           const isActive = selectedStatus === opt.value;
@@ -98,11 +91,10 @@ export function TransactionSearchBar({
               key={opt.value}
               type="button"
               onClick={() => onStatusChange(opt.value)}
-              className={`cursor-pointer px-4 py-2 rounded-xl text-xs font-extrabold transition-all border whitespace-nowrap active:scale-95 ${
-                isActive
+              className={`cursor-pointer px-4 py-2 rounded-xl text-xs font-extrabold transition-all border whitespace-nowrap active:scale-95 ${isActive
                   ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm shadow-indigo-200/50 dark:shadow-none dark:bg-indigo-600 dark:text-white dark:border-indigo-500'
                   : 'bg-slate-50 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 border-slate-250 dark:border-slate-750 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-300 dark:hover:bg-slate-700 dark:hover:text-white'
-              }`}
+                }`}
             >
               {opt.label}
             </button>

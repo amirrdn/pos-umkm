@@ -184,11 +184,10 @@ export const OutletManagementView: React.FC = () => {
 
       {notification && (
         <div
-          className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-xl text-xs font-extrabold border backdrop-blur-md transition-all animate-bounce ${
-            notification.type === 'success'
-              ? 'bg-emerald-50 dark:bg-emerald-950/90 border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200'
-              : 'bg-rose-50 dark:bg-rose-950/90 border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-200'
-          }`}
+          className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-xl text-xs font-extrabold border backdrop-blur-md transition-all animate-bounce ${notification.type === 'success'
+            ? 'bg-emerald-50 dark:bg-emerald-950/90 border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200'
+            : 'bg-rose-50 dark:bg-rose-950/90 border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-200'
+            }`}
         >
           {notification.type === 'success' ? (
             <CheckCircle className="h-5 w-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
@@ -200,7 +199,6 @@ export const OutletManagementView: React.FC = () => {
       )}
 
       <main className="flex-1 overflow-y-auto p-4 md:p-6 flex flex-col gap-5 bg-slate-50 dark:bg-slate-950 min-h-0">
-        {/* Toolbar & Input Cari */}
         <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-xs backdrop-blur-md flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="relative w-full max-w-sm">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 focus-within:text-indigo-600 dark:focus-within:text-indigo-400 w-4.5 h-4.5 transition-colors" />
@@ -228,9 +226,8 @@ export const OutletManagementView: React.FC = () => {
             className="cursor-pointer group p-2.5 rounded-2xl border border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 hover:bg-slate-200/80 dark:hover:bg-slate-700 active:scale-95 transition-all shrink-0 shadow-2xs flex items-center justify-center gap-1.5 self-start sm:self-auto text-xs font-bold"
           >
             <RefreshCw
-              className={`h-4 w-4 text-indigo-600 dark:text-indigo-400 ${
-                loading ? 'animate-spin' : 'group-hover:rotate-180 duration-500'
-              }`}
+              className={`h-4 w-4 text-indigo-600 dark:text-indigo-400 ${loading ? 'animate-spin' : 'group-hover:rotate-180 duration-500'
+                }`}
             />
             <span>Perbarui Data</span>
           </button>
@@ -247,7 +244,6 @@ export const OutletManagementView: React.FC = () => {
           </div>
         ) : (
           <div className="space-y-6">
-            {/* SECTION: OUTLET UTAMA */}
             <div className="space-y-3">
               <h3 className="text-xs font-black text-slate-500 dark:text-slate-400 tracking-wider uppercase flex items-center gap-2 px-1">
                 <Store className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
@@ -323,7 +319,6 @@ export const OutletManagementView: React.FC = () => {
               )}
             </div>
 
-            {/* SECTION: CABANG-CABANG */}
             <div className="space-y-3">
               <h3 className="text-xs font-black text-slate-500 dark:text-slate-400 tracking-wider uppercase flex items-center gap-2 px-1">
                 <Store className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
@@ -338,11 +333,10 @@ export const OutletManagementView: React.FC = () => {
                   {filteredBranches.map((branch) => (
                     <div
                       key={branch.id}
-                      className={`bg-white dark:bg-slate-900 border rounded-3xl p-5 shadow-xs hover:shadow-md transition-all flex flex-col justify-between group relative overflow-hidden backdrop-blur-md ${
-                        branch.isActive === false
-                          ? 'border-amber-300 dark:border-amber-900/60 bg-amber-50/20 dark:bg-amber-950/10'
-                          : 'border-slate-200/90 dark:border-slate-800'
-                      }`}
+                      className={`bg-white dark:bg-slate-900 border rounded-3xl p-5 shadow-xs hover:shadow-md transition-all flex flex-col justify-between group relative overflow-hidden backdrop-blur-md ${branch.isActive === false
+                        ? 'border-amber-300 dark:border-amber-900/60 bg-amber-50/20 dark:bg-amber-950/10'
+                        : 'border-slate-200/90 dark:border-slate-800'
+                        }`}
                     >
                       {branch.isActive === false && (
                         <span className="absolute top-3.5 right-3.5 text-[10px] font-black uppercase tracking-wider bg-amber-500 text-white px-2.5 py-0.5 rounded-full shadow-2xs">
@@ -399,11 +393,10 @@ export const OutletManagementView: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => handleToggleActive(branch)}
-                          className={`cursor-pointer px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1 shadow-2xs ${
-                            branch.isActive === false
-                              ? 'bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
-                              : 'bg-amber-50 dark:bg-amber-950/50 hover:bg-amber-100 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
-                          }`}
+                          className={`cursor-pointer px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1 shadow-2xs ${branch.isActive === false
+                            ? 'bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                            : 'bg-amber-50 dark:bg-amber-950/50 hover:bg-amber-100 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
+                            }`}
                         >
                           {branch.isActive === false ? (
                             <>
@@ -443,7 +436,6 @@ export const OutletManagementView: React.FC = () => {
         )}
       </main>
 
-      {/* MODAL EDIT / CREATE OUTLET */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
           <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-md p-6 shadow-2xl border border-slate-200 dark:border-slate-800 animate-in fade-in zoom-in-95 duration-150 space-y-5">

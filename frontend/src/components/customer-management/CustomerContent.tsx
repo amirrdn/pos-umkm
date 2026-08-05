@@ -23,12 +23,9 @@ export function CustomerContent({ customerManagement }: CustomerContentProps) {
 
   return (
     <main className="flex-1 overflow-y-auto p-4 md:p-6 flex flex-col gap-5 bg-slate-50 dark:bg-slate-950 min-h-0">
-      {/* Panel Kartu Statistik Ringkasan Pelanggan */}
       <CustomerOverviewStats customers={customers} />
 
-      {/* Wadah Tabel Utama Pelanggan */}
       <div className="flex-1 min-h-[560px] lg:min-h-[640px] bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl shadow-xs hover:shadow-md dark:shadow-none flex flex-col overflow-hidden backdrop-blur-md transition-all">
-        {/* Toolbar & Form Pencarian */}
         <CustomerSearchBar
           searchQuery={searchQuery}
           loading={loading}
@@ -39,7 +36,6 @@ export function CustomerContent({ customerManagement }: CustomerContentProps) {
           totalCount={customers.length}
         />
 
-        {/* Tabel / Kartu Pelanggan */}
         <CustomerListPanel
           customers={customers}
           loading={loading}

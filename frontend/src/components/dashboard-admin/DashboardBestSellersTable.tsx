@@ -58,7 +58,6 @@ export function DashboardBestSellersTable({ loading, bestSellers }: DashboardBes
 
   return (
     <div className="bg-white dark:bg-slate-900/80 border border-slate-200/90 dark:border-slate-800 rounded-3xl p-6 shadow-xs hover:shadow-md dark:shadow-none flex flex-col backdrop-blur-md transition-all">
-      {/* Header */}
       <div className="flex items-center justify-between mb-5">
         <h3 className="text-base font-extrabold text-slate-900 dark:text-slate-50 flex items-center gap-2.5">
           <div className="p-1.5 bg-gradient-to-br from-amber-400 to-orange-500 rounded-xl shadow shadow-amber-400/30">
@@ -71,7 +70,6 @@ export function DashboardBestSellersTable({ loading, bestSellers }: DashboardBes
         </span>
       </div>
 
-      {/* Loading skeleton */}
       {loading ? (
         <div className="space-y-3 flex-1">
           {[1, 2, 3, 4, 5].map((n) => (
@@ -95,13 +93,11 @@ export function DashboardBestSellersTable({ loading, bestSellers }: DashboardBes
             return (
               <div
                 key={product.productId}
-                className={`group relative flex items-center gap-3 p-3 border rounded-2xl transition-all duration-200 ${
-                  isTop3
-                    ? `${cfg!.rowBg} ${cfg!.rowBorder} ${cfg!.rowHover}`
-                    : 'bg-slate-50/80 dark:bg-slate-950/40 border-slate-200/70 dark:border-slate-800 hover:bg-white dark:hover:bg-slate-800/50 hover:border-indigo-300/40 dark:hover:border-indigo-700/40'
-                }`}
+                className={`group relative flex items-center gap-3 p-3 border rounded-2xl transition-all duration-200 ${isTop3
+                  ? `${cfg!.rowBg} ${cfg!.rowBorder} ${cfg!.rowHover}`
+                  : 'bg-slate-50/80 dark:bg-slate-950/40 border-slate-200/70 dark:border-slate-800 hover:bg-white dark:hover:bg-slate-800/50 hover:border-indigo-300/40 dark:hover:border-indigo-700/40'
+                  }`}
               >
-                {/* Rank Badge */}
                 {isTop3 ? (
                   <div
                     className={`flex-shrink-0 flex flex-col items-center justify-center w-10 h-10 rounded-xl ${cfg!.gradient} ${cfg!.shadow} ${cfg!.ring} shadow-md`}
@@ -115,17 +111,15 @@ export function DashboardBestSellersTable({ loading, bestSellers }: DashboardBes
                   <DefaultRankBadge rank={index + 1} />
                 )}
 
-                {/* Product Info */}
                 <div className="flex-1 min-w-0">
-                  <p className={`text-xs font-bold truncate transition-colors ${
-                    index === 0
-                      ? 'text-amber-700 dark:text-amber-300 group-hover:text-amber-600'
-                      : index === 1
+                  <p className={`text-xs font-bold truncate transition-colors ${index === 0
+                    ? 'text-amber-700 dark:text-amber-300 group-hover:text-amber-600'
+                    : index === 1
                       ? 'text-slate-700 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-white'
                       : index === 2
-                      ? 'text-orange-700 dark:text-orange-300 group-hover:text-orange-600'
-                      : 'text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400'
-                  }`}>
+                        ? 'text-orange-700 dark:text-orange-300 group-hover:text-orange-600'
+                        : 'text-slate-800 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400'
+                    }`}>
                     {product.name}
                   </p>
 
@@ -133,29 +127,25 @@ export function DashboardBestSellersTable({ loading, bestSellers }: DashboardBes
                     <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 bg-slate-200/70 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-md flex-shrink-0">
                       {product.sku || 'N/A'}
                     </span>
-                    {/* Progress bar */}
                     <div className="flex-1 bg-slate-200/60 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
                       <div
-                        className={`h-full rounded-full transition-all duration-700 ${
-                          isTop3 ? cfg!.barColor : 'bg-gradient-to-r from-indigo-400 to-indigo-500'
-                        }`}
+                        className={`h-full rounded-full transition-all duration-700 ${isTop3 ? cfg!.barColor : 'bg-gradient-to-r from-indigo-400 to-indigo-500'
+                          }`}
                         style={{ width: `${percent}%` }}
                       />
                     </div>
                   </div>
                 </div>
 
-                {/* Quantity */}
                 <div className="text-right flex-shrink-0 min-w-[42px]">
-                  <p className={`text-sm font-black font-mono ${
-                    index === 0
-                      ? 'text-amber-600 dark:text-amber-400'
-                      : index === 1
+                  <p className={`text-sm font-black font-mono ${index === 0
+                    ? 'text-amber-600 dark:text-amber-400'
+                    : index === 1
                       ? 'text-slate-600 dark:text-slate-300'
                       : index === 2
-                      ? 'text-orange-600 dark:text-orange-400'
-                      : 'text-indigo-600 dark:text-indigo-400'
-                  }`}>
+                        ? 'text-orange-600 dark:text-orange-400'
+                        : 'text-indigo-600 dark:text-indigo-400'
+                    }`}>
                     {product.totalQuantity}
                   </p>
                   <p className="text-[9px] text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wider">

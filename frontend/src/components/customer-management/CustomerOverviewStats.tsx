@@ -8,7 +8,6 @@ export interface CustomerOverviewStatsProps {
 export function CustomerOverviewStats({ customers }: CustomerOverviewStatsProps) {
   const totalCustomers = customers.length;
 
-  // Compute customer with highest points
   const topCustomer = customers.reduce<Customer | null>((prev, current) => {
     if (!prev) return current;
     return (current.points || 0) > (prev.points || 0) ? current : prev;
@@ -17,10 +16,8 @@ export function CustomerOverviewStats({ customers }: CustomerOverviewStatsProps)
   const topCustomerName = topCustomer ? topCustomer.name : '-';
   const topCustomerPoints = topCustomer ? topCustomer.points || 0 : 0;
 
-  // Customers with phone/whatsapp
   const customersWithPhone = customers.filter((c) => c.phone && c.phone.trim() !== '').length;
 
-  // Total loyalty points in circulation
   const totalLoyaltyPoints = customers.reduce((sum, c) => sum + (c.points || 0), 0);
 
   const stats = [

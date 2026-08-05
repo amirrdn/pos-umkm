@@ -148,7 +148,6 @@ export function usePos({ printRef }: UsePosOptions) {
     }
   }, [isAuthenticated, activeOutletId, fetchActiveSubscription]);
 
-  // Resolve silent outlet for platform admin
   useEffect(() => {
     if (!platformAdmin || activeOutletId || !isAuthenticated) return;
 
@@ -197,7 +196,6 @@ export function usePos({ printRef }: UsePosOptions) {
   const showManagementNav = !!(showAdminNav && !user?.roles.includes('Staf Gudang'));
   const showOutletNav = !!(user?.roles.includes('Owner') || user?.roles.includes('Admin'));
 
-  // Call Sub-Hooks
   const onboarding = usePosOnboarding();
   const customer = usePosCustomer({ activeOutletId, showToast });
   const products = usePosProducts({
@@ -225,7 +223,6 @@ export function usePos({ printRef }: UsePosOptions) {
   const print = usePosPrint({ printRef, cashReceived: checkout.cashReceived });
 
   return {
-    // Stores & states
     isAuthenticated,
     user,
     activeOutletId,
@@ -308,7 +305,6 @@ export function usePos({ printRef }: UsePosOptions) {
     searchInputRef: products.searchInputRef,
     focusSearchInput: products.focusSearchInput,
 
-    // Cart details
     cart,
     subTotal,
     grandTotal,
@@ -322,7 +318,6 @@ export function usePos({ printRef }: UsePosOptions) {
     updateQuantity,
     clearCart,
 
-    // Derived values
     cartItemCount,
     shiftStartedLabel: shift.shiftStartedLabel,
     primaryRole,
@@ -336,7 +331,6 @@ export function usePos({ printRef }: UsePosOptions) {
     incrementLastCartItem: products.incrementLastCartItem,
     decrementLastCartItem: products.decrementLastCartItem,
 
-    // Handlers
     showToast,
     handleLogout,
     handleOpenCustomerDisplay: checkout.handleOpenCustomerDisplay,

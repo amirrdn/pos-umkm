@@ -48,7 +48,6 @@ export default defineConfig({
         ],
       },
       workbox: {
-        // Precache shell saja — hindari 80+ request JS saat SW install
         globPatterns: ['**/*.{html,ico,png,svg,woff2,css,webmanifest}'],
         navigateFallbackDenylist: [/^\/sitemap\.xml$/, /^\/robots\.txt$/],
         runtimeCaching: [

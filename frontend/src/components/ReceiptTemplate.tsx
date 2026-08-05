@@ -67,7 +67,6 @@ export const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptTemplateProps>(
           fontFamily: 'Courier New, Courier, monospace',
         }}
       >
-        {/* Header Toko */}
         <div className="text-center mb-3">
           <h2 className="text-xs font-bold uppercase tracking-wider">
             {transactionData.outlet?.name || transactionData.tenantName || 'UMKM POS'}
@@ -90,12 +89,10 @@ export const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptTemplateProps>(
           )}
         </div>
 
-        {/* Garis Pembatas */}
         <div className="text-center text-slate-500 my-1 font-bold">
           --------------------------------
         </div>
 
-        {/* Informasi Transaksi */}
         <div className="space-y-0.5 text-[9px] text-slate-800">
           <div className="flex justify-between">
             <span>No. Invoice:</span>
@@ -111,12 +108,10 @@ export const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptTemplateProps>(
           </div>
         </div>
 
-        {/* Garis Pembatas */}
         <div className="text-center text-slate-500 my-1 font-bold">
           --------------------------------
         </div>
 
-        {/* Daftar Barang Belanja */}
         <div className="space-y-2 my-2">
           {items.map((item, index) => {
             const productName = item.product?.name || item.name || 'Produk';
@@ -126,11 +121,9 @@ export const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptTemplateProps>(
 
             return (
               <div key={item.id || index} className="space-y-0.5">
-                {/* Nama produk (bisa wrap jika terlalu panjang di kertas 58mm) */}
                 <div className="font-bold text-[10px] break-words">
                   {productName}
                 </div>
-                {/* Kuantitas x Harga dan Subtotal */}
                 <div className="flex justify-between text-[9px] text-slate-700 pl-2">
                   <span>
                     {quantity} x Rp {Number(price).toLocaleString('id-ID')}
@@ -144,12 +137,10 @@ export const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptTemplateProps>(
           })}
         </div>
 
-        {/* Garis Pembatas */}
         <div className="text-center text-slate-500 my-1 font-bold">
           --------------------------------
         </div>
 
-        {/* Rincian Pembayaran */}
         <div className="space-y-1 text-[9px] text-slate-800">
           {transactionData.subTotal !== undefined && (
             <div className="flex justify-between">
@@ -212,12 +203,10 @@ export const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptTemplateProps>(
           )}
         </div>
 
-        {/* Garis Pembatas */}
         <div className="text-center text-slate-500 my-2 font-bold">
           --------------------------------
         </div>
 
-        {/* Footer Struk */}
         <div className="text-center mt-3 space-y-0.5 text-[9px] text-slate-700">
           <p className="font-bold">Terima Kasih</p>
           <p>Selamat Belanja Kembali</p>

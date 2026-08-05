@@ -42,7 +42,6 @@ export function TransactionDetailModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-fade-in">
       <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200/50 dark:border-slate-800 flex flex-col transform transition-all duration-300 scale-100 animate-in fade-in zoom-in-95 max-h-[90vh]">
-        {/* Header Modal */}
         <div className="bg-gradient-to-r from-slate-800 to-slate-900 px-6 py-4.5 flex items-center justify-between text-white shrink-0">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-slate-700/55 rounded-xl border border-slate-700">
@@ -78,9 +77,7 @@ export function TransactionDetailModal({
           </button>
         </div>
 
-        {/* Isi/Body Modal */}
         <div className="p-6 space-y-5 flex-1 overflow-auto bg-slate-50/50 dark:bg-slate-950/30">
-          {/* Kartu 1: Ringkasan Pembayaran */}
           <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200/50 dark:border-slate-800 shadow-sm space-y-3">
             <h4 className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
               Ringkasan Transaksi
@@ -120,27 +117,25 @@ export function TransactionDetailModal({
                 </span>
                 <span className="font-extrabold text-slate-800 dark:text-slate-200">
                   {transaction.paymentMethod === 'SPLIT' || (transaction.payments && transaction.payments.length > 1)
-                    ? `CAMPURAN (${
-                        transaction.payments && transaction.payments.length > 0
-                          ? transaction.payments
-                              .map(
-                                (p) =>
-                                  `${p.paymentMethod === 'CASH' ? 'Tunai' : 'QRIS'}: Rp ${Number(
-                                    p.amount
-                                  ).toLocaleString('id-ID')}`
-                              )
-                              .join(', ')
-                          : 'Tunai + QRIS'
-                      })`
+                    ? `CAMPURAN (${transaction.payments && transaction.payments.length > 0
+                      ? transaction.payments
+                        .map(
+                          (p) =>
+                            `${p.paymentMethod === 'CASH' ? 'Tunai' : 'QRIS'}: Rp ${Number(
+                              p.amount
+                            ).toLocaleString('id-ID')}`
+                        )
+                        .join(', ')
+                      : 'Tunai + QRIS'
+                    })`
                     : transaction.paymentMethod === 'CASH'
-                    ? 'TUNAI (CASH)'
-                    : 'QRIS'}
+                      ? 'TUNAI (CASH)'
+                      : 'QRIS'}
                 </span>
               </div>
             </div>
           </div>
 
-          {/* Kartu 2: Informasi Pelanggan */}
           <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200/50 dark:border-slate-800 shadow-sm space-y-3">
             <h4 className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
               Informasi Pelanggan
@@ -166,7 +161,6 @@ export function TransactionDetailModal({
             </div>
           </div>
 
-          {/* QRIS Polling Area (Jika status pending & payment QRIS) */}
           {transaction.status === 'PENDING' &&
             transaction.paymentMethod === 'QRIS' &&
             transaction.qrisUrl && (
@@ -193,13 +187,11 @@ export function TransactionDetailModal({
               </div>
             )}
 
-          {/* Kartu 3: Rincian Belanja */}
           <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200/50 dark:border-slate-800 shadow-sm space-y-3">
             <h4 className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
               Daftar Produk Belanja
             </h4>
-            
-            {/* Daftar Produk */}
+
             <div className="border border-slate-100 dark:border-slate-800 rounded-xl overflow-hidden divide-y divide-slate-100 dark:divide-slate-800">
               {transaction.items.map((item) => (
                 <div
@@ -226,7 +218,6 @@ export function TransactionDetailModal({
               ))}
             </div>
 
-            {/* Rincian Keuangan */}
             <div className="border-t border-slate-100 dark:border-slate-800 pt-3.5 space-y-2 text-sm">
               {transaction.subTotal !== undefined && (
                 <div className="flex justify-between items-center text-slate-500 dark:text-slate-400">
@@ -262,7 +253,6 @@ export function TransactionDetailModal({
           </div>
         </div>
 
-        {/* Footer Modal: Tombol Aksi */}
         <div className="p-4 bg-slate-50 dark:bg-slate-900 border-t border-slate-200/60 dark:border-slate-800 flex flex-wrap items-center justify-end gap-2.5 shrink-0">
           <button
             type="button"
@@ -282,11 +272,10 @@ export function TransactionDetailModal({
           <button
             type="button"
             onClick={onPrint}
-            className={`cursor-pointer flex items-center gap-2 px-5 py-2.5 rounded-xl active:scale-97 text-xs font-bold transition-all shadow-md dark:shadow-none ${
-              accent === 'emerald'
+            className={`cursor-pointer flex items-center gap-2 px-5 py-2.5 rounded-xl active:scale-97 text-xs font-bold transition-all shadow-md dark:shadow-none ${accent === 'emerald'
                 ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-100 dark:shadow-none'
                 : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-100 dark:shadow-none'
-            }`}
+              }`}
           >
             <Printer className="h-4 w-4" />
             Cetak Ulang

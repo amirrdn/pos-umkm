@@ -35,7 +35,6 @@ export function StaffSearchBar({
   return (
     <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-xs backdrop-blur-md flex flex-col gap-4">
       <div className="flex flex-col lg:flex-row gap-3.5 items-stretch lg:items-center">
-        {/* Form Input Pencarian */}
         <form onSubmit={onSearchSubmit} className="relative w-full max-w-sm">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 focus-within:text-indigo-600 dark:focus-within:text-indigo-400 w-4.5 h-4.5 transition-colors" />
           <input
@@ -56,7 +55,6 @@ export function StaffSearchBar({
           )}
         </form>
 
-        {/* Filter Role & Refresh Actions */}
         <div className="flex flex-wrap items-center gap-3">
           {availableRoles.length > 0 && (
             <div className="relative flex-1 sm:flex-initial">
@@ -95,9 +93,8 @@ export function StaffSearchBar({
             title="Muat ulang data staf"
           >
             <RefreshCw
-              className={`h-4 w-4 text-indigo-600 dark:text-indigo-400 ${
-                loading ? 'animate-spin' : 'group-hover:rotate-180 duration-500'
-              }`}
+              className={`h-4 w-4 text-indigo-600 dark:text-indigo-400 ${loading ? 'animate-spin' : 'group-hover:rotate-180 duration-500'
+                }`}
             />
           </button>
         </div>

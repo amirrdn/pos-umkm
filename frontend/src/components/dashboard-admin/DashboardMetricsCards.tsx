@@ -30,10 +30,9 @@ export function DashboardMetricsCards({
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5 mb-8">
-      {/* 1. Omset Hari Ini */}
       <div className="group relative overflow-hidden bg-white dark:bg-slate-900/80 border border-slate-200/90 dark:border-slate-800 rounded-3xl p-5 shadow-xs hover:shadow-md dark:shadow-none transition-all duration-200 hover:-translate-y-1 backdrop-blur-md">
         <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-indigo-500/10 via-indigo-500/5 to-transparent rounded-bl-full pointer-events-none transition-transform group-hover:scale-110" />
-        
+
         <div className="flex items-center justify-between mb-3">
           <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
             Omset Hari Ini
@@ -59,7 +58,6 @@ export function DashboardMetricsCards({
         </div>
       </div>
 
-      {/* 2. Laba Bersih Hari Ini */}
       <div className="group relative overflow-hidden bg-white dark:bg-slate-900/80 border border-slate-200/90 dark:border-slate-800 rounded-3xl p-5 shadow-xs hover:shadow-md dark:shadow-none transition-all duration-200 hover:-translate-y-1 backdrop-blur-md">
         <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-emerald-500/10 via-emerald-500/5 to-transparent rounded-bl-full pointer-events-none transition-transform group-hover:scale-110" />
 
@@ -89,7 +87,6 @@ export function DashboardMetricsCards({
         </div>
       </div>
 
-      {/* 3. Omset Bulan Ini */}
       <div className="group relative overflow-hidden bg-white dark:bg-slate-900/80 border border-slate-200/90 dark:border-slate-800 rounded-3xl p-5 shadow-xs hover:shadow-md dark:shadow-none transition-all duration-200 hover:-translate-y-1 backdrop-blur-md">
         <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-blue-500/10 via-blue-500/5 to-transparent rounded-bl-full pointer-events-none transition-transform group-hover:scale-110" />
 
@@ -118,7 +115,6 @@ export function DashboardMetricsCards({
         </div>
       </div>
 
-      {/* 4. Laba Bersih Bulan Ini */}
       <div className="group relative overflow-hidden bg-white dark:bg-slate-900/80 border border-slate-200/90 dark:border-slate-800 rounded-3xl p-5 shadow-xs hover:shadow-md dark:shadow-none transition-all duration-200 hover:-translate-y-1 backdrop-blur-md">
         <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-teal-500/10 via-teal-500/5 to-transparent rounded-bl-full pointer-events-none transition-transform group-hover:scale-110" />
 
@@ -148,25 +144,21 @@ export function DashboardMetricsCards({
         </div>
       </div>
 
-      {/* 5. Stok Rendah */}
-      <div className={`group relative overflow-hidden bg-white dark:bg-slate-900/80 border rounded-3xl p-5 shadow-xs hover:shadow-md dark:shadow-none transition-all duration-200 hover:-translate-y-1 backdrop-blur-md ${
-        hasLowStock
-          ? 'border-amber-300 dark:border-amber-500/40 bg-amber-500/5 dark:bg-amber-500/10'
-          : 'border-slate-200/90 dark:border-slate-800'
-      }`}>
-        <div className={`absolute top-0 right-0 w-24 h-24 rounded-bl-full pointer-events-none transition-transform group-hover:scale-110 ${
-          hasLowStock ? 'bg-amber-500/15' : 'bg-slate-500/5'
-        }`} />
+      <div className={`group relative overflow-hidden bg-white dark:bg-slate-900/80 border rounded-3xl p-5 shadow-xs hover:shadow-md dark:shadow-none transition-all duration-200 hover:-translate-y-1 backdrop-blur-md ${hasLowStock
+        ? 'border-amber-300 dark:border-amber-500/40 bg-amber-500/5 dark:bg-amber-500/10'
+        : 'border-slate-200/90 dark:border-slate-800'
+        }`}>
+        <div className={`absolute top-0 right-0 w-24 h-24 rounded-bl-full pointer-events-none transition-transform group-hover:scale-110 ${hasLowStock ? 'bg-amber-500/15' : 'bg-slate-500/5'
+          }`} />
 
         <div className="flex items-center justify-between mb-3">
           <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
             Stok Rendah
           </span>
-          <div className={`p-2.5 rounded-2xl border shadow-2xs ${
-            hasLowStock
-              ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-500/30 animate-bounce'
-              : 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20'
-          }`}>
+          <div className={`p-2.5 rounded-2xl border shadow-2xs ${hasLowStock
+            ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-500/30 animate-bounce'
+            : 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20'
+            }`}>
             <AlertTriangle className="w-4 h-4" />
           </div>
         </div>
@@ -174,19 +166,17 @@ export function DashboardMetricsCards({
         {loading ? (
           <div className="h-8 w-24 bg-slate-200/80 dark:bg-slate-800 animate-pulse rounded-xl my-1" />
         ) : (
-          <h3 className={`text-2xl font-extrabold tracking-tight font-mono my-1 ${
-            hasLowStock ? 'text-amber-600 dark:text-amber-400' : 'text-slate-900 dark:text-white'
-          }`}>
+          <h3 className={`text-2xl font-extrabold tracking-tight font-mono my-1 ${hasLowStock ? 'text-amber-600 dark:text-amber-400' : 'text-slate-900 dark:text-white'
+            }`}>
             {lowStock?.count || 0} <span className="text-sm font-semibold">Produk</span>
           </h3>
         )}
 
         <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800/60 flex items-center justify-between">
-          <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md ${
-            hasLowStock
-              ? 'bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300'
-              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
-          }`}>
+          <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md ${hasLowStock
+            ? 'bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300'
+            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+            }`}>
             {hasLowStock ? 'Perlu Restock' : 'Stok Aman'}
           </span>
           <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">

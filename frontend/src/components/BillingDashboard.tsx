@@ -102,7 +102,7 @@ export default function BillingDashboard() {
   };
 
   const handleDowngrade = async () => {
-    const confirmMsg = 
+    const confirmMsg =
       'Apakah Anda yakin ingin men-downgrade ke Paket GRATIS?\n\n' +
       'PERINGATAN:\n' +
       '• Cabang tambahan (BRANCH) Anda otomatis dinonaktifkan.\n' +
@@ -131,7 +131,7 @@ export default function BillingDashboard() {
       isUnlimited || details.limit == null
         ? 0
         : Math.min((details.current / details.limit) * 100, 100);
-    
+
     let strokeColor = 'stroke-indigo-600 dark:stroke-indigo-400';
     let badgeStyle = null;
 
@@ -153,7 +153,6 @@ export default function BillingDashboard() {
 
     return (
       <div className="group relative p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 transition-all duration-200 shadow-xs hover:shadow-md flex flex-col justify-between overflow-hidden">
-        {/* Background highlight pattern */}
         <div className="absolute top-0 right-0 -mt-4 -mr-4 w-20 h-20 bg-slate-50 dark:bg-slate-800/30 rounded-full blur-xl group-hover:bg-indigo-500/5 transition-colors" />
 
         <div>
@@ -260,19 +259,16 @@ export default function BillingDashboard() {
 
         {subscription && (
           <div className="space-y-8">
-            {/* HERO CARD: Plan Status */}
             <div className="relative overflow-hidden rounded-3xl bg-gradient-to-b from-white to-slate-50/50 dark:from-slate-900 dark:to-slate-900/80 border border-slate-200/80 dark:border-slate-800 p-6 sm:p-8 shadow-sm">
-              {/* Background Glow Accent */}
               <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/5 rounded-full blur-3xl pointer-events-none" />
 
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
                 <div className="space-y-4">
                   <div className="flex items-center gap-2.5">
-                    <span className={`px-3 py-1 text-[10px] font-extrabold tracking-wider uppercase rounded-full border ${
-                      activeTier === 'ENTERPRISE' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800' :
+                    <span className={`px-3 py-1 text-[10px] font-extrabold tracking-wider uppercase rounded-full border ${activeTier === 'ENTERPRISE' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800' :
                       activeTier === 'GROWTH' ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800' :
-                      'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700'
-                    }`}>
+                        'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                      }`}>
                       Paket {activeTier}
                     </span>
 
@@ -287,8 +283,8 @@ export default function BillingDashboard() {
                   <div>
                     <h2 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
                       {activeTier === 'FREE' ? 'SaaSPOS Free Starter' :
-                       activeTier === 'GROWTH' ? 'SaaSPOS Growth Business' :
-                       'SaaSPOS Enterprise Suite'}
+                        activeTier === 'GROWTH' ? 'SaaSPOS Growth Business' :
+                          'SaaSPOS Enterprise Suite'}
                       {activeTier === 'ENTERPRISE' && <Sparkles className="w-5 h-5 text-amber-500 fill-amber-500/20" />}
                     </h2>
                     <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-xl">
@@ -315,7 +311,6 @@ export default function BillingDashboard() {
                   </div>
                 </div>
 
-                {/* Call-to-Actions */}
                 <div className="flex flex-col sm:flex-row lg:flex-col gap-3 min-w-[220px] justify-center">
                   <button
                     onClick={() => navigate('/admin/pricing')}
@@ -339,7 +334,6 @@ export default function BillingDashboard() {
               </div>
             </div>
 
-            {/* USAGE METRICS GRID */}
             <div>
               <div className="flex items-center justify-between mb-4 px-1">
                 <div>
@@ -360,7 +354,6 @@ export default function BillingDashboard() {
               </div>
             </div>
 
-            {/* INVOICES HISTORY TABLE */}
             <div className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-6 sm:p-8 shadow-sm">
               <div className="flex items-center justify-between mb-6">
                 <div>
@@ -408,11 +401,10 @@ export default function BillingDashboard() {
                             {inv.invoiceNumber}
                           </td>
                           <td className="py-4 px-4">
-                            <span className={`px-2.5 py-0.5 rounded-md text-[10px] font-extrabold tracking-wide uppercase ${
-                              inv.tier === 'ENTERPRISE' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400' :
+                            <span className={`px-2.5 py-0.5 rounded-md text-[10px] font-extrabold tracking-wide uppercase ${inv.tier === 'ENTERPRISE' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400' :
                               inv.tier === 'GROWTH' ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-400' :
-                              'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
-                            }`}>
+                                'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
+                              }`}>
                               {inv.tier}
                             </span>
                           </td>

@@ -2,10 +2,6 @@ import React, { useState } from 'react';
 import { LogOut, AlertCircle, Loader2, TrendingUp, TrendingDown, Minus, Clock } from 'lucide-react';
 import type { ActiveShift } from '../store/useShiftStore';
 
-// ==========================================
-// INTERFACE
-// ==========================================
-
 interface CloseShiftModalProps {
   shift: ActiveShift;
   onClose: (cashActual: number) => Promise<void>;
@@ -14,10 +10,6 @@ interface CloseShiftModalProps {
   cartItemCount?: number;
   hasPendingQris?: boolean;
 }
-
-// ==========================================
-// HELPER
-// ==========================================
 
 function formatRupiah(amount: number): string {
   return `Rp ${Math.abs(amount).toLocaleString('id-ID')}`;
@@ -32,10 +24,6 @@ function formatDuration(startTime: string): string {
   if (hours > 0) return `${hours}j ${minutes}m`;
   return `${minutes} menit`;
 }
-
-// ==========================================
-// KOMPONEN
-// ==========================================
 
 /**
  * Modal penutupan shift kasir.
@@ -57,7 +45,6 @@ export const CloseShiftModal: React.FC<CloseShiftModalProps> = ({
   const cashStart = Number(shift.cashStart);
   const totalCashSales = Number(shift.totalCashSales);
 
-  // Hitung selisih sementara berdasarkan input real-time kasir
   const cashActualNum = parseFloat(cashActual.replace(/[^0-9]/g, '') || '0');
   const previewDiff = cashActualNum - cashExpected;
 
@@ -94,7 +81,6 @@ export const CloseShiftModal: React.FC<CloseShiftModalProps> = ({
         className="w-full max-w-lg bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-100 flex flex-col"
         style={{ maxHeight: '90vh', animation: 'fadeInScale 0.25s ease-out' }}
       >
-        {/* Header */}
         <div className="bg-gradient-to-br from-slate-700 to-slate-800 px-6 py-5 text-white shrink-0">
           <div className="flex items-center gap-3">
             <div className="bg-white/15 p-2.5 rounded-xl border border-white/20">
@@ -110,7 +96,6 @@ export const CloseShiftModal: React.FC<CloseShiftModalProps> = ({
           </div>
         </div>
 
-        {/* Konten scroll */}
         <div className="flex-1 overflow-y-auto p-6 space-y-5">
           {(cartItemCount > 0 || hasPendingQris) && (
             <div className="space-y-2">
@@ -133,7 +118,6 @@ export const CloseShiftModal: React.FC<CloseShiftModalProps> = ({
             </div>
           )}
 
-          {/* Ringkasan Kas Shift */}
           <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 space-y-3">
             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Ringkasan Shift</h3>
 
@@ -156,7 +140,6 @@ export const CloseShiftModal: React.FC<CloseShiftModalProps> = ({
             </div>
           </div>
 
-          {/* Input Kas Aktual */}
           <div className="space-y-1.5">
             <label htmlFor="cashActual" className="text-xs font-bold text-slate-500 uppercase tracking-wider">
               Uang Fisik di Laci Sekarang
@@ -179,7 +162,6 @@ export const CloseShiftModal: React.FC<CloseShiftModalProps> = ({
             </div>
           </div>
 
-          {/* Preview Selisih Kas Real-time */}
           {cashActual && (
             <div
               className={`flex items-center justify-between p-4 rounded-2xl border-2 ${
@@ -220,7 +202,6 @@ export const CloseShiftModal: React.FC<CloseShiftModalProps> = ({
             </div>
           )}
 
-          {/* Error */}
           {error && (
             <div className="flex items-start gap-2.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl px-4 py-3">
               <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
@@ -229,7 +210,6 @@ export const CloseShiftModal: React.FC<CloseShiftModalProps> = ({
           )}
         </div>
 
-        {/* Footer / Aksi */}
         <div className="shrink-0 px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center gap-3">
           <button
             type="button"

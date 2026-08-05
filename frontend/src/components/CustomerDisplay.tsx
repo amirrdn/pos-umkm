@@ -31,7 +31,6 @@ const CustomerDisplay: React.FC = () => {
   if (paid) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-emerald-900 via-teal-900 to-slate-950 flex flex-col items-center justify-center gap-8 p-8">
-        {/* Checkmark besar */}
         <div className="h-36 w-36 rounded-full bg-emerald-500/20 border-4 border-emerald-400 flex items-center justify-center">
           <svg className="h-20 w-20 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
@@ -48,13 +47,10 @@ const CustomerDisplay: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-950 flex flex-col items-center justify-center gap-10 p-8">
-      {/* Header toko */}
       <div className="text-center">
         <p className="text-white/40 text-sm font-bold uppercase tracking-[0.3em] mb-2">Scan untuk Membayar</p>
         <p className="text-white/20 text-xs font-medium tracking-wide">Invoice: {invoice}</p>
       </div>
-
-      {/* QR Code */}
       <div className="bg-white rounded-4xl p-8 shadow-2xl shadow-indigo-500/30 ring-1 ring-white/10">
         {qrisUrl ? (
           <img
@@ -75,7 +71,6 @@ const CustomerDisplay: React.FC = () => {
         )}
       </div>
 
-      {/* Total tagihan */}
       <div className="text-center">
         <p className="text-white/40 text-base font-bold uppercase tracking-widest mb-3">Total Tagihan</p>
         <p className="text-6xl font-black text-white tracking-tight">
@@ -83,7 +78,6 @@ const CustomerDisplay: React.FC = () => {
         </p>
       </div>
 
-      {/* Accepted payment apps */}
       <div className="flex flex-col items-center gap-2">
         <p className="text-white/20 text-xs font-bold uppercase tracking-widest">Diterima melalui</p>
         <p className="text-white/40 text-sm font-semibold">
@@ -91,7 +85,6 @@ const CustomerDisplay: React.FC = () => {
         </p>
       </div>
 
-      {/* Polling indicator */}
       <div className="flex items-center gap-2.5 text-indigo-400 text-sm font-bold animate-pulse">
         <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />

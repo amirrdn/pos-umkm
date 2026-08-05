@@ -48,7 +48,6 @@ export default function UserDocumentation() {
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            {/* Langkah 1 */}
             <div className="p-5 rounded-2xl border border-slate-800 bg-slate-900/30 space-y-3">
               <span className="px-2.5 py-1 text-[10px] font-black uppercase tracking-wider bg-indigo-500/10 text-indigo-400 rounded-md border border-indigo-500/20">Langkah 1</span>
               <h4 className="text-xs font-bold text-white">Daftar Akun Baru</h4>
@@ -57,7 +56,6 @@ export default function UserDocumentation() {
               </p>
             </div>
 
-            {/* Langkah 2 */}
             <div className="p-5 rounded-2xl border border-slate-800 bg-slate-900/30 space-y-3">
               <span className="px-2.5 py-1 text-[10px] font-black uppercase tracking-wider bg-indigo-500/10 text-indigo-400 rounded-md border border-indigo-500/20">Langkah 2</span>
               <h4 className="text-xs font-bold text-white">Verifikasi Email</h4>
@@ -66,7 +64,6 @@ export default function UserDocumentation() {
               </p>
             </div>
 
-            {/* Langkah 3 */}
             <div className="p-5 rounded-2xl border border-slate-800 bg-slate-900/30 space-y-3">
               <span className="px-2.5 py-1 text-[10px] font-black uppercase tracking-wider bg-indigo-500/10 text-indigo-400 rounded-md border border-indigo-500/20">Langkah 3</span>
               <h4 className="text-xs font-bold text-white">Masuk Aplikasi</h4>
@@ -225,7 +222,7 @@ export default function UserDocumentation() {
 
           <div className="space-y-4">
             <h4 className="text-xs font-black uppercase tracking-wider text-indigo-400">Prinsip Perhitungan Keuntungan:</h4>
-            
+
             <div className="relative border-l-2 border-slate-800 pl-6 space-y-6 ml-2">
               <div className="relative">
                 <span className="absolute -left-[31px] top-1 h-2.5 w-2.5 rounded-full bg-indigo-500 ring-4 ring-indigo-950"></span>
@@ -314,7 +311,6 @@ export default function UserDocumentation() {
               </table>
             </div>
 
-            {/* Graceful Downgrade Warning */}
             <div className="p-5 rounded-2xl border border-amber-500/10 bg-amber-550/5 space-y-2">
               <h4 className="text-xs font-bold text-amber-400 flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 text-amber-400" />
@@ -378,8 +374,7 @@ export default function UserDocumentation() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans flex flex-col justify-between selection:bg-indigo-500/30">
-      
-      {/* Top Navbar */}
+
       <header className="border-b border-slate-900 bg-slate-950/70 backdrop-blur-md sticky top-0 z-50 shrink-0">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -404,12 +399,9 @@ export default function UserDocumentation() {
         </div>
       </header>
 
-      {/* Main Content Layout */}
       <div className="flex-1 max-w-7xl mx-auto w-full px-6 py-8 flex flex-col md:flex-row gap-8 overflow-hidden">
-        
-        {/* Left Sidebar: Navigation & Search */}
+
         <aside className="w-full md:w-80 shrink-0 space-y-6">
-          {/* Search Bar */}
           <div className="relative">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-550" />
             <input
@@ -421,10 +413,9 @@ export default function UserDocumentation() {
             />
           </div>
 
-          {/* Navigation Group */}
           <div className="space-y-4">
             <h3 className="text-[10px] font-black uppercase tracking-wider text-slate-500 px-3">Topik Panduan</h3>
-            
+
             <nav className="space-y-1.5 max-h-[50vh] md:max-h-none overflow-y-auto pr-1">
               {filteredSections.map((sec) => {
                 const Icon = sec.icon;
@@ -434,11 +425,10 @@ export default function UserDocumentation() {
                   <button
                     key={sec.id}
                     onClick={() => setActiveSection(sec.id)}
-                    className={`cursor-pointer w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-left transition-all ${
-                      isActive
-                        ? 'bg-indigo-600/90 text-white shadow-lg shadow-indigo-650/20 font-bold border-l-4 border-indigo-400'
-                        : 'text-slate-400 hover:bg-slate-900/40 hover:text-slate-200 border-l-4 border-transparent'
-                    }`}
+                    className={`cursor-pointer w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-left transition-all ${isActive
+                      ? 'bg-indigo-600/90 text-white shadow-lg shadow-indigo-650/20 font-bold border-l-4 border-indigo-400'
+                      : 'text-slate-400 hover:bg-slate-900/40 hover:text-slate-200 border-l-4 border-transparent'
+                      }`}
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-slate-500'}`} />
@@ -458,7 +448,6 @@ export default function UserDocumentation() {
           </div>
         </aside>
 
-        {/* Right Panel: Content Display */}
         <main className="flex-1 bg-slate-900/20 border border-slate-900 rounded-3xl p-6 md:p-8 backdrop-blur-sm overflow-y-auto">
           {activeSectionData ? (
             <div className="space-y-6">
@@ -488,7 +477,6 @@ export default function UserDocumentation() {
         </main>
       </div>
 
-      {/* Footer */}
       <footer className="border-t border-slate-900/80 py-6 text-center text-[10px] text-slate-650 shrink-0">
         <p>© 2026 UMKM POS Platform. Semua Hak Dilindungi Undang-Undang.</p>
       </footer>

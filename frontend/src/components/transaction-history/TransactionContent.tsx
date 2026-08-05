@@ -29,10 +29,8 @@ export function TransactionContent({ transactionHistory }: TransactionContentPro
 
   return (
     <main className="flex-1 overflow-y-auto p-4 md:p-6 flex flex-col gap-5 bg-slate-50 dark:bg-slate-950 min-h-0">
-      {/* Panel Statistik Ringkasan */}
       <TransactionOverviewStats summaryStats={summaryStats} />
 
-      {/* Pencarian dan Penyaringan */}
       <TransactionSearchBar
         searchQuery={searchQuery}
         loading={loading}
@@ -46,7 +44,6 @@ export function TransactionContent({ transactionHistory }: TransactionContentPro
         onDateRangeChange={setSelectedDateRange}
       />
 
-      {/* Daftar Transaksi */}
       <TransactionListPanel
         loading={loading}
         error={error}

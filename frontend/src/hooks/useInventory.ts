@@ -54,7 +54,7 @@ export function useInventory() {
     isOpen: false,
     title: '',
     message: '',
-    onConfirm: () => {},
+    onConfirm: () => { },
   });
   const [confirmLoading, setConfirmLoading] = useState(false);
 
@@ -84,7 +84,6 @@ export function useInventory() {
   const [selectedCategoryName, setSelectedCategoryName] = useState('');
   const [selectedStockFilter, setSelectedStockFilter] = useState<'all' | 'critical' | 'empty'>('all');
 
-  // State untuk Transfer Stok
   const {
     transfers,
     loading: transfersLoading,

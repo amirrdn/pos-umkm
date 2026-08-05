@@ -1,27 +1,19 @@
 import React, { useState } from 'react';
 import { Wallet, LogIn, AlertCircle, Loader2 } from 'lucide-react';
 
-// ==========================================
-// INTERFACE
-// ==========================================
-
 interface ShiftModalProps {
-  /** Nama kasir yang sedang login */
+  /** Name of the cashier currently logged in. */
   cashierName: string;
-  /** Callback saat form submit berhasil */
+  /** Callback invoked with the starting cash amount on form submit. */
   onOpen: (cashStart: number) => Promise<void>;
-  /** Apakah sedang dalam proses loading */
+  /** Whether an async operation is in progress. */
   isLoading: boolean;
 }
 
-// ==========================================
-// KOMPONEN
-// ==========================================
-
 /**
- * Modal pembukaan shift kasir.
- * Muncul di atas layar POS dan menghalangi akses kasir
- * sampai mereka memasukkan jumlah modal awal di laci kas.
+ * Cashier shift opening modal.
+ * Blocks POS access until the cashier enters the starting cash
+ * amount in the drawer to initialize the shift.
  */
 export const ShiftModal: React.FC<ShiftModalProps> = ({ cashierName, onOpen, isLoading }) => {
   const [cashStart, setCashStart] = useState<string>('');
@@ -45,7 +37,6 @@ export const ShiftModal: React.FC<ShiftModalProps> = ({ cashierName, onOpen, isL
     }
   };
 
-  // Format nilai input sebagai Rupiah secara real-time
   const handleCashInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value.replace(/[^0-9]/g, '');
     setCashStart(raw);
@@ -61,7 +52,6 @@ export const ShiftModal: React.FC<ShiftModalProps> = ({ cashierName, onOpen, isL
         className="relative w-full max-w-md mx-4 bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-100"
         style={{ animation: 'fadeInScale 0.25s ease-out' }}
       >
-        {/* Header dengan gradient premium */}
         <div className="bg-gradient-to-br from-indigo-600 via-indigo-700 to-purple-800 px-8 py-8 text-white">
           <div className="flex items-center gap-4">
             <div className="bg-white/20 backdrop-blur-sm p-3 rounded-2xl border border-white/30">
@@ -77,7 +67,6 @@ export const ShiftModal: React.FC<ShiftModalProps> = ({ cashierName, onOpen, isL
           </p>
         </div>
 
-        {/* Form */}
         <form onSubmit={handleSubmit} className="p-8 space-y-5">
           <div className="space-y-1.5">
             <label htmlFor="cashStart" className="text-xs font-bold text-slate-500 uppercase tracking-wider">
@@ -104,7 +93,6 @@ export const ShiftModal: React.FC<ShiftModalProps> = ({ cashierName, onOpen, isL
             </p>
           </div>
 
-          {/* Pesan error */}
           {error && (
             <div className="flex items-start gap-2.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl px-4 py-3">
               <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
@@ -112,7 +100,6 @@ export const ShiftModal: React.FC<ShiftModalProps> = ({ cashierName, onOpen, isL
             </div>
           )}
 
-          {/* Tombol Buka Shift */}
           <button
             type="submit"
             disabled={isLoading}
@@ -133,7 +120,6 @@ export const ShiftModal: React.FC<ShiftModalProps> = ({ cashierName, onOpen, isL
         </form>
       </div>
 
-      {/* Animasi CSS inline */}
       <style>{`
         @keyframes fadeInScale {
           from { opacity: 0; transform: scale(0.95) translateY(10px); }

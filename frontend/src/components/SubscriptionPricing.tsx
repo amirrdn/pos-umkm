@@ -6,12 +6,12 @@ import { getErrorMessage } from '../api/types';
 import { getMidtransClientKey, MIDTRANS_IS_PRODUCTION } from '../config';
 import { getMidtransSnap, loadMidtransSnapScript } from '../types/midtransSnap';
 import { AppShellHeader } from './AppShellHeader';
-import { 
-  CreditCard, 
-  Check, 
-  X, 
-  ShieldCheck, 
-  Zap, 
+import {
+  CreditCard,
+  Check,
+  X,
+  ShieldCheck,
+  Zap,
   ArrowLeft,
   Loader2
 } from 'lucide-react';
@@ -155,7 +155,6 @@ export default function SubscriptionPricing() {
       />
 
       <main className="flex-1 overflow-y-auto p-4 md:p-6 flex flex-col gap-5 bg-slate-50 dark:bg-slate-950 min-h-0">
-        {/* Tombol Kembali */}
         <div className="mb-6">
           <button
             onClick={() => navigate('/admin/billing')}
@@ -166,7 +165,6 @@ export default function SubscriptionPricing() {
           </button>
         </div>
 
-        {/* Loading Overlay */}
         {loading && !subscription && (
           <div className="h-96 w-full flex items-center justify-center">
             <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
@@ -175,7 +173,6 @@ export default function SubscriptionPricing() {
 
         {subscription && (
           <div className="space-y-12">
-            {/* Header section */}
             <div className="text-center max-w-2xl mx-auto space-y-4">
               <h2 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
                 Fleksibilitas Paket Sesuai Kebutuhan Toko
@@ -185,7 +182,6 @@ export default function SubscriptionPricing() {
               </p>
             </div>
 
-            {/* Pricing cards grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch max-w-6xl mx-auto">
               {pricingTiers.map((tier) => {
                 const isGrowth = tier.name === 'GROWTH';
@@ -194,9 +190,8 @@ export default function SubscriptionPricing() {
                 return (
                   <div
                     key={tier.name}
-                    className={`flex flex-col bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-3xl p-8 relative overflow-hidden transition-all duration-200 hover:-translate-y-1 shadow-sm hover:shadow-lg dark:hover:shadow-none backdrop-blur-sm ${
-                      isGrowth ? 'ring-2 ring-indigo-500/50 dark:ring-indigo-400/50 dark:bg-indigo-950/5' : ''
-                    }`}
+                    className={`flex flex-col bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-3xl p-8 relative overflow-hidden transition-all duration-200 hover:-translate-y-1 shadow-sm hover:shadow-lg dark:hover:shadow-none backdrop-blur-sm ${isGrowth ? 'ring-2 ring-indigo-500/50 dark:ring-indigo-400/50 dark:bg-indigo-950/5' : ''
+                      }`}
                   >
                     {isGrowth && (
                       <div className="absolute top-4 right-4 px-3 py-1 bg-indigo-500/10 text-indigo-650 dark:text-indigo-350 border border-indigo-500/20 text-[9px] font-black uppercase tracking-wider rounded-full flex items-center gap-1">
@@ -222,16 +217,14 @@ export default function SubscriptionPricing() {
                       </p>
                     </div>
 
-                    {/* Features list */}
                     <div className="space-y-4 flex-1 mb-8">
                       {tier.features.map((feat, fIdx) => (
                         <div key={fIdx} className="flex items-start gap-3 text-xs">
                           {feat.checked ? (
-                            <div className={`flex-shrink-0 p-0.5 rounded-full mt-0.5 ${
-                              isGrowth ? 'bg-indigo-500/10 text-indigo-650 dark:text-indigo-400' :
+                            <div className={`flex-shrink-0 p-0.5 rounded-full mt-0.5 ${isGrowth ? 'bg-indigo-500/10 text-indigo-650 dark:text-indigo-400' :
                               isEnterprise ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' :
-                              'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
-                            }`}>
+                                'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                              }`}>
                               <Check className="w-3.5 h-3.5" />
                             </div>
                           ) : (
@@ -246,19 +239,17 @@ export default function SubscriptionPricing() {
                       ))}
                     </div>
 
-                    {/* Action button */}
                     <button
                       onClick={tier.action}
                       disabled={tier.disabled || loading}
-                      className={`w-full py-3.5 px-4 text-xs font-bold rounded-2xl transition-all cursor-pointer shadow-sm active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${
-                        tier.disabled
-                          ? 'bg-slate-100 dark:bg-slate-800 text-slate-450 border border-slate-200 dark:border-slate-700 shadow-none'
-                          : isGrowth
+                      className={`w-full py-3.5 px-4 text-xs font-bold rounded-2xl transition-all cursor-pointer shadow-sm active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${tier.disabled
+                        ? 'bg-slate-100 dark:bg-slate-800 text-slate-450 border border-slate-200 dark:border-slate-700 shadow-none'
+                        : isGrowth
                           ? 'bg-indigo-600 hover:bg-indigo-700 text-white hover:shadow-indigo-500/10'
                           : isEnterprise
-                          ? 'bg-emerald-600 hover:bg-emerald-700 text-white hover:shadow-emerald-500/10'
-                          : 'bg-white hover:bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200'
-                      }`}
+                            ? 'bg-emerald-600 hover:bg-emerald-700 text-white hover:shadow-emerald-500/10'
+                            : 'bg-white hover:bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200'
+                        }`}
                     >
                       {loadingTier === tier.name ? (
                         <div className="flex items-center justify-center gap-2">
@@ -274,7 +265,6 @@ export default function SubscriptionPricing() {
               })}
             </div>
 
-            {/* In-app security assurances */}
             <div className="max-w-3xl mx-auto p-6 bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-3xl text-center shadow-sm backdrop-blur-sm">
               <div className="flex items-center justify-center gap-3 mb-2 text-indigo-650 dark:text-indigo-400">
                 <ShieldCheck className="w-5 h-5" />

@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import { 
-  CreditCard, 
-  TrendingUp, 
-  Users, 
+import {
+  CreditCard,
+  TrendingUp,
+  Users,
   Activity,
   CheckCircle2,
   XCircle,
@@ -11,13 +11,13 @@ import {
   Wrench,
   ExternalLink
 } from 'lucide-react';
-import { 
-  getBillingMetricsApi, 
+import {
+  getBillingMetricsApi,
   listInvoicesApi
 } from '../../api/platformBillingApi';
 import type {
-  BillingMetrics, 
-  SubscriptionInvoice 
+  BillingMetrics,
+  SubscriptionInvoice
 } from '../../api/platformBillingApi';
 import { PlatformOverrideModal } from './PlatformOverrideModal';
 import { PlatformMidtransDetailModal } from './PlatformMidtransDetailModal';
@@ -122,7 +122,6 @@ export function PlatformBillingView() {
         </div>
       )}
 
-      {/* Metrics Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm">
           <div className="flex items-center justify-between mb-4">
@@ -181,7 +180,6 @@ export function PlatformBillingView() {
         </div>
       </div>
 
-      {/* Invoice List */}
       <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
         <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
           <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">

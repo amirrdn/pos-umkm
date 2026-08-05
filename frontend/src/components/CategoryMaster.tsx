@@ -37,7 +37,6 @@ export const CategoryMaster: React.FC = () => {
     message: string;
   } | null>(null);
 
-  // Search & Filter state
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [sortBy, setSortBy] = useState<string>('name_asc');
 
@@ -177,14 +176,12 @@ export const CategoryMaster: React.FC = () => {
 
   return (
     <div className="h-screen w-screen bg-slate-50 dark:bg-slate-950 flex flex-col font-sans overflow-hidden transition-colors duration-150 text-slate-800 dark:text-slate-100">
-      {/* Toast Notification */}
       {notification && (
         <div
-          className={`fixed top-4 right-4 z-50 flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg border transition-all duration-350 transform translate-y-0 ${
-            notification.type === 'success'
-              ? 'bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-950/90 dark:border-emerald-800 dark:text-emerald-300'
-              : 'bg-rose-50 border-rose-200 text-rose-800 dark:bg-rose-950/90 dark:border-rose-800 dark:text-rose-300'
-          }`}
+          className={`fixed top-4 right-4 z-50 flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg border transition-all duration-350 transform translate-y-0 ${notification.type === 'success'
+            ? 'bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-950/90 dark:border-emerald-800 dark:text-emerald-300'
+            : 'bg-rose-50 border-rose-200 text-rose-800 dark:bg-rose-950/90 dark:border-rose-800 dark:text-rose-300'
+            }`}
         >
           {notification.type === 'success' ? (
             <CheckCircle className="h-5 w-5 text-emerald-600 shrink-0" />
@@ -200,8 +197,6 @@ export const CategoryMaster: React.FC = () => {
           </button>
         </div>
       )}
-
-      {/* AppShell Header */}
       <AppShellHeader
         title="Master Kategori"
         subtitle="Kategori produk & prefix SKU"
@@ -222,7 +217,6 @@ export const CategoryMaster: React.FC = () => {
         }
       />
 
-      {/* Main List Panel & Overview Stats */}
       <main className="flex-1 overflow-y-auto p-4 md:p-6 flex flex-col gap-5 bg-slate-50 dark:bg-slate-950 min-h-0">
         <CategoryListPanel
           categories={categories}
@@ -240,7 +234,6 @@ export const CategoryMaster: React.FC = () => {
         />
       </main>
 
-      {/* FORM MODAL ADD/EDIT */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
@@ -310,7 +303,6 @@ export const CategoryMaster: React.FC = () => {
         </div>
       )}
 
-      {/* CONFIRMATION DELETE MODAL */}
       {isDeleteOpen && targetCategory && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div

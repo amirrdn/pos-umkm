@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Plus, Users, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
 import { getStaffInitials, formatStaffRegistrationDate } from '../../utils/staffManagementHelpers';
 import { StaffListCard } from './StaffListCard';
@@ -87,14 +87,16 @@ export function StaffListPanel({
 }: StaffListPanelProps) {
   const showBulkSelection = activeTab === 'pending' && Boolean(onToggleStaffSelection);
 
-  // State Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
-  // Reset ke halaman 1 jika daftar staff atau tab berubah
-  useEffect(() => {
+  const filterKey = `${displayedStaff.length}-${activeTab}`;
+  const [prevFilterKey, setPrevFilterKey] = useState(filterKey);
+
+  if (prevFilterKey !== filterKey) {
+    setPrevFilterKey(filterKey);
     setCurrentPage(1);
-  }, [displayedStaff.length, activeTab]);
+  }
 
   const totalItems = displayedStaff.length;
   const totalPages = Math.ceil(totalItems / pageSize) || 1;
@@ -120,7 +122,6 @@ export function StaffListPanel({
         />
       ) : (
         <>
-          {/* Tampilan Mobile — Kartu Stacked */}
           <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-800/40">
             {paginatedStaff.map((staff) => (
               <StaffListCard
@@ -142,7 +143,6 @@ export function StaffListPanel({
             ))}
           </div>
 
-          {/* Tampilan Desktop — Tabel High-Density */}
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left border-collapse min-w-[860px]">
               <thead>
@@ -233,9 +233,7 @@ export function StaffListPanel({
             </table>
           </div>
 
-          {/* Baris Footer Pagination */}
           <div className="p-4 border-t border-slate-200/90 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/80 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-semibold text-slate-600 dark:text-slate-400">
-            {/* Info Range Baris */}
             <div className="flex items-center gap-3">
               <span>
                 Menampilkan <strong className="text-slate-900 dark:text-slate-100">{totalItems > 0 ? startIndex + 1 : 0}</strong> -{' '}
@@ -243,7 +241,6 @@ export function StaffListPanel({
                 <strong className="text-slate-900 dark:text-slate-100">{totalItems}</strong> Karyawan
               </span>
 
-              {/* Selector Baris per Halaman */}
               <div className="relative inline-block">
                 <select
                   value={pageSize}
@@ -261,7 +258,6 @@ export function StaffListPanel({
               </div>
             </div>
 
-            {/* Tombol Navigasi Halaman */}
             {totalPages > 1 && (
               <div className="flex items-center gap-1.5">
                 <button
@@ -279,11 +275,10 @@ export function StaffListPanel({
                     key={pageNum}
                     type="button"
                     onClick={() => handlePageChange(pageNum)}
-                    className={`cursor-pointer px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all ${
-                      pageNum === currentPage
-                        ? 'bg-indigo-600 text-white shadow-xs'
-                        : 'bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
-                    }`}
+                    className={`cursor-pointer px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all ${pageNum === currentPage
+                      ? 'bg-indigo-600 text-white shadow-xs'
+                      : 'bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
+                      }`}
                   >
                     {pageNum}
                   </button>

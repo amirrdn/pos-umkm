@@ -68,9 +68,9 @@ export const PosNavigation: React.FC<PosNavigationProps> = ({
     { path: '/admin/dashboard', label: 'Dashboard', shortLabel: 'Dash.', icon: BarChart2 },
     ...(managesSubscription
       ? [
-          { path: '/admin/billing', label: 'Billing', icon: CreditCard } satisfies NavItem,
-          { path: '/admin/pricing', label: 'Paket', icon: Sparkles } satisfies NavItem,
-        ]
+        { path: '/admin/billing', label: 'Billing', icon: CreditCard } satisfies NavItem,
+        { path: '/admin/pricing', label: 'Paket', icon: Sparkles } satisfies NavItem,
+      ]
       : []),
   ];
 
@@ -137,7 +137,6 @@ export const PosNavigation: React.FC<PosNavigationProps> = ({
 
   return (
     <div className="relative shrink-0 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800/80">
-      {/* Fade edges — hint scroll on mobile/tablet */}
       <div
         className="pointer-events-none absolute inset-y-0 left-0 z-10 w-6 bg-gradient-to-r from-white dark:from-slate-900 to-transparent sm:w-8 md:hidden"
         aria-hidden

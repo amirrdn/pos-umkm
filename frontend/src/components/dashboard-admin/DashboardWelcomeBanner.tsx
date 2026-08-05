@@ -42,9 +42,7 @@ export function DashboardWelcomeBanner({
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xs transition-all">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        {/* Left Side: Header & Badges */}
         <div className="space-y-1.5 min-w-0 flex-1">
-          {/* Badges Bar */}
           <div className="flex flex-wrap items-center gap-2 mb-1">
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
               <Activity className="w-3.5 h-3.5 animate-pulse text-indigo-600 dark:text-indigo-400" />
@@ -53,19 +51,16 @@ export function DashboardWelcomeBanner({
             {getScopeBadge()}
           </div>
 
-          {/* Title */}
           <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight">
             Ringkasan Kinerja & Laba Toko
           </h2>
 
-          {/* Description Subtitle */}
           <p className="text-xs text-slate-500 dark:text-slate-400 leading-normal">
             Pantau arus kas, pendapatan bersih, harga pokok penjualan (HPP), dan kinerja outlet secara langsung.
             {getSubtext()}
           </p>
         </div>
 
-        {/* Right Side: Refresh Button */}
         <div className="shrink-0">
           <button
             type="button"

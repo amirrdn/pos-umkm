@@ -61,7 +61,6 @@ export function PlatformAnalyticsView() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Revenue Chart */}
         <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-slate-800">
           <div className="flex items-center gap-2 mb-6">
             <div className="p-2 bg-violet-100 dark:bg-violet-900/30 text-violet-600 rounded-xl">
@@ -77,23 +76,23 @@ export function PlatformAnalyticsView() {
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={revenueData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
-                  <XAxis 
-                    dataKey="date" 
-                    tick={{ fontSize: 12, fill: '#64748b' }} 
-                    axisLine={false} 
-                    tickLine={false} 
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fontSize: 12, fill: '#64748b' }}
+                    axisLine={false}
+                    tickLine={false}
                   />
-                  <YAxis 
+                  <YAxis
                     tickFormatter={(value) => `Rp${(value / 1000000).toFixed(0)}M`}
-                    tick={{ fontSize: 12, fill: '#64748b' }} 
-                    axisLine={false} 
-                    tickLine={false} 
+                    tick={{ fontSize: 12, fill: '#64748b' }}
+                    axisLine={false}
+                    tickLine={false}
                   />
                   <Tooltip content={<CustomTooltip />} />
-                  <Line 
-                    type="monotone" 
-                    dataKey="revenue" 
-                    stroke="#8b5cf6" 
+                  <Line
+                    type="monotone"
+                    dataKey="revenue"
+                    stroke="#8b5cf6"
                     strokeWidth={3}
                     dot={{ r: 4, fill: '#8b5cf6', strokeWidth: 2, stroke: '#fff' }}
                     activeDot={{ r: 6 }}
@@ -108,7 +107,6 @@ export function PlatformAnalyticsView() {
           </div>
         </div>
 
-        {/* Top Products */}
         <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 flex flex-col">
           <div className="p-6 pb-4 border-b border-slate-100 dark:border-slate-800/50 flex items-center gap-2">
             <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 rounded-xl">

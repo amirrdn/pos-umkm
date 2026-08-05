@@ -49,13 +49,11 @@ export function PurchaseOrderView() {
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
 
-  // Core Data States
   const [orders, setOrders] = useState<PurchaseOrder[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [products, setProducts] = useState<MasterProduct[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Pagination & KPI States
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
   const [pagination, setPagination] = useState<POPaginationMeta>({
@@ -73,17 +71,14 @@ export function PurchaseOrderView() {
     },
   });
 
-  // Filter States
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [supplierFilter, setSupplierFilter] = useState('');
 
-  // Modal & Popup States
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedPO, setSelectedPO] = useState<PurchaseOrder | null>(null);
 
-  // Professional Alert Popup Modal State
   const [confirmPopup, setConfirmPopup] = useState<PopupConfirmState>({
     isOpen: false,
     type: 'receive',
@@ -91,14 +86,12 @@ export function PurchaseOrderView() {
     poNumber: '',
   });
 
-  // Toast Notification State
   const [toast, setToast] = useState<ToastState>({
     show: false,
     type: 'success',
     message: '',
   });
 
-  // Form Create State
   const [selectedSupplierId, setSelectedSupplierId] = useState('');
   const [poItems, setPoItems] = useState<{ productId: string; quantity: number; costPrice: number }[]>([
     { productId: '', quantity: 1, costPrice: 0 },
@@ -209,7 +202,7 @@ export function PurchaseOrderView() {
     }
   };
 
-  // Trigger Confirmation Popup
+
   const openReceiveConfirm = (po: PurchaseOrder) => {
     setConfirmPopup({
       isOpen: true,
@@ -228,7 +221,7 @@ export function PurchaseOrderView() {
     });
   };
 
-  // Execute Action upon Popup Confirm
+
   const executeReceivePO = async () => {
     if (!confirmPopup.poId) return;
     setActionLoading(true);
@@ -304,7 +297,7 @@ export function PurchaseOrderView() {
       />
 
       <main className="flex-1 overflow-y-auto p-4 md:p-6 flex flex-col gap-5 bg-slate-50 dark:bg-slate-950 min-h-0">
-        {/* Toast Alert Component */}
+
         {toast.show && (
           <div
             className={`fixed bottom-6 right-6 z-50 px-5 py-3.5 rounded-2xl shadow-xl border backdrop-blur-md flex items-center gap-3 transition-all animate-bounce ${
@@ -322,9 +315,9 @@ export function PurchaseOrderView() {
           </div>
         )}
 
-        {/* 1. INFORMATIONAL KPI CARDS */}
+
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Card 1: Total PO */}
+
           <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-xs hover:shadow-md transition-all flex items-center justify-between gap-4 backdrop-blur-md">
             <div className="space-y-1 min-w-0 flex-1">
               <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
@@ -342,7 +335,7 @@ export function PurchaseOrderView() {
             </div>
           </div>
 
-          {/* Card 2: Pending PO */}
+
           <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-xs hover:shadow-md transition-all flex items-center justify-between gap-4 backdrop-blur-md">
             <div className="space-y-1 min-w-0 flex-1">
               <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
@@ -360,7 +353,7 @@ export function PurchaseOrderView() {
             </div>
           </div>
 
-          {/* Card 3: Received PO */}
+
           <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-xs hover:shadow-md transition-all flex items-center justify-between gap-4 backdrop-blur-md">
             <div className="space-y-1 min-w-0 flex-1">
               <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
@@ -378,7 +371,7 @@ export function PurchaseOrderView() {
             </div>
           </div>
 
-          {/* Card 4: Total Amount */}
+
           <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-xs hover:shadow-md transition-all flex items-center justify-between gap-4 backdrop-blur-md">
             <div className="space-y-1 min-w-0 flex-1">
               <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
@@ -397,9 +390,7 @@ export function PurchaseOrderView() {
           </div>
         </div>
 
-        {/* 2. MAIN CONTENT TABLE CONTAINER */}
         <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl shadow-xs overflow-hidden flex flex-col min-h-[560px] lg:min-h-[640px]">
-          {/* TOOLBAR & FILTER PANEL (Select2 Style) */}
           <div className="p-5 border-b border-slate-200/90 dark:border-slate-800 flex flex-col gap-4 bg-white dark:bg-slate-900">
             <div className="flex items-center justify-between gap-3">
               <h2 className="text-base font-extrabold text-slate-900 dark:text-slate-50 flex items-center gap-2">
@@ -418,9 +409,7 @@ export function PurchaseOrderView() {
               </button>
             </div>
 
-            {/* Filter Controls */}
             <div className="flex flex-col lg:flex-row gap-3.5 items-stretch lg:items-center">
-              {/* Search Bar */}
               <div className="relative w-full max-w-sm">
                 <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 focus-within:text-indigo-600 dark:focus-within:text-indigo-400 w-4.5 h-4.5 transition-colors" />
                 <input
@@ -447,9 +436,7 @@ export function PurchaseOrderView() {
                 )}
               </div>
 
-              {/* Multi-Select Filters (Select2 Style) */}
               <div className="flex flex-wrap items-center gap-3">
-                {/* Status Filter */}
                 <div className="relative flex-1 sm:flex-initial">
                   <Filter className="absolute left-3.5 top-1/2 -translate-y-1/2 text-indigo-600 dark:text-indigo-400 w-4 h-4 pointer-events-none" />
                   <select
@@ -468,7 +455,7 @@ export function PurchaseOrderView() {
                   <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 w-4 h-4 pointer-events-none" />
                 </div>
 
-                {/* Supplier Filter */}
+
                 <div className="relative flex-1 sm:flex-initial">
                   <Store className="absolute left-3.5 top-1/2 -translate-y-1/2 text-indigo-600 dark:text-indigo-400 w-4 h-4 pointer-events-none" />
                   <select
@@ -489,7 +476,7 @@ export function PurchaseOrderView() {
                   <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 w-4 h-4 pointer-events-none" />
                 </div>
 
-                {/* Reset Filters */}
+
                 {isFiltered && (
                   <button
                     type="button"
@@ -504,7 +491,7 @@ export function PurchaseOrderView() {
             </div>
           </div>
 
-          {/* TABLE CONTENT CONTAINER */}
+
           <div className="flex-1 overflow-x-auto min-h-0 flex flex-col justify-between">
             {loading ? (
               <div className="p-12 text-center text-slate-400 text-xs font-bold flex flex-col items-center justify-center gap-2 flex-1">
@@ -612,7 +599,7 @@ export function PurchaseOrderView() {
             )}
           </div>
 
-            {/* 3. PAGINATION FOOTER CONTROL */}
+
             {!loading && orders.length > 0 && (
               <div className="p-4 border-t border-slate-200/90 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 bg-white dark:bg-slate-900 mt-auto text-xs font-semibold text-slate-600 dark:text-slate-400">
                 <div className="flex items-center gap-3">
@@ -632,7 +619,7 @@ export function PurchaseOrderView() {
                     PO
                   </span>
 
-                  {/* Selector Baris per Halaman */}
+
                   <div className="relative inline-block">
                     <select
                       value={limit}
@@ -714,7 +701,7 @@ export function PurchaseOrderView() {
           </div>
       </main>
 
-      {/* 4. PROFESSIONAL POPUP ALERT MODAL (RECEIVE & CANCEL) */}
+
       {confirmPopup.isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-5 animate-scale-up">
@@ -773,7 +760,7 @@ export function PurchaseOrderView() {
         </div>
       )}
 
-      {/* 5. CREATE PO MODAL */}
+
       {createModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-2xl w-full p-6 space-y-6 my-8 shadow-2xl">
@@ -792,7 +779,7 @@ export function PurchaseOrderView() {
             </div>
 
             <form onSubmit={handleCreatePO} className="space-y-5">
-              {/* Select Supplier */}
+
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
                   Pilih Supplier <span className="text-rose-500">*</span>
@@ -815,7 +802,7 @@ export function PurchaseOrderView() {
                 </div>
               </div>
 
-              {/* Items Table */}
+
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
@@ -892,7 +879,7 @@ export function PurchaseOrderView() {
                 </div>
               </div>
 
-              {/* Total Summary */}
+
               <div className="p-4 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 rounded-2xl flex items-center justify-between">
                 <span className="text-xs font-extrabold text-indigo-900 dark:text-indigo-200">
                   Estimasi Total Pembelian:
@@ -902,7 +889,7 @@ export function PurchaseOrderView() {
                 </span>
               </div>
 
-              {/* Action Buttons */}
+
               <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200 dark:border-slate-800">
                 <button
                   type="button"
@@ -925,7 +912,7 @@ export function PurchaseOrderView() {
         </div>
       )}
 
-      {/* 6. DETAIL PO MODAL */}
+
       {detailModalOpen && selectedPO && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-2xl w-full p-6 space-y-6 my-8 shadow-2xl">
@@ -972,7 +959,7 @@ export function PurchaseOrderView() {
               </div>
             </div>
 
-            {/* Items Table */}
+
             <div>
               <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
                 Rincian Barang Pembelian

@@ -48,8 +48,8 @@ function ProductThumbnail({ product }: { product: MasterProduct }) {
   const imageUrl =
     product.images && product.images.length > 0
       ? resolveProductImageUrl(
-          product.images.find((img) => img.isMain)?.url || product.images[0].url
-        )
+        product.images.find((img) => img.isMain)?.url || product.images[0].url
+      )
       : null;
 
   return (
@@ -151,13 +151,10 @@ export function ProductListPanel({
 }: ProductListPanelProps) {
   return (
     <main className="flex-1 p-3 sm:p-4 md:p-6 overflow-y-auto flex flex-col gap-5 bg-slate-50 dark:bg-slate-950 min-h-0">
-      {/* Panel Statistik Ringkasan */}
       <ProductOverviewStats summaryStats={summaryStats} />
 
       <div className="flex-1 min-h-[560px] lg:min-h-[640px] bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl shadow-xs hover:shadow-md dark:shadow-none flex flex-col overflow-hidden backdrop-blur-md transition-all">
-        {/* Toolbar & Filter Panel */}
         <div className="p-5 border-b border-slate-200/90 dark:border-slate-800 flex flex-col gap-4 shrink-0 bg-white dark:bg-slate-900">
-          {/* Baris Atas: Judul dan Refresh */}
           <div className="flex items-center justify-between gap-3">
             <h3 className="text-base font-extrabold text-slate-900 dark:text-slate-50 flex items-center gap-2 min-w-0">
               <div className="p-2 bg-indigo-500/10 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 rounded-xl border border-indigo-500/20">
@@ -178,9 +175,7 @@ export function ProductListPanel({
             </button>
           </div>
 
-          {/* Baris Bawah: Input Cari & Multi-Dropdown Filters (Select2 Style) */}
           <div className="flex flex-col lg:flex-row gap-3.5 items-stretch lg:items-center">
-            {/* Input Pencarian */}
             <div className="relative w-full max-w-sm">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 focus-within:text-indigo-600 dark:focus-within:text-indigo-400 w-4.5 h-4.5 transition-colors" />
               <input
@@ -201,9 +196,7 @@ export function ProductListPanel({
               )}
             </div>
 
-            {/* Kelompok Filter Dropdown Bergaya Select2 */}
             <div className="flex flex-wrap items-center gap-3">
-              {/* Filter Kategori (Select2 Style) */}
               <div className="relative flex-1 sm:flex-initial">
                 <Tag className="absolute left-3.5 top-1/2 -translate-y-1/2 text-indigo-600 dark:text-indigo-400 w-4 h-4 pointer-events-none" />
                 <select
@@ -221,7 +214,6 @@ export function ProductListPanel({
                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 w-4 h-4 pointer-events-none" />
               </div>
 
-              {/* Filter Cabang / Outlet (Select2 Style) */}
               {canFilterByOutlet(user?.roles) && (
                 <div className="relative flex-1 sm:flex-initial">
                   <Store className="absolute left-3.5 top-1/2 -translate-y-1/2 text-indigo-600 dark:text-indigo-400 w-4 h-4 pointer-events-none" />
@@ -241,7 +233,6 @@ export function ProductListPanel({
                 </div>
               )}
 
-              {/* Reset Filter Button */}
               {isFiltered && (
                 <button
                   type="button"
@@ -256,12 +247,9 @@ export function ProductListPanel({
           </div>
         </div>
 
-        {/* Isi Daftar Produk (Tabel / Grid Kartu) */}
         <div className="flex-1 flex flex-col overflow-hidden min-h-0 relative">
           {loading ? (
-            /* Skeleton Loading State (Mengurangi perceived latency) */
             <div className="h-full w-full">
-              {/* Skeleton Desktop */}
               <div className="hidden lg:block animate-pulse p-4">
                 <table className="w-full text-left border-collapse">
                   <thead>
@@ -293,7 +281,6 @@ export function ProductListPanel({
                   </tbody>
                 </table>
               </div>
-              {/* Skeleton Mobile */}
               <div className="block lg:hidden p-4 space-y-4 animate-pulse">
                 {[...Array(3)].map((_, idx) => (
                   <div key={idx} className="p-4 bg-white dark:bg-slate-900 border border-slate-150 dark:border-slate-800/60 rounded-2xl space-y-3">
@@ -315,7 +302,6 @@ export function ProductListPanel({
             </div>
           ) : products.length > 0 ? (
             <>
-              {/* Tampilan Mobile & Tablet — Kartu Stacked */}
               <div className="lg:hidden divide-y divide-slate-100 dark:divide-slate-800">
                 {products.map((product) => (
                   <article
@@ -353,7 +339,6 @@ export function ProductListPanel({
                           </span>
                         </div>
 
-                        {/* Rincian Harga */}
                         <div className="grid grid-cols-2 gap-2 mt-3 text-[11px] sm:text-xs">
                           <div className="rounded-lg bg-slate-50 dark:bg-slate-800/60 px-2.5 py-2 border border-slate-100 dark:border-slate-800/50">
                             <p className="text-[9px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">
@@ -372,8 +357,6 @@ export function ProductListPanel({
                             </p>
                           </div>
                         </div>
-
-                        {/* Detail Limit Stok Multi-Cabang */}
                         <ProductOutletStockBreakdown
                           product={product}
                           filterOutletId={filterOutletId}
@@ -384,7 +367,6 @@ export function ProductListPanel({
                 ))}
               </div>
 
-              {/* Tampilan Desktop — Tabel High-Density */}
               <div className="hidden lg:block overflow-x-auto">
                 <table className="w-full text-left border-collapse min-w-[900px]">
                   <thead className="bg-slate-50 dark:bg-slate-800 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider sticky top-0 z-10 border-b border-slate-200/80 dark:border-slate-700">

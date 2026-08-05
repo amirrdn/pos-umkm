@@ -27,7 +27,6 @@ export function TransactionListPanel({
   if (loading) {
     return (
       <div className="flex-1 min-h-[560px] lg:min-h-[640px] bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-xs overflow-hidden flex flex-col backdrop-blur-md">
-        {/* Skeleton Tabel Desktop */}
         <div className="hidden md:block flex-1 overflow-auto animate-pulse">
           <table className="w-full border-collapse text-left text-xs">
             <thead>
@@ -67,7 +66,6 @@ export function TransactionListPanel({
           </table>
         </div>
 
-        {/* Skeleton Mobile */}
         <div className="block md:hidden p-4 space-y-3.5 animate-pulse">
           {[...Array(4)].map((_, idx) => (
             <div key={idx} className="h-36 bg-slate-100 dark:bg-slate-800 rounded-3xl" />
@@ -123,7 +121,6 @@ export function TransactionListPanel({
 
   return (
     <div className="flex-1 min-h-[560px] lg:min-h-[640px] bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 shadow-xs hover:shadow-md dark:shadow-none overflow-hidden flex flex-col backdrop-blur-md transition-all">
-      {/* Tampilan Tabel DESKTOP & TABLET */}
       <div className="hidden md:block flex-1 overflow-auto">
         <table className="w-full border-collapse text-left text-xs">
           <thead>
@@ -143,32 +140,25 @@ export function TransactionListPanel({
                 onClick={() => onSelectTransaction(tx)}
                 className="group hover:bg-indigo-50/60 dark:hover:bg-slate-800/60 transition-colors duration-150 cursor-pointer"
               >
-                {/* Invoice ID */}
                 <td className="py-5.5 px-6.5 font-bold text-slate-900 dark:text-slate-50 font-mono tracking-wide text-xs group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                   {tx.invoiceNumber}
                 </td>
-                {/* Tanggal & Waktu */}
                 <td className="py-5.5 px-6.5 text-slate-600 dark:text-slate-400 font-medium">
                   {formatTransactionDateTime(tx.createdAt)}
                 </td>
-                {/* Nama Pelanggan */}
                 <td className="py-5.5 px-6.5 font-bold text-slate-800 dark:text-slate-200">
                   {tx.customer?.name || (
                     <span className="text-slate-400 dark:text-slate-500 font-medium italic">Umum / Walk-in</span>
                   )}
                 </td>
-                {/* Status */}
                 <td className="py-5.5 px-6.5">
                   <TransactionStatusBadge status={tx.status} />
                 </td>
-                {/* Total Tagihan */}
                 <td className="py-5.5 px-6.5 font-black text-indigo-700 dark:text-indigo-400 text-sm font-mono tracking-tight">
                   {formatTransactionRupiah(tx.grandTotal)}
                 </td>
-                {/* Tombol Aksi */}
                 <td className="py-5.5 px-6.5 text-center" onClick={(e) => e.stopPropagation()}>
                   <div className="inline-flex items-center gap-2">
-                    {/* Tombol WhatsApp (Cepat) */}
                     {onSendWhatsApp && (
                       <button
                         type="button"
@@ -179,7 +169,6 @@ export function TransactionListPanel({
                         <MessageCircle className="w-4 h-4" />
                       </button>
                     )}
-                    {/* Tombol Detail */}
                     <button
                       type="button"
                       onClick={() => onSelectTransaction(tx)}
@@ -197,7 +186,6 @@ export function TransactionListPanel({
         </table>
       </div>
 
-      {/* Tampilan Kartu MOBILE */}
       <div className="block md:hidden flex-1 overflow-auto p-4 space-y-3.5 bg-slate-50/50 dark:bg-slate-950/20">
         {transactions.map((tx) => (
           <div
@@ -205,7 +193,6 @@ export function TransactionListPanel({
             onClick={() => onSelectTransaction(tx)}
             className="cursor-pointer bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 p-5 rounded-3xl shadow-xs hover:shadow-md transition-all active:scale-[0.99] flex flex-col gap-3.5 relative"
           >
-            {/* Header Kartu: Invoice & Status */}
             <div className="flex justify-between items-center gap-3">
               <span className="font-mono font-black text-xs text-slate-900 dark:text-white tracking-wide">
                 {tx.invoiceNumber}
@@ -213,7 +200,6 @@ export function TransactionListPanel({
               <TransactionStatusBadge status={tx.status} />
             </div>
 
-            {/* Detail/Metadata Kartu */}
             <div className="space-y-1 text-xs text-slate-600 dark:text-slate-400">
               <p className="font-medium">{formatTransactionDateTime(tx.createdAt)}</p>
               <p className="font-bold text-slate-800 dark:text-slate-200">
@@ -223,7 +209,6 @@ export function TransactionListPanel({
               </p>
             </div>
 
-            {/* Footer Kartu: Total & Tombol Aksi */}
             <div className="flex justify-between items-center gap-3 pt-3.5 border-t border-slate-100 dark:border-slate-800">
               <div className="flex flex-col">
                 <span className="text-[10px] text-slate-500 dark:text-slate-400 uppercase font-extrabold tracking-wider">

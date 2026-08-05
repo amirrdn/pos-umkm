@@ -21,7 +21,6 @@ export function CustomerSearchBar({
 }: CustomerSearchBarProps) {
   return (
     <div className="p-5 border-b border-slate-200/90 dark:border-slate-800 flex flex-col gap-4 bg-white dark:bg-slate-900 rounded-t-3xl">
-      {/* Header baris atas */}
       <div className="flex items-center justify-between gap-3">
         <h3 className="text-base font-extrabold text-slate-900 dark:text-slate-50 flex items-center gap-2 min-w-0">
           <div className="p-2 bg-indigo-500/10 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 rounded-xl border border-indigo-500/20">
@@ -42,7 +41,6 @@ export function CustomerSearchBar({
         </button>
       </div>
 
-      {/* Baris bawah: Form pencarian */}
       <form onSubmit={onSearchSubmit} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
         <div className="relative w-full max-w-sm">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 focus-within:text-indigo-600 dark:focus-within:text-indigo-400 w-4.5 h-4.5 transition-colors" />

@@ -122,7 +122,7 @@ export function PlatformMidtransDetailModal({ invoiceNumber, onClose }: Props) {
             <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border border-slate-100 dark:border-slate-800">
               <div className="text-xs text-slate-500 mb-1">Waktu Transaksi</div>
               <div className="text-sm font-medium text-slate-800 dark:text-slate-200">
-                {data.transaction_time 
+                {data.transaction_time
                   ? format(new Date(data.transaction_time), 'dd MMM yyyy HH:mm', { locale: id })
                   : '-'}
               </div>
@@ -136,7 +136,6 @@ export function PlatformMidtransDetailModal({ invoiceNumber, onClose }: Props) {
           </div>
         </div>
 
-        {/* VA Numbers atau Bank info */}
         {(data.va_numbers?.length || data.biller_code || data.bank) && (
           <div>
             <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-3 flex items-center gap-2">

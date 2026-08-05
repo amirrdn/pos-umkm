@@ -83,13 +83,10 @@ export function CategoryListPanel({
 }: CategoryListPanelProps) {
   return (
     <main className="flex-1 p-3 sm:p-4 md:p-6 overflow-y-auto flex flex-col gap-5 bg-slate-50 dark:bg-slate-950 min-h-0">
-      {/* Panel Statistik Ringkasan */}
       <CategoryOverviewStats categories={categories} />
 
       <div className="flex-1 min-h-[560px] lg:min-h-[640px] bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl shadow-xs hover:shadow-md dark:shadow-none flex flex-col overflow-hidden backdrop-blur-md transition-all">
-        {/* Toolbar & Filter Panel */}
         <div className="p-5 border-b border-slate-200/90 dark:border-slate-800 flex flex-col gap-4 shrink-0 bg-white dark:bg-slate-900">
-          {/* Baris Atas: Judul dan Refresh */}
           <div className="flex items-center justify-between gap-3">
             <h3 className="text-base font-extrabold text-slate-900 dark:text-slate-50 flex items-center gap-2 min-w-0">
               <div className="p-2 bg-indigo-500/10 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 rounded-xl border border-indigo-500/20">
@@ -107,16 +104,13 @@ export function CategoryListPanel({
               aria-label="Muat ulang daftar kategori"
             >
               <RefreshCw
-                className={`h-4 w-4 text-indigo-600 dark:text-indigo-400 ${
-                  loading ? 'animate-spin' : 'group-hover:rotate-180 duration-500'
-                }`}
+                className={`h-4 w-4 text-indigo-600 dark:text-indigo-400 ${loading ? 'animate-spin' : 'group-hover:rotate-180 duration-500'
+                  }`}
               />
             </button>
           </div>
 
-          {/* Baris Bawah: Input Cari & Filter Sort Dropdown */}
           <div className="flex flex-col lg:flex-row gap-3.5 items-stretch lg:items-center">
-            {/* Input Pencarian */}
             <div className="relative w-full max-w-sm">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 focus-within:text-indigo-600 dark:focus-within:text-indigo-400 w-4.5 h-4.5 transition-colors" />
               <input
@@ -137,7 +131,6 @@ export function CategoryListPanel({
               )}
             </div>
 
-            {/* Kelompok Filter Dropdown (Sort By) */}
             <div className="flex flex-wrap items-center gap-3">
               <div className="relative flex-1 sm:flex-initial">
                 <ArrowUpDown className="absolute left-3.5 top-1/2 -translate-y-1/2 text-indigo-600 dark:text-indigo-400 w-4 h-4 pointer-events-none" />
@@ -155,7 +148,6 @@ export function CategoryListPanel({
                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 w-4 h-4 pointer-events-none" />
               </div>
 
-              {/* Reset Filter Button */}
               {isFiltered && (
                 <button
                   type="button"
@@ -170,12 +162,10 @@ export function CategoryListPanel({
           </div>
         </div>
 
-        {/* Isi Daftar Kategori (Tabel / Card Stack) */}
         <div className="flex-1 flex flex-col overflow-hidden min-h-0 relative">
           {loading ? (
             /* Skeleton Loading State */
             <div className="h-full w-full">
-              {/* Skeleton Desktop */}
               <div className="hidden lg:block animate-pulse p-4">
                 <table className="w-full text-left border-collapse">
                   <thead>
@@ -210,7 +200,6 @@ export function CategoryListPanel({
                   </tbody>
                 </table>
               </div>
-              {/* Skeleton Mobile */}
               <div className="block lg:hidden p-4 space-y-4 animate-pulse">
                 {[...Array(3)].map((_, idx) => (
                   <div
@@ -230,7 +219,6 @@ export function CategoryListPanel({
             </div>
           ) : categories.length > 0 ? (
             <>
-              {/* Tampilan Mobile & Tablet — Kartu Stacked */}
               <div className="lg:hidden divide-y divide-slate-100 dark:divide-slate-800">
                 {categories.map((cat) => (
                   <article
@@ -272,7 +260,6 @@ export function CategoryListPanel({
                 ))}
               </div>
 
-              {/* Tampilan Desktop — Tabel High-Density */}
               <div className="hidden lg:block overflow-x-auto">
                 <table className="w-full text-left border-collapse min-w-[700px]">
                   <thead className="bg-slate-50 dark:bg-slate-800 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider sticky top-0 z-10 border-b border-slate-200/80 dark:border-slate-700">

@@ -102,7 +102,7 @@ function useGoogleAuth() {
         if (!cancelled) setReady(true);
       })
       .catch(() => {
-        // SDK gagal dimuat, user tetap bisa pakai email/password
+        // SDK failed, default email
       });
 
     return () => {

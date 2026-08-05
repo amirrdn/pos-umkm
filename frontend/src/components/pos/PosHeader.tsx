@@ -37,7 +37,6 @@ export const PosHeader: React.FC<PosHeaderProps> = ({
 }) => {
   return (
     <header className="shrink-0 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-sm">
-      {/* Bar utama — brand + aksi */}
       <div className="px-2 sm:px-3 md:px-5 py-2 sm:py-2.5 md:py-3 flex items-center justify-between gap-2 sm:gap-4">
         <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
           <div className="flex items-center gap-2 sm:gap-3 shrink-0 min-w-0">
@@ -75,7 +74,6 @@ export const PosHeader: React.FC<PosHeaderProps> = ({
         </div>
 
         <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2 shrink-0">
-          {/* Shift — desktop inline */}
           {activeShift && (
             <div className="hidden lg:flex items-center gap-2.5 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-800/50 px-3 py-2 rounded-xl">
               <span className="relative flex h-2 w-2 shrink-0">
@@ -139,7 +137,6 @@ export const PosHeader: React.FC<PosHeaderProps> = ({
             <HelpCircle className="h-4 w-4" />
           </button>
 
-          {/* Avatar ringkas — tablet */}
           <div
             className="hidden sm:flex lg:hidden h-9 w-9 rounded-lg bg-indigo-100 dark:bg-indigo-950/50 items-center justify-center text-indigo-700 dark:text-indigo-300 font-bold text-xs uppercase shrink-0"
             title={`${user?.name || 'Operator'} · ${primaryRole}`}
@@ -148,7 +145,6 @@ export const PosHeader: React.FC<PosHeaderProps> = ({
             {(user?.name ?? 'K').charAt(0)}
           </div>
 
-          {/* Kartu pengguna — desktop */}
           <div className="hidden lg:flex items-center gap-2.5 pl-1 pr-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80">
             <div className="h-8 w-8 rounded-lg bg-indigo-100 dark:bg-indigo-950/50 flex items-center justify-center text-indigo-700 dark:text-indigo-300 font-bold text-xs uppercase shrink-0">
               {(user?.name ?? 'K').charAt(0)}
@@ -177,49 +173,48 @@ export const PosHeader: React.FC<PosHeaderProps> = ({
         </div>
       </div>
 
-      {/* Bar konteks — mobile & tablet */}
       <div className="lg:hidden px-2 sm:px-3 md:px-5 py-1.5 sm:py-2 flex flex-wrap items-center gap-2 border-t border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-slate-900/50">
-          {!platformAdmin && (
-            <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1 basis-[140px]">
-              <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 shrink-0">
-                Outlet
-              </span>
-              <OutletSwitcher operationalOnly size="sm" className="min-w-0 flex-1 max-w-full" />
-            </div>
-          )}
+        {!platformAdmin && (
+          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1 basis-[140px]">
+            <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 shrink-0">
+              Outlet
+            </span>
+            <OutletSwitcher operationalOnly size="sm" className="min-w-0 flex-1 max-w-full" />
+          </div>
+        )}
 
-          {platformAdmin && (
-            <div className="flex items-center px-2.5 py-1 rounded-lg bg-violet-50 dark:bg-violet-950/30 border border-violet-200/80 dark:border-violet-800/50 shrink-0">
-              <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-violet-700 dark:text-violet-300">
-                Admin Platform
-              </span>
-            </div>
-          )}
+        {platformAdmin && (
+          <div className="flex items-center px-2.5 py-1 rounded-lg bg-violet-50 dark:bg-violet-950/30 border border-violet-200/80 dark:border-violet-800/50 shrink-0">
+            <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-violet-700 dark:text-violet-300">
+              Admin Platform
+            </span>
+          </div>
+        )}
 
-          {activeShift && (
-            <div className="flex items-center gap-2 sm:gap-2.5 ml-auto bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-800/50 px-2 sm:px-3 py-1 sm:py-1.5 rounded-xl shrink-0">
-              <span className="relative flex h-2 w-2 shrink-0">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-              </span>
-              <div className="leading-tight">
-                <p className="text-[10px] sm:text-[11px] font-bold text-emerald-800 dark:text-emerald-300 whitespace-nowrap">
-                  Shift Aktif
+        {activeShift && (
+          <div className="flex items-center gap-2 sm:gap-2.5 ml-auto bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-800/50 px-2 sm:px-3 py-1 sm:py-1.5 rounded-xl shrink-0">
+            <span className="relative flex h-2 w-2 shrink-0">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+            </span>
+            <div className="leading-tight">
+              <p className="text-[10px] sm:text-[11px] font-bold text-emerald-800 dark:text-emerald-300 whitespace-nowrap">
+                Shift Aktif
+              </p>
+              {shiftStartedLabel && (
+                <p className="text-[9px] sm:text-[10px] text-emerald-600/80 dark:text-emerald-400/80 whitespace-nowrap">
+                  Mulai {shiftStartedLabel}
                 </p>
-                {shiftStartedLabel && (
-                  <p className="text-[9px] sm:text-[10px] text-emerald-600/80 dark:text-emerald-400/80 whitespace-nowrap">
-                    Mulai {shiftStartedLabel}
-                  </p>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowCloseShiftModal(true)}
-                className="cursor-pointer px-1.5 sm:px-2 py-0.5 sm:py-1 text-[9px] sm:text-[10px] font-bold uppercase tracking-wide text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-950/40 rounded-md transition-colors whitespace-nowrap"
-              >
-                Tutup
-              </button>
+              )}
             </div>
+            <button
+              type="button"
+              onClick={() => setShowCloseShiftModal(true)}
+              className="cursor-pointer px-1.5 sm:px-2 py-0.5 sm:py-1 text-[9px] sm:text-[10px] font-bold uppercase tracking-wide text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-950/40 rounded-md transition-colors whitespace-nowrap"
+            >
+              Tutup
+            </button>
+          </div>
         )}
       </div>
     </header>

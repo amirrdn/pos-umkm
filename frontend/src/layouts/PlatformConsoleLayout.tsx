@@ -165,12 +165,10 @@ export function PlatformConsoleLayout() {
 
   return (
     <div className="flex h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
-      {/* Sidebar desktop */}
       <aside className="hidden lg:flex w-64 shrink-0 flex-col bg-gradient-to-b from-violet-950 to-slate-950 border-r border-violet-900/40">
         {renderSidebar()}
       </aside>
 
-      {/* Drawer mobile / tablet */}
       {mobileMenuOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <button
@@ -194,7 +192,6 @@ export function PlatformConsoleLayout() {
       )}
 
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Top bar mobile / tablet */}
         <div className="lg:hidden shrink-0 px-3 py-2.5 border-b border-violet-900/30 bg-gradient-to-r from-violet-950 to-slate-950 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
             <button
@@ -277,7 +274,6 @@ export function PlatformConsoleLayout() {
           <Outlet />
         </div>
 
-        {/* Bottom nav mobile / tablet */}
         <nav
           className="lg:hidden fixed bottom-0 inset-x-0 z-40 flex items-stretch border-t border-violet-900/40 bg-gradient-to-t from-slate-950 to-violet-950 pb-[env(safe-area-inset-bottom)]"
           aria-label="Navigasi platform"
