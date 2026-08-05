@@ -9,7 +9,10 @@ const categoryService = new CategoryService();
 export async function getAllCategories(req: Request, res: Response) {
   try {
     const tenantId = req.tenantId!;
-    const categories = await categoryService.getAllCategories(tenantId);
+    const search = typeof req.query.search === 'string' ? req.query.search : typeof req.query.q === 'string' ? req.query.q : undefined;
+    const sortBy = typeof req.query.sortBy === 'string' ? req.query.sortBy : undefined;
+
+    const categories = await categoryService.getAllCategories(tenantId, { search, sortBy });
     return res.status(200).json({
       success: true,
       data: categories,

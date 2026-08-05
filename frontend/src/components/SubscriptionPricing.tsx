@@ -143,7 +143,7 @@ export default function SubscriptionPricing() {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans transition-colors duration-150">
+    <div className="flex flex-col h-screen overflow-hidden bg-slate-50 dark:bg-slate-950 font-sans antialiased">
       <AppShellHeader
         title="Daftar Paket Langganan"
         subtitle="Pilih paket terbaik untuk kelangsungan bisnis Anda"
@@ -154,7 +154,7 @@ export default function SubscriptionPricing() {
         showOutletSwitcher={false}
       />
 
-      <main className="max-w-7xl mx-auto px-6 py-8">
+      <main className="flex-1 overflow-y-auto p-4 md:p-6 flex flex-col gap-5 bg-slate-50 dark:bg-slate-950 min-h-0">
         {/* Tombol Kembali */}
         <div className="mb-6">
           <button

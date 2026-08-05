@@ -8,7 +8,7 @@ export interface DashboardTabBarProps {
 
 export function DashboardTabBar({ activeTab, onTabChange }: DashboardTabBarProps) {
   return (
-    <div className="mb-8 flex items-center justify-between flex-wrap gap-4 border-b border-slate-200/80 dark:border-slate-800 pb-4">
+    <div className="flex items-center justify-between flex-wrap gap-4 border-b border-slate-200/80 dark:border-slate-800 pb-4">
       <div className="inline-flex p-1.5 bg-slate-200/60 dark:bg-slate-900/80 rounded-2xl border border-slate-300/60 dark:border-slate-800 backdrop-blur-md">
         <button
           type="button"

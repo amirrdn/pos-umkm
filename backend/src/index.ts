@@ -43,7 +43,6 @@ getJwtSecret();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Render / reverse proxy mengirim X-Forwarded-For — wajib agar rate-limit & req.ip benar
 if (process.env.NODE_ENV === 'production' || process.env.RENDER) {
   app.set('trust proxy', 1);
 }
@@ -53,9 +52,13 @@ if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
-const corsOrigins = process.env.CORS_ORIGINS
+const configuredOrigins = process.env.CORS_ORIGINS
   ? process.env.CORS_ORIGINS.split(',').map((origin) => origin.trim()).filter(Boolean)
+  : [];
+const defaultLocalOrigins = process.env.NODE_ENV === 'production'
+  ? []
   : ['http://localhost:5173', 'http://127.0.0.1:5173'];
+const corsOrigins = Array.from(new Set([...configuredOrigins, ...defaultLocalOrigins]));
 
 app.use('/uploads', express.static(uploadsDir));
 

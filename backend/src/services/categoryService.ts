@@ -21,14 +21,50 @@ function slugify(text: string): string {
 }
 
 export class CategoryService {
-  async getAllCategories(tenantId: string) {
+  async getAllCategories(
+    tenantId: string,
+    params?: { search?: string; sortBy?: string }
+  ) {
+    const { search, sortBy } = params || {};
+
+    const where: any = {
+      tenantId,
+    };
+
+    if (search && search.trim() !== '') {
+      const q = search.trim();
+      where.OR = [
+        { name: { contains: q, mode: 'insensitive' } },
+        { prefix: { contains: q, mode: 'insensitive' } },
+        { slug: { contains: q, mode: 'insensitive' } },
+      ];
+    }
+
+    let orderBy: any = { name: 'asc' };
+    if (sortBy === 'name_desc') {
+      orderBy = { name: 'desc' };
+    } else if (sortBy === 'prefix_asc') {
+      orderBy = { prefix: 'asc' };
+    } else if (sortBy === 'prefix_desc') {
+      orderBy = { prefix: 'desc' };
+    } else if (sortBy === 'products_desc') {
+      orderBy = { products: { _count: 'desc' } };
+    }
+
     return prisma.category.findMany({
-      where: {
-        tenantId
+      where,
+      include: {
+        _count: {
+          select: {
+            products: {
+              where: {
+                deletedAt: null,
+              },
+            },
+          },
+        },
       },
-      orderBy: {
-        name: 'asc'
-      }
+      orderBy,
     });
   }
 

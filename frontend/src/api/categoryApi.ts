@@ -6,6 +6,9 @@ export interface Category {
   name: string;
   slug: string;
   prefix: string;
+  _count?: {
+    products?: number;
+  };
 }
 
 export interface CategoryPayload {
@@ -13,8 +16,13 @@ export interface CategoryPayload {
   prefix: string;
 }
 
-export async function getCategoriesApi(): Promise<Category[]> {
-  const response = await apiClient.get<ApiSuccessResponse<Category[]>>('/api/categories');
+export async function getCategoriesApi(params?: {
+  search?: string;
+  sortBy?: string;
+}): Promise<Category[]> {
+  const response = await apiClient.get<ApiSuccessResponse<Category[]>>('/api/categories', {
+    params,
+  });
   return response.data.data ?? [];
 }
 

@@ -52,7 +52,7 @@ export function StaffContent({ staffManagement }: StaffContentProps) {
   } = staffManagement;
 
   return (
-    <main className="flex-1 p-6 max-w-7xl mx-auto w-full space-y-6">
+    <main className="flex-1 overflow-y-auto p-4 md:p-6 flex flex-col gap-5 bg-slate-50 dark:bg-slate-950 min-h-0">
       <StaffAlerts error={error} successMsg={successMsg} />
 
       <StaffOverviewStats

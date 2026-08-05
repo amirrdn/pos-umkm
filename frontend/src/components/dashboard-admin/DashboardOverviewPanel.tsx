@@ -24,7 +24,7 @@ export function DashboardOverviewPanel({ dashboard }: DashboardOverviewPanelProp
   } = dashboard;
 
   return (
-    <>
+    <div className="flex flex-col gap-5">
       <DashboardMetricsCards
         loading={loading}
         summary={summary}
@@ -40,10 +40,10 @@ export function DashboardOverviewPanel({ dashboard }: DashboardOverviewPanelProp
         <DashboardBreakdownChart loading={loading} typeBreakdownChartData={typeBreakdownChartData} />
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <DashboardBestSellersChart loading={loading} bestSellers={bestSellers} />
         <DashboardBestSellersTable loading={loading} bestSellers={bestSellers} />
       </div>
-    </>
+    </div>
   );
 }

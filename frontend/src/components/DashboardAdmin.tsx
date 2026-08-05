@@ -7,7 +7,7 @@ export default function DashboardAdmin() {
   const dashboard = useDashboardAdmin();
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans transition-colors duration-150">
+    <div className="h-screen w-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans overflow-hidden transition-colors duration-150">
       <AppShellHeader
         title="Dashboard & Laporan"
         subtitle="Analitik kinerja & laba tenant"

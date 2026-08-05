@@ -232,7 +232,7 @@ export default function BillingDashboard() {
   const activeStatus = subscription?.status || 'ACTIVE';
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] dark:bg-[#090D16] text-slate-800 dark:text-slate-100 font-sans antialiased selection:bg-indigo-500 selection:text-white transition-colors duration-150">
+    <div className="flex flex-col h-screen overflow-hidden bg-slate-50 dark:bg-slate-950 font-sans antialiased">
       <AppShellHeader
         title="Billing & Ringkasan Paket"
         subtitle="Kelola status berlangganan, batasan penggunaan, dan histori tagihan"
@@ -243,7 +243,7 @@ export default function BillingDashboard() {
         showOutletSwitcher={false}
       />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+      <main className="flex-1 overflow-y-auto p-4 md:p-6 flex flex-col gap-5 bg-slate-50 dark:bg-slate-950 min-h-0">
         {loading && !subscription && (
           <div className="h-96 w-full flex flex-col items-center justify-center gap-3">
             <Loader2 className="w-8 h-8 text-indigo-600 dark:text-indigo-400 animate-spin" />

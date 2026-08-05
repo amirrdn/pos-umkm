@@ -44,7 +44,7 @@ export function CustomerSearchBar({
 
       {/* Baris bawah: Form pencarian */}
       <form onSubmit={onSearchSubmit} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-        <div className="relative flex-1">
+        <div className="relative w-full max-w-sm">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 focus-within:text-indigo-600 dark:focus-within:text-indigo-400 w-4.5 h-4.5 transition-colors" />
           <input
             type="text"
