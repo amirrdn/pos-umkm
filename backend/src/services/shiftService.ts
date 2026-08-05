@@ -2,9 +2,15 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { loadTenantUsersByIds, resolveTenantUser } from '../lib/tenantUserLookup';
 
-// ==========================================
-// INTERFACE
-// ==========================================
+/**
+ * ============================================================================
+ * SERVICE: CASHIER SHIFT & CASH RECONCILIATION SERVICE
+ * ============================================================================
+ * Manages POS cashier shifts: opening shifts with starting cash, tracking active
+ * shift expected cash vs completed sales, closing shifts with cash discrepancy calculation,
+ * and retrieving tenant shift history for financial auditing.
+ * ============================================================================
+ */
 
 export interface OpenShiftInput {
   tenantId: string;
@@ -20,13 +26,12 @@ export interface CloseShiftInput {
   cashActual: number;
 }
 
-// ==========================================
-// SERVICE FUNCTIONS
-// ==========================================
-
 /**
- * Membuka shift baru untuk kasir.
- * Memastikan tidak ada shift OPEN yang sedang aktif untuk kasir yang bersangkutan.
+ * Opens a new cashier shift with starting cash balance.
+ * Validates that no active OPEN shift exists for the user.
+ *
+ * @param input OpenShiftInput containing tenantId, userId, starting cash, and outletId.
+ * @returns Newly created Shift entity with user details.
  */
 export async function openShift({ tenantId, userId, cashStart, outletId }: OpenShiftInput) {
   const existingActiveShift = await prisma.shift.findFirst({
@@ -60,8 +65,11 @@ export async function openShift({ tenantId, userId, cashStart, outletId }: OpenS
 }
 
 /**
- * Mengambil data shift yang sedang aktif milik kasir.
- * Mengembalikan null jika kasir tidak memiliki shift aktif.
+ * Retrieves the currently active OPEN shift for a cashier with real-time cash metrics.
+ *
+ * @param tenantId Tenant ID context.
+ * @param userId Cashier User ID.
+ * @returns Active shift with expected cash calculations, or null if no shift is open.
  */
 export async function getActiveShift(tenantId: string, userId: string) {
   const shift = await prisma.shift.findFirst({
@@ -101,8 +109,11 @@ export async function getActiveShift(tenantId: string, userId: string) {
 }
 
 /**
- * Menutup shift kerja kasir dan melakukan rekonsiliasi kas.
- * Menghitung selisih antara kas yang diharapkan dan kas aktual fisik.
+ * Closes an active cashier shift and performs physical cash reconciliation.
+ * Calculates variance (difference) between expected cash balance and actual physical count.
+ *
+ * @param input CloseShiftInput containing shiftId, tenantId, userId, and actual cash count.
+ * @returns Closed shift entity with cash discrepancy metrics.
  */
 export async function closeShift({ shiftId, tenantId, userId, cashActual }: CloseShiftInput) {
   const shift = await prisma.shift.findFirst({
@@ -161,8 +172,10 @@ export async function closeShift({ shiftId, tenantId, userId, cashActual }: Clos
 }
 
 /**
- * Mengambil semua riwayat shift untuk sebuah tenant.
- * Endpoint ini diperuntukkan bagi owner/admin untuk audit kas.
+ * Retrieves full shift audit history for a tenant (Owner & Admin audit overview).
+ *
+ * @param tenantId Tenant ID context.
+ * @returns List of shift history records with resolved user profiles.
  */
 export async function getShiftHistory(tenantId: string) {
   const shifts = await prisma.shift.findMany({

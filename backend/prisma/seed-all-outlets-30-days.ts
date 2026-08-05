@@ -1,13 +1,26 @@
+/// <reference types="node" />
+import 'dotenv/config';
 import { PrismaClient, POSstatus, TransactionStatus, MutationType } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
+/**
+ * ============================================================================
+ * SEEDING SCRIPT: 30-DAY OUTLET TRANSACTIONS & INVENTORY
+ * ============================================================================
+ * Seeds 30-day transactional history, purchase orders, supplier directories,
+ * low-stock thresholds, and user-outlet bindings for Toko Utama.
+ * ============================================================================
+ */
 async function main() {
-  console.log('🌱 Memulai seeding data transaksi 30 hari terakhir (3 Juli - 1 Agustus 2026) untuk SELURUH OUTLET Toko Utama...');
+  console.log('🌱 Starting 30-day transaction seeding (July 3 - August 1, 2026) for ALL Toko Utama outlets...');
 
-  // 1. Ambil User Owner & Tenant
+  /**
+   * 1. Retrieve Owner User & Tenant Context
+   */
+  const targetEmail = process.env.SEED_OWNER_EMAIL || 'owner@example.com';
   const user = await prisma.user.findUnique({
-    where: { email: 'owner@tokoutama.com' },
+    where: { email: targetEmail },
     include: {
       tenant: true,
       userOutlets: { include: { outlet: true } }
@@ -15,26 +28,30 @@ async function main() {
   });
 
   if (!user || !user.tenantId || !user.tenant) {
-    throw new Error('User owner@tokoutama.com atau Tenant tidak ditemukan.');
+    throw new Error(`User ${targetEmail} or associated Tenant not found.`);
   }
 
   const tenantId: string = user.tenantId;
   const userId: string = user.id;
 
-  // 2. Ambil seluruh Outlet untuk Tenant ini
+  /**
+   * 2. Fetch Active Outlets for Tenant
+   */
   const outlets = await prisma.outlet.findMany({
     where: { tenantId, deletedAt: null }
   });
 
   if (outlets.length === 0) {
-    throw new Error('Tidak ada outlet ditemukan untuk tenant.');
+    throw new Error('No outlets found for tenant.');
   }
 
   console.log(`🏢 Tenant: ${user.tenant.name} (${tenantId})`);
   console.log(`👤 User: ${user.name} (${userId})`);
-  console.log(`🏪 Ditemukan ${outlets.length} Outlet:`, outlets.map(o => `${o.name} (${o.id})`));
+  console.log(`🏪 Outlets found (${outlets.length}):`, outlets.map(o => `${o.name} (${o.id})`));
 
-  // 3. Hubungkan User Owner ke SEMUA Outlet via UserOutlet
+  /**
+   * 3. Bind Owner User to All Outlets (UserOutlet Pivot)
+   */
   for (const outlet of outlets) {
     await prisma.userOutlet.upsert({
       where: {
@@ -50,9 +67,11 @@ async function main() {
       }
     });
   }
-  console.log('🔗 User Owner berhasil dihubungkan ke seluruh outlet.');
+  console.log('🔗 Owner user bound to all outlets successfully.');
 
-  // 4. Ambil Produk & Pelanggan
+  /**
+   * 4. Retrieve Product Catalog & Customer Directory
+   */
   const products = await prisma.product.findMany({
     where: { tenantId }
   });
@@ -61,7 +80,9 @@ async function main() {
     where: { tenantId }
   });
 
-  // 5. Seed Supplier
+  /**
+   * 5. Seed Supplier Records
+   */
   const suppliersData = [
     {
       id: 'sup-food-001',
@@ -102,12 +123,16 @@ async function main() {
     seededSuppliers.push(sup);
   }
 
-  // 6. LOOP SEEDING UNTUK SETIAP OUTLET
+  /**
+   * 6. Loop & Seed Inventory, Purchase Orders & Transactions per Outlet
+   */
   for (const targetOutlet of outlets) {
     const outletId = targetOutlet.id;
     console.log(`\n🏬 Processing Outlet: [${targetOutlet.name}] (${outletId})...`);
 
-    // Set stok rendah untuk outlet ini
+    /**
+     * Configure Low Stock Thresholds for Testing Alert System
+     */
     if (products.length >= 2) {
       await prisma.outletStock.upsert({
         where: { outletId_productId: { outletId, productId: products[0].id } },
@@ -122,7 +147,9 @@ async function main() {
       });
     }
 
-    // Seed Purchase Orders
+    /**
+     * Seed Purchase Orders for Outlet Restocking
+     */
     const outletPrefix = targetOutlet.type === 'MAIN' ? 'PST' : 'BDG';
     const poDates = [
       { day: 5, month: 6, year: 2026, num: `PO-${outletPrefix}-20260705-001` },
@@ -187,20 +214,22 @@ async function main() {
       }
     }
 
-    // Seed Transactions (3 Juli - 1 Agustus 2026)
-    const startDate = new Date(2026, 6, 3); // 3 Juli 2026
-    const endDate = new Date(2026, 7, 1);   // 1 Agustus 2026
+    /**
+     * Seed 30-Day Daily Sales Transactions (July 3 - August 1, 2026)
+     */
+    const startDate = new Date(2026, 6, 3);
+    const endDate = new Date(2026, 7, 1);
 
     let currentDate = new Date(startDate);
     let outletTxCount = 0;
 
     while (currentDate <= endDate) {
       const year = currentDate.getFullYear();
-      const month = currentDate.getMonth(); // 6=July, 7=August
+      const month = currentDate.getMonth();
       const day = currentDate.getDate();
 
       const isToday = (month === 7 && day === 1);
-      const txPerDay = isToday ? 12 : (day % 3) + 4; // 4-6 transaksi per hari
+      const txPerDay = isToday ? 12 : (day % 3) + 4;
 
       const monthStr = (month + 1).toString().padStart(2, '0');
       const dayStr = day.toString().padStart(2, '0');
@@ -299,15 +328,15 @@ async function main() {
       currentDate.setDate(currentDate.getDate() + 1);
     }
 
-    console.log(`  ✅ Outlet [${targetOutlet.name}]: ${outletTxCount} Transaksi Penjualan berhasil di-seed!`);
+    console.log(`  ✅ Outlet [${targetOutlet.name}]: ${outletTxCount} Sales transactions seeded successfully.`);
   }
 
-  console.log('\n🎉 Selesai! Seeding transaksi 30 hari untuk SELURUH OUTLET Toko Utama telah sukses!');
+  console.log('\n🎉 Finished! 30-day transaction seeding for ALL Toko Utama outlets completed successfully!');
 }
 
 main()
   .catch((e) => {
-    console.error('❌ Error saat seeding data outlet:', e);
+    console.error('❌ Error during outlet seeding:', e);
     process.exit(1);
   })
   .finally(async () => {

@@ -164,7 +164,6 @@ export class AnalyticsService {
         },
       });
 
-      // loadTenantUsersByIds menggunakan prisma system context (user bukan RLS-scoped)
       const userMap = await loadTenantUsersByIds(
         tenantId,
         transactions.map((transaction) => transaction.userId)
@@ -233,7 +232,6 @@ export class AnalyticsService {
         orderBy: { startTime: 'desc' },
       });
 
-      // loadTenantUsersByIds menggunakan prisma system context (user bukan RLS-scoped)
       const userMap = await loadTenantUsersByIds(
         tenantId,
         shifts.map((shift) => shift.userId)

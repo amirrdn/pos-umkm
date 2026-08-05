@@ -1,6 +1,16 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 
+/**
+ * ============================================================================
+ * SERVICE: TRANSACTION HISTORY SERVICE
+ * ============================================================================
+ * Handles querying, filtering, and pagination of tenant sales transaction history
+ * by active outlet, search terms (invoice/customer name/phone), transaction status,
+ * payment method, and custom/preset date ranges.
+ * ============================================================================
+ */
+
 const historyInclude = {
   items: {
     include: {
@@ -42,7 +52,10 @@ export interface GetTransactionHistoryParams {
 }
 
 /**
- * Riwayat transaksi tenant, opsional difilter outlet aktif, pencarian, status, pembayaran, dan rentang tanggal.
+ * Retrieves transaction history records matching filter criteria and pagination settings.
+ *
+ * @param params GetTransactionHistoryParams containing filter criteria and pagination parameters.
+ * @returns Array of transaction records with complete relations.
  */
 export async function getTransactionHistory(
   params: GetTransactionHistoryParams
@@ -55,7 +68,9 @@ export async function getTransactionHistory(
     where.outletId = params.outletId;
   }
 
-  // 1. Pencarian berdasarkan Nomor Invoice, Nama Pelanggan, atau No HP Pelanggan
+  /**
+   * 1. Invoice Number, Customer Name, or Phone Search Filter
+   */
   if (params.search && params.search.trim() !== '') {
     const q = params.search.trim();
     where.OR = [
@@ -65,7 +80,9 @@ export async function getTransactionHistory(
     ];
   }
 
-  // 2. Filter Status (COMPLETED, PENDING, VOID)
+  /**
+   * 2. Transaction Status Filter (COMPLETED, PENDING, VOID, FAILED)
+   */
   if (params.status && params.status !== 'ALL') {
     const uppercaseStatus = params.status.toUpperCase();
     if (['COMPLETED', 'PENDING', 'VOID', 'FAILED'].includes(uppercaseStatus)) {
@@ -73,7 +90,9 @@ export async function getTransactionHistory(
     }
   }
 
-  // 3. Filter Metode Pembayaran (CASH, QRIS)
+  /**
+   * 3. Payment Method Filter (CASH, QRIS)
+   */
   if (params.paymentMethod && params.paymentMethod !== 'ALL') {
     const uppercasePayment = params.paymentMethod.toUpperCase();
     where.payments = {
@@ -83,7 +102,9 @@ export async function getTransactionHistory(
     };
   }
 
-  // 4. Filter Rentang Waktu
+  /**
+   * 4. Date Range & Custom Period Filter
+   */
   if (params.startDate || params.endDate) {
     where.createdAt = {};
     if (params.startDate) {

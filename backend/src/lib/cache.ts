@@ -2,7 +2,7 @@ import { getRedis, isredisEnabled } from './redis';
 import { logWarn } from './logger';
 
 export function cacheKey(...parts: string[]): string {
-    return parts.join(':');   
+    return parts.join(':');
 }
 
 async function ensureReady(): Promise<ReturnType<typeof getRedis>> {
@@ -110,7 +110,6 @@ export async function cacheGetOrSet<T>(
 
     const fresh = await fetcher();
 
-    // Fire and forget - don't failed response if set error.
     void cacheSet(key, fresh, ttlSeconds);
 
     return fresh;

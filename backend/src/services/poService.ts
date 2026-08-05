@@ -2,6 +2,16 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { CreatePOInput } from '../schemas/po.schema';
 
+/**
+ * ============================================================================
+ * SERVICE: PURCHASE ORDER (PO) MANAGEMENT SERVICE
+ * ============================================================================
+ * Handles supplier procurement workflows: PO creation, listing & filtering with
+ * status metrics, receiving stock mutations (RESTOCK ledger logs & OutletStock update),
+ * and PO cancellation.
+ * ============================================================================
+ */
+
 export interface GetPOQueryOptions {
   tenantId: string;
   search?: string;
@@ -13,6 +23,9 @@ export interface GetPOQueryOptions {
 }
 
 export class POService {
+  /**
+   * Generates a unique Purchase Order number string (PO-YYYYMMDD-XXXX).
+   */
   private generatePONumber(): string {
     const today = new Date();
     const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '');
@@ -20,6 +33,12 @@ export class POService {
     return `PO-${dateStr}-${randomSuffix}`;
   }
 
+  /**
+   * Fetches paginated Purchase Orders matching search, status, supplier, or outlet filters.
+   *
+   * @param options Query options object or tenantId string.
+   * @returns Orders list with pagination and summary metrics.
+   */
   async getAllPO(options: GetPOQueryOptions | string) {
     let tenantId: string;
     let search: string | undefined;
@@ -119,6 +138,13 @@ export class POService {
     };
   }
 
+  /**
+   * Fetches single Purchase Order by ID scoped to tenant.
+   *
+   * @param tenantId Tenant ID scope.
+   * @param id Purchase Order ID.
+   * @returns Purchase Order detail with relations.
+   */
   async getPOById(tenantId: string, id: string) {
     const po = await prisma.purchaseOrder.findFirst({
       where: { id, tenantId },
@@ -145,8 +171,15 @@ export class POService {
     return po;
   }
 
+  /**
+   * Creates a new Purchase Order in ORDERED / DRAFT status.
+   *
+   * @param tenantId Tenant ID context.
+   * @param userId Creator User ID.
+   * @param data Validated PO input payload.
+   * @returns Newly created Purchase Order.
+   */
   async createPO(tenantId: string, userId: string, data: CreatePOInput) {
-    // Validasi supplier
     const supplier = await prisma.supplier.findFirst({
       where: { id: data.supplierId, tenantId, deletedAt: null },
     });
@@ -193,6 +226,15 @@ export class POService {
     });
   }
 
+  /**
+   * Processes stock reception for a Purchase Order (Status: RECEIVED).
+   * Updates product cost prices, increments OutletStock balances, and logs RESTOCK StockLedger records.
+   *
+   * @param tenantId Tenant ID context.
+   * @param userId Receiving User ID.
+   * @param poId Target Purchase Order ID.
+   * @returns Updated Purchase Order entity.
+   */
   async receivePO(tenantId: string, userId: string, poId: string) {
     const po = await this.getPOById(tenantId, poId);
 
@@ -205,7 +247,6 @@ export class POService {
     }
 
     return prisma.$transaction(async (tx) => {
-      // 1. Update PO Status
       const updatedPO = await tx.purchaseOrder.update({
         where: { id: poId },
         data: {
@@ -214,9 +255,7 @@ export class POService {
         },
       });
 
-      // 2. Loop setiap item PO untuk update stok & buat mutasi
       for (const item of po.items) {
-        // Update HPP/Harga Beli produk utama ke yang terbaru
         await tx.product.update({
           where: { id: item.productId },
           data: {
@@ -224,7 +263,6 @@ export class POService {
           },
         });
 
-        // Hitung stok sebelum & sesudah jika pakai outletStock
         let stockBefore = 0;
         let stockAfter = item.quantity;
 
@@ -262,7 +300,6 @@ export class POService {
           });
         }
 
-        // Catat di StockLedger (Mutasi RESTOCK)
         await tx.stockLedger.create({
           data: {
             tenantId,
@@ -283,6 +320,13 @@ export class POService {
     });
   }
 
+  /**
+   * Cancels a pending Purchase Order.
+   *
+   * @param tenantId Tenant ID scope.
+   * @param poId Purchase Order ID to cancel.
+   * @returns Updated Purchase Order entity.
+   */
   async cancelPO(tenantId: string, poId: string) {
     const po = await this.getPOById(tenantId, poId);
 

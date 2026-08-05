@@ -1,5 +1,6 @@
-// Ini adalah file skema Prisma Anda.
-// Pelajari lebih lanjut di dokumentasi: https://pris.ly/d/prisma-schema
+// ----------------------------------------------------------------------------
+// PRISMA CONFIGURATION & DATASOURCE
+// ----------------------------------------------------------------------------
 
 generator client {
   provider = "prisma-client-js"
@@ -11,22 +12,24 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-// ==========================================
-// ENUMS
-// ==========================================
+// ----------------------------------------------------------------------------
+// ENUMS & TYPES
+// ----------------------------------------------------------------------------
 
-// Status untuk Tenant
+/// Tenant Account Status
 enum TenantStatus {
   ACTIVE
   SUSPENDED
 }
 
+/// Tier Levels for Subscriptions
 enum SubscriptionTier {
   FREE
   GROWTH
   ENTERPRISE
 }
 
+/// Status of Tenant Subscription
 enum SubscriptionStatus {
   ACTIVE
   PAID_PENDING
@@ -34,163 +37,215 @@ enum SubscriptionStatus {
   SUSPENDED
 }
 
-// Status untuk Transaksi Penjualan
+/// Sales Transaction Lifecycle Status
 enum TransactionStatus {
   PENDING
   COMPLETED
   VOID
 }
 
-// Status untuk Shift Kerja Kasir
+/// Cashier Shift Work Status
 enum ShiftStatus {
   OPEN
   CLOSED
 }
 
-// ==========================================
-// MODEL DATABASE
-// ==========================================
+/// Mutation Types for Stock Movements
+enum MutationType {
+  SALE             // Automated reduction upon POS checkout
+  RESTOCK          // Stock addition from purchases / PO
+  ADJUSTMENT_PLUS  // Manual stock count increase
+  ADJUSTMENT_MINUS // Manual stock count decrease (damaged/lost)
+  RETURN           // Customer sales return
+  TRANSFER_IN      // Stock received from another outlet
+  TRANSFER_OUT     // Stock sent to another outlet
+}
 
-// 1. Tenant (Multi-Tenant Core)
+/// Stock Approval Request Status
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+/// Multi-Outlet Architecture Classification
+enum OutletType {
+  MAIN
+  BRANCH
+}
+
+/// Outlet Transfer Status Lifecycle
+enum TransferStatus {
+  DRAFT
+  IN_TRANSIT
+  COMPLETED
+  CANCELLED
+}
+
+/// Purchase Order Status Lifecycle
+enum POSstatus {
+  DRAFT
+  ORDERED
+  RECEIVED
+  CANCELLED
+}
+
+// ----------------------------------------------------------------------------
+// DOMAIN MODELS
+// ----------------------------------------------------------------------------
+
+// ----------------------------------------------------------------------------
+// 1. Tenant (Multi-Tenant Core Entity)
+// ----------------------------------------------------------------------------
 model Tenant {
-  id          String       @id @default(uuid())
-  name        String
-  slug        String       @unique // Slug unik untuk sub-domain atau pengenal URL
-  email       String
-  phone       String
-  status      TenantStatus @default(ACTIVE)
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  deletedAt   DateTime?    // Indikator Soft Delete
-  requireStockApproval Boolean @default(false)
-  taxRate     Decimal      @db.Decimal(5, 4) @default(0.11)
+  id                   String             @id @default(uuid())
+  name                 String
+  slug                 String             @unique // Unique slug for subdomain or URL identifier
+  email                String
+  phone                String
+  status               TenantStatus       @default(ACTIVE)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  deletedAt            DateTime?          // Soft delete indicator
+  requireStockApproval Boolean            @default(false)
+  taxRate              Decimal            @default(0.11) @db.Decimal(5, 4)
 
-  // ===== SUBSCRIPTION FIELDS =====
+  // Subscription Billing Fields
   subscriptionTier      SubscriptionTier   @default(FREE)
   subscriptionStatus    SubscriptionStatus @default(ACTIVE)
   subscriptionExpiresAt DateTime?
   lastBillingAt         DateTime?
 
-  // Relasi
-  users         User[]
-  roles         Role[]
-  categories    Category[]
-  products      Product[]
-  transactions  Transaction[]
-  shifts        Shift[]
-  stockLedgers  StockLedger[]
-  customers     Customer[]
-  stockRequests StockRequest[]
-  outlets       Outlet[]
-  outletStocks  OutletStock[]
-  stockTransfers StockTransfer[]
-  outletProductPrices OutletProductPrice[]
-  subscriptionInvoices SubscriptionInvoice[]
+  // Relations
+  users                 User[]
+  roles                 Role[]
+  categories            Category[]
+  products              Product[]
+  transactions          Transaction[]
+  shifts                Shift[]
+  stockLedgers          StockLedger[]
+  customers             Customer[]
+  stockRequests         StockRequest[]
+  outlets               Outlet[]
+  outletStocks          OutletStock[]
+  stockTransfers        StockTransfer[]
+  outletProductPrices   OutletProductPrice[]
+  subscriptionInvoices  SubscriptionInvoice[]
   subscriptionHistories SubscriptionHistory[]
   platformSessions      PlatformAdminSession[]
-  suppliers       Supplier[]
-  purchaseOrders  PurchaseOrder[]
-  salesReturns    SalesReturn[]
+  suppliers             Supplier[]
+  purchaseOrders        PurchaseOrder[]
+  salesReturns          SalesReturn[]
 
   @@map("tenants")
 }
 
-// 2. User (Pengguna dalam Tenant)
+// ----------------------------------------------------------------------------
+// 2. User (System & Tenant Accounts)
+// ----------------------------------------------------------------------------
 model User {
-  id        String    @id @default(uuid())
-  tenantId  String?
-  name      String
-  email     String    @unique
-  password  String?
-  authProvider String @default("LOCAL")
-  isActive  Boolean   @default(true)
-  approvalStatus String @default("APPROVED") // PENDING, APPROVED, REJECTED
-  emailVerifiedAt DateTime?
-  emailVerificationToken String? @unique
+  id                         String       @id @default(uuid())
+  tenantId                   String?
+  name                       String
+  email                      String       @unique
+  password                   String?
+  authProvider               String       @default("LOCAL")
+  isActive                   Boolean      @default(true)
+  approvalStatus             String       @default("APPROVED") // PENDING, APPROVED, REJECTED
+  emailVerifiedAt            DateTime?
+  emailVerificationToken     String?      @unique
   emailVerificationExpiresAt DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime? // Indikator Soft Delete
+  createdAt                  DateTime     @default(now())
+  updatedAt                  DateTime     @updatedAt
+  deletedAt                  DateTime?    // Soft delete indicator
 
-  // Relasi
-  tenant            Tenant?       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  userOutlets       UserOutlet[]
-  userRoles         UserRole[]
-  transactions      Transaction[]
-  shifts            Shift[]
-  stockLedgers      StockLedger[]
-  submittedRequests StockRequest[] @relation("submittedRequests")
-  approvedRequests  StockRequest[] @relation("approvedRequests")
-  transfersRequested StockTransfer[] @relation("transfersRequested")
-  transfersApproved  StockTransfer[] @relation("transfersApproved")
-  platformSessions  PlatformAdminSession[]
-  purchaseOrders    PurchaseOrder[]
-  salesReturns      SalesReturn[]
+  // Relations
+  tenant                     Tenant?      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userOutlets                UserOutlet[]
+  userRoles                  UserRole[]
+  transactions               Transaction[]
+  shifts                     Shift[]
+  stockLedgers               StockLedger[]
+  submittedRequests          StockRequest[] @relation("submittedRequests")
+  approvedRequests           StockRequest[] @relation("approvedRequests")
+  transfersRequested         StockTransfer[] @relation("transfersRequested")
+  transfersApproved          StockTransfer[] @relation("transfersApproved")
+  platformSessions           PlatformAdminSession[]
+  purchaseOrders             PurchaseOrder[]
+  salesReturns               SalesReturn[]
 
   @@map("users")
 }
 
-// 3. Permission (Tabel Global / Sistem)
+// ----------------------------------------------------------------------------
+// 3. Permission (Global System Permissions)
+// ----------------------------------------------------------------------------
 model Permission {
   id          String   @id @default(uuid())
-  moduleName  String   // Nama modul, contoh: "products", "transactions"
-  name        String   @unique // Nama permission, contoh: "create:products", "view:transactions"
-  description String?  // Deskripsi tentang apa yang diizinkan oleh permission ini
+  moduleName  String   // Module identifier (e.g. "products", "transactions")
+  name        String   @unique // Permission key (e.g. "create:products", "view:transactions")
+  description String?  // Detailed capability description
 
-  // Relasi
+  // Relations
   rolePermissions RolePermission[]
 
   @@map("permissions")
 }
 
-// 4. Role (Peran Pengguna, bisa kustom per tenant atau global sistem)
+// ----------------------------------------------------------------------------
+// 4. Role (Tenant & System User Roles)
+// ----------------------------------------------------------------------------
 model Role {
   id          String   @id @default(uuid())
-  tenantId    String?  // Nullable untuk role bawaan sistem/global
+  tenantId    String?  // Nullable for global/system default roles
   name        String
   description String?
 
-  // Relasi
+  // Relations
   tenant          Tenant?          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   rolePermissions RolePermission[]
   userRoles       UserRole[]
 
-  // Nama role harus unik di dalam tenant yang sama
+  // Role name must be unique within the same tenant
   @@unique([tenantId, name])
   @@map("roles")
 }
 
-// 5. UserRole (Pivot untuk Relasi Many-to-Many antara User dan Role)
+// ----------------------------------------------------------------------------
+// 5. UserRole (Pivot Table: User to Role Many-to-Many)
+// ----------------------------------------------------------------------------
 model UserRole {
   id     String @id @default(uuid())
   userId String
   roleId String
 
-  // Relasi
+  // Relations
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
 
-  // Kombinasi User dan Role harus unik
   @@unique([userId, roleId])
   @@map("user_roles")
 }
 
-// 6. RolePermission (Pivot untuk Relasi Many-to-Many antara Role dan Permission)
+// ----------------------------------------------------------------------------
+// 6. RolePermission (Pivot Table: Role to Permission Many-to-Many)
+// ----------------------------------------------------------------------------
 model RolePermission {
   id           String @id @default(uuid())
   roleId       String
   permissionId String
 
-  // Relasi
+  // Relations
   role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
   permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
 
-  // Kombinasi Role dan Permission harus unik
   @@unique([roleId, permissionId])
   @@map("role_permissions")
 }
 
-// 7. Category (Kategori Produk per Tenant)
+// ----------------------------------------------------------------------------
+// 7. Category (Product Categories per Tenant)
+// ----------------------------------------------------------------------------
 model Category {
   id       String @id @default(uuid())
   tenantId String
@@ -198,48 +253,52 @@ model Category {
   slug     String
   prefix   String @default("CAT")
 
-  // Relasi
+  // Relations
   tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   products Product[]
 
-  // Slug kategori harus unik dalam satu tenant
+  // Category slug must be unique within the same tenant
   @@unique([tenantId, slug])
   @@map("categories")
 }
 
-// 8. Product (Produk/Barang Jualan per Tenant)
+// ----------------------------------------------------------------------------
+// 8. Product (Product Catalog per Tenant)
+// ----------------------------------------------------------------------------
 model Product {
   id            String    @id @default(uuid())
   tenantId      String
   categoryId    String
   name          String
-  sku           String    // Stock Keeping Unit (Kode Barang)
-  purchasePrice Decimal   @db.Decimal(12, 2) // Harga beli untuk perhitungan margin/HPP
-  sellingPrice  Decimal   @db.Decimal(12, 2) // Harga jual
+  sku           String    // Stock Keeping Unit identifier
+  purchasePrice Decimal   @db.Decimal(12, 2) // Purchase price for COGS / profit margin computation
+  sellingPrice  Decimal   @db.Decimal(12, 2) // Retail selling price
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
-  deletedAt     DateTime? // Indikator Soft Delete
+  deletedAt     DateTime? // Soft delete indicator
 
-  // Relasi
-  tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  category         Category          @relation(fields: [categoryId], references: [id], onDelete: Restrict) // Tidak boleh hapus kategori jika ada produk aktif
-  transactionItems TransactionItem[]
-  stockLedgers     StockLedger[]
-  stockRequests    StockRequest[]
-  images           ProductImage[]
-  outletStocks     OutletStock[]
+  // Relations
+  tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  category           Category            @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  transactionItems   TransactionItem[]
+  stockLedgers       StockLedger[]
+  stockRequests      StockRequest[]
+  images             ProductImage[]
+  outletStocks       OutletStock[]
   stockTransferItems StockTransferItem[]
-  outletPrices     OutletProductPrice[]
+  outletPrices       OutletProductPrice[]
   purchaseOrderItems PurchaseOrderItem[]
-  salesReturnItems SalesReturnItem[]
+  salesReturnItems   SalesReturnItem[]
 
-  // SKU harus unik di dalam tenant yang sama
+  // SKU must be unique within the same tenant
   @@unique([tenantId, sku])
   @@index([tenantId, categoryId])
   @@map("products")
 }
 
-// 8.5 ProductImage (Gambar Produk)
+// ----------------------------------------------------------------------------
+// 8.5 ProductImage (Product Images)
+// ----------------------------------------------------------------------------
 model ProductImage {
   id        String   @id @default(uuid())
   productId String
@@ -253,18 +312,20 @@ model ProductImage {
   @@map("product_images")
 }
 
-// 9. Transaction (Transaksi Penjualan per Tenant)
+// ----------------------------------------------------------------------------
+// 9. Transaction (Sales Transactions per Tenant)
+// ----------------------------------------------------------------------------
 model Transaction {
   id            String            @id @default(uuid())
   tenantId      String
-  userId        String            // Kasir atau user yang melakukan transaksi
-  shiftId       String?           // Shift kerja saat transaksi terjadi (opsional/backward-compat)
-  invoiceNumber String            // Nomor Invoice unik per tenant
-  subTotal      Decimal           @db.Decimal(12, 2) @default(0)
-  discount      Decimal           @db.Decimal(12, 2) @default(0)
-  tax           Decimal           @db.Decimal(12, 2) @default(0)
+  userId        String            // Cashier or user initiating transaction
+  shiftId       String?           // Active work shift ID (optional / backward-compat)
+  invoiceNumber String            // Unique invoice number per tenant
+  subTotal      Decimal           @default(0) @db.Decimal(12, 2)
+  discount      Decimal           @default(0) @db.Decimal(12, 2)
+  tax           Decimal           @default(0) @db.Decimal(12, 2)
   grandTotal    Decimal           @db.Decimal(12, 2)
-  paymentMethod String            @default("CASH")   // CASH atau QRIS
+  paymentMethod String            @default("CASH") // CASH, QRIS, etc.
   status        TransactionStatus @default(COMPLETED)
   outletId      String?
   createdAt     DateTime          @default(now())
@@ -272,49 +333,53 @@ model Transaction {
   customerId    String?
   qrisUrl       String?
 
-  // Relasi
-  tenant Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user   User              @relation(fields: [userId], references: [id], onDelete: Restrict)
-  shift  Shift?            @relation(fields: [shiftId], references: [id], onDelete: SetNull)
-  outlet Outlet?           @relation(fields: [outletId], references: [id], onDelete: SetNull)
-  items  TransactionItem[]
-  customer      Customer?         @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  // Relations
+  tenant        Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user          User                 @relation(fields: [userId], references: [id], onDelete: Restrict)
+  shift         Shift?               @relation(fields: [shiftId], references: [id], onDelete: SetNull)
+  outlet        Outlet?              @relation(fields: [outletId], references: [id], onDelete: SetNull)
+  items         TransactionItem[]
+  customer      Customer?            @relation(fields: [customerId], references: [id], onDelete: SetNull)
   payments      TransactionPayment[]
   salesReturns  SalesReturn[]
 
-  // Nomor invoice harus unik di dalam tenant yang sama
+  // Invoice number must be unique within the same tenant
   @@unique([tenantId, invoiceNumber])
   @@index([tenantId, outletId, createdAt])
   @@index([tenantId, status])
   @@map("transactions")
 }
 
-// 10. TransactionItem (Item Detail dari Transaksi)
+// ----------------------------------------------------------------------------
+// 10. TransactionItem (Detailed Line Items per Transaction)
+// ----------------------------------------------------------------------------
 model TransactionItem {
   id                 String   @id @default(uuid())
   transactionId      String
   productId          String
   quantity           Int
-  priceAtTransaction Decimal  @db.Decimal(12, 2) // Harga jual produk saat transaksi (snapshot harga)
-  costAtTransaction  Decimal? @db.Decimal(12, 2) // Harga beli / HPP produk saat transaksi (snapshot HPP untuk laba bersih)
+  priceAtTransaction Decimal  @db.Decimal(12, 2) // Selling price snapshot at transaction time
+  costAtTransaction  Decimal? @db.Decimal(12, 2) // Cost snapshot (COGS) at transaction time
   subtotal           Decimal  @db.Decimal(12, 2)
 
-  // Relasi
-  transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade) // Hapus item jika transaksi utama dihapus
-  product     Product     @relation(fields: [productId], references: [id], onDelete: Restrict) // Tidak boleh hapus produk jika sudah ada transaksi
+  // Relations
+  transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  product     Product     @relation(fields: [productId], references: [id], onDelete: Restrict)
 
   @@index([transactionId])
   @@index([productId])
   @@map("transaction_items")
 }
 
-// 10.5 TransactionPayment (Rincian Pembayaran Campuran / Split Payment)
+// ----------------------------------------------------------------------------
+// 10.5 TransactionPayment (Split & Mixed Payment Details)
+// ----------------------------------------------------------------------------
 model TransactionPayment {
   id              String   @id @default(uuid())
   transactionId   String
-  paymentMethod   String   // CASH, QRIS, DEBIT, TRANSFER, dll.
+  paymentMethod   String   // CASH, QRIS, DEBIT, TRANSFER, etc.
   amount          Decimal  @db.Decimal(12, 2)
-  referenceNumber String?  // Nomor referensi transaksi jika non-tunai
+  referenceNumber String?  // Reference number for non-cash transactions
   createdAt       DateTime @default(now())
 
   transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
@@ -323,22 +388,24 @@ model TransactionPayment {
   @@map("transaction_payments")
 }
 
-// 11. Shift Kerja Kasir
+// ----------------------------------------------------------------------------
+// 11. Shift (Cashier Work Shift Management)
+// ----------------------------------------------------------------------------
 model Shift {
   id           String      @id @default(uuid())
   tenantId     String
   userId       String
   startTime    DateTime    @default(now())
   endTime      DateTime?
-  cashStart    Decimal     @db.Decimal(12, 2)           // Modal awal yang dimasukkan kasir saat buka shift
-  cashExpected Decimal     @db.Decimal(12, 2) @default(0) // Total kas yang seharusnya ada (modal + penjualan tunai)
-  cashActual   Decimal?    @db.Decimal(12, 2)           // Uang fisik aktual yang dihitung kasir saat tutup shift
-  difference   Decimal?    @db.Decimal(12, 2)           // Selisih antara cashExpected dan cashActual
+  cashStart    Decimal     @db.Decimal(12, 2)           // Initial opening cash Float
+  cashExpected Decimal     @default(0) @db.Decimal(12, 2) // Expected total cash (float + cash sales)
+  cashActual   Decimal?    @db.Decimal(12, 2)           // Actual counted cash at shift close
+  difference   Decimal?    @db.Decimal(12, 2)           // Discrepancy (cashExpected vs cashActual)
   status       ShiftStatus @default(OPEN)
   outletId     String?
   createdAt    DateTime    @default(now())
 
-  // Relasi
+  // Relations
   tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   user         User          @relation(fields: [userId], references: [id], onDelete: Restrict)
   outlet       Outlet?       @relation(fields: [outletId], references: [id], onDelete: SetNull)
@@ -347,34 +414,25 @@ model Shift {
   @@map("shifts")
 }
 
-// 12. Stock Ledger (Kartu Stok / Mutasi Barang)
-// Jenis Mutasi Stok
-enum MutationType {
-  SALE             // Penjualan (otomatis dari checkout)
-  RESTOCK          // Penambahan stok dari pembelian
-  ADJUSTMENT_PLUS  // Penyesuaian stok tambah (ditemukan)
-  ADJUSTMENT_MINUS // Penyesuaian stok kurang (rusak/hilang)
-  RETURN           // Retur barang dari pelanggan
-  TRANSFER_IN      // Stok masuk dari transfer outlet
-  TRANSFER_OUT     // Stok keluar untuk transfer outlet
-}
-
+// ----------------------------------------------------------------------------
+// 12. StockLedger (Stock Audit Trail & Inventory Mutations)
+// ----------------------------------------------------------------------------
 model StockLedger {
-  id            String       @id @default(uuid())
-  tenantId      String
-  productId     String
-  userId        String       // User yang melakukan mutasi
-  transactionId String?      // Opsional: terhubung ke transaksi penjualan
-  type          MutationType
-  quantity      Int          // Positif = stok masuk, Negatif = stok keluar
-  stockBefore   Int          // Saldo stok sebelum mutasi
-  stockAfter    Int          // Saldo stok setelah mutasi
-  outletId      String?
+  id              String       @id @default(uuid())
+  tenantId        String
+  productId       String
+  userId          String       // User executing mutation
+  transactionId   String?      // Optional: linked sales transaction
+  type            MutationType
+  quantity        Int          // Positive = stock in, Negative = stock out
+  stockBefore     Int          // Stock balance before mutation
+  stockAfter      Int          // Stock balance after mutation
+  outletId        String?
   purchaseOrderId String?
-  note          String?      // Keterangan tambahan
-  createdAt     DateTime     @default(now())
+  note            String?      // Additional notes
+  createdAt       DateTime     @default(now())
 
-  // Relasi
+  // Relations
   tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   product       Product        @relation(fields: [productId], references: [id], onDelete: Restrict)
   user          User           @relation(fields: [userId], references: [id], onDelete: Restrict)
@@ -385,16 +443,18 @@ model StockLedger {
   @@map("stock_ledgers")
 }
 
-// 13. Customer (Database Pelanggan & Loyalty Points)
+// ----------------------------------------------------------------------------
+// 13. Customer (Customer Directory & Loyalty Program)
+// ----------------------------------------------------------------------------
 model Customer {
-  id           String   @id @default(uuid())
-  tenantId     String
-  name         String
-  phone        String?
-  email        String?
-  points       Int      @default(0)
-  debtBalance  Decimal  @db.Decimal(12, 2) @default(0) // Saldo hutang pelanggan
-  createdAt    DateTime @default(now())
+  id          String   @id @default(uuid())
+  tenantId    String
+  name        String
+  phone       String?
+  email       String?
+  points      Int      @default(0)
+  debtBalance Decimal  @default(0) @db.Decimal(12, 2) // Outstanding customer debt balance
+  createdAt   DateTime @default(now())
 
   tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   transactions Transaction[]
@@ -403,80 +463,72 @@ model Customer {
   @@map("customers")
 }
 
-// Status untuk StockRequest
-enum RequestStatus {
-  PENDING
-  APPROVED
-  REJECTED
-}
-
-// Model StockRequest untuk antrean approval stok
+// ----------------------------------------------------------------------------
+// 14. StockRequest (Stock Mutation Approval Queue)
+// ----------------------------------------------------------------------------
 model StockRequest {
-  id            String        @id @default(uuid())
-  tenantId      String
-  productId     String
-  userId        String        // Pengaju (Staf Gudang)
-  approvedById  String?       // Penyetuju (Owner/Manager)
-  type          MutationType  // Sesuai enum MutationType yang sudah ada
-  quantity      Int
-  note          String?
-  status        RequestStatus @default(PENDING)
-  outletId      String?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  id           String        @id @default(uuid())
+  tenantId     String
+  productId    String
+  userId       String        // Submitter (Warehouse Staff)
+  approvedById String?       // Approver (Owner / Manager)
+  type         MutationType
+  quantity     Int
+  note         String?
+  status       RequestStatus @default(PENDING)
+  outletId     String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
 
-  tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  product       Product       @relation(fields: [productId], references: [id], onDelete: Restrict)
-  user          User          @relation("submittedRequests", fields: [userId], references: [id], onDelete: Restrict)
-  approvedBy    User?         @relation("approvedRequests", fields: [approvedById], references: [id], onDelete: SetNull)
-  outlet        Outlet?       @relation(fields: [outletId], references: [id], onDelete: SetNull)
+  tenant     Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  product    Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+  user       User    @relation("submittedRequests", fields: [userId], references: [id], onDelete: Restrict)
+  approvedBy User?   @relation("approvedRequests", fields: [approvedById], references: [id], onDelete: SetNull)
+  outlet     Outlet? @relation(fields: [outletId], references: [id], onDelete: SetNull)
 
   @@map("stock_requests")
 }
 
-
-
-enum OutletType {
-  MAIN
-  BRANCH
-}
-
-// 15. Outlet (Cabang / Toko Multi-Outlet)
+// ----------------------------------------------------------------------------
+// 15. Outlet (Multi-Outlet & Branch Hierarchy)
+// ----------------------------------------------------------------------------
 model Outlet {
-  id             String        @id @default(uuid())
+  id             String     @id @default(uuid())
   tenantId       String
-  type           OutletType    @default(BRANCH)
+  type           OutletType @default(BRANCH)
   parentOutletId String?
   name           String
   code           String?
   address        String?
   phone          String?
-  isActive       Boolean       @default(true)
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  isActive       Boolean    @default(true)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
   deletedAt      DateTime?
 
-  tenant         Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  parentOutlet   Outlet?       @relation("OutletHierarchy", fields: [parentOutletId], references: [id], onDelete: Restrict)
-  branches       Outlet[]      @relation("OutletHierarchy")
-  userOutlets    UserOutlet[]
-  transactions   Transaction[]
-  shifts         Shift[]
-  stockLedgers   StockLedger[]
-  outletStocks   OutletStock[]
-  stockRequests  StockRequest[]
-  transfersFrom  StockTransfer[] @relation("transfersFrom")
-  transfersTo    StockTransfer[] @relation("transfersTo")
-  outletPrices   OutletProductPrice[]
-  purchaseOrders  PurchaseOrder[]
-  salesReturns    SalesReturn[]
+  tenant        Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  parentOutlet  Outlet?              @relation("OutletHierarchy", fields: [parentOutletId], references: [id], onDelete: Restrict)
+  branches      Outlet[]             @relation("OutletHierarchy")
+  userOutlets   UserOutlet[]
+  transactions  Transaction[]
+  shifts        Shift[]
+  stockLedgers  StockLedger[]
+  outletStocks  OutletStock[]
+  stockRequests StockRequest[]
+  transfersFrom StockTransfer[]      @relation("transfersFrom")
+  transfersTo   StockTransfer[]      @relation("transfersTo")
+  outletPrices  OutletProductPrice[]
+  purchaseOrders PurchaseOrder[]
+  salesReturns  SalesReturn[]
 
   @@unique([tenantId, code])
   @@index([tenantId, type])
   @@map("outlets")
 }
 
-// 15.5 UserOutlet (Relasi Many-to-Many antara User dan Outlet)
+// ----------------------------------------------------------------------------
+// 15.5 UserOutlet (Pivot Table: User to Outlet Access)
+// ----------------------------------------------------------------------------
 model UserOutlet {
   id       String @id @default(uuid())
   userId   String
@@ -489,14 +541,16 @@ model UserOutlet {
   @@map("user_outlets")
 }
 
-// 16. OutletStock (Stok Produk per Outlet)
+// ----------------------------------------------------------------------------
+// 16. OutletStock (Product Inventory Levels per Outlet)
+// ----------------------------------------------------------------------------
 model OutletStock {
-  id        String   @id @default(uuid())
+  id        String @id @default(uuid())
   tenantId  String
   outletId  String
   productId String
-  stock     Int      @default(0)
-  minStock  Int      @default(0)
+  stock     Int    @default(0)
+  minStock  Int    @default(0)
 
   tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   outlet  Outlet  @relation(fields: [outletId], references: [id], onDelete: Cascade)
@@ -506,85 +560,93 @@ model OutletStock {
   @@map("outlet_stocks")
 }
 
-enum TransferStatus {
-  DRAFT
-  IN_TRANSIT
-  COMPLETED
-  CANCELLED
-}
-
+// ----------------------------------------------------------------------------
+// 17. StockTransfer (Inter-Outlet Inventory Transfers)
+// ----------------------------------------------------------------------------
 model StockTransfer {
-  id             String         @id @default(uuid())
-  tenantId       String
-  fromOutletId   String
-  toOutletId     String
-  requestedById  String
-  approvedById   String?
-  status         TransferStatus @default(DRAFT)
-  note           String?
-  completedAt    DateTime?
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+  id            String         @id @default(uuid())
+  tenantId      String
+  fromOutletId  String
+  toOutletId    String
+  requestedById String
+  approvedById  String?
+  status        TransferStatus @default(DRAFT)
+  note          String?
+  completedAt   DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
 
-  tenant         Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  fromOutlet     Outlet         @relation("transfersFrom", fields: [fromOutletId], references: [id], onDelete: Restrict)
-  toOutlet       Outlet         @relation("transfersTo", fields: [toOutletId], references: [id], onDelete: Restrict)
-  requestedBy    User           @relation("transfersRequested", fields: [requestedById], references: [id], onDelete: Restrict)
-  approvedBy     User?          @relation("transfersApproved", fields: [approvedById], references: [id], onDelete: SetNull)
-  items          StockTransferItem[]
+  tenant      Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  fromOutlet  Outlet              @relation("transfersFrom", fields: [fromOutletId], references: [id], onDelete: Restrict)
+  toOutlet    Outlet              @relation("transfersTo", fields: [toOutletId], references: [id], onDelete: Restrict)
+  requestedBy User                @relation("transfersRequested", fields: [requestedById], references: [id], onDelete: Restrict)
+  approvedBy  User?               @relation("transfersApproved", fields: [approvedById], references: [id], onDelete: SetNull)
+  items       StockTransferItem[]
 
   @@map("stock_transfers")
 }
 
+// ----------------------------------------------------------------------------
+// 17.5 StockTransferItem (Detailed Items per Stock Transfer)
+// ----------------------------------------------------------------------------
 model StockTransferItem {
-  id         String        @id @default(uuid())
+  id         String @id @default(uuid())
   transferId String
   productId  String
   quantity   Int
 
-  transfer   StockTransfer @relation(fields: [transferId], references: [id], onDelete: Cascade)
-  product    Product       @relation(fields: [productId], references: [id], onDelete: Restrict)
+  transfer StockTransfer @relation(fields: [transferId], references: [id], onDelete: Cascade)
+  product  Product       @relation(fields: [productId], references: [id], onDelete: Restrict)
 
   @@unique([transferId, productId])
   @@map("stock_transfer_items")
 }
 
+// ----------------------------------------------------------------------------
+// 18. OutletProductPrice (Custom Tier Pricing per Outlet)
+// ----------------------------------------------------------------------------
 model OutletProductPrice {
-  id        String   @id @default(uuid())
+  id        String  @id @default(uuid())
   tenantId  String
   outletId  String
   productId String
-  price     Decimal  @db.Decimal(12, 2)
+  price     Decimal @db.Decimal(12, 2)
 
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  outlet    Outlet   @relation(fields: [outletId], references: [id], onDelete: Cascade)
-  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  outlet  Outlet  @relation(fields: [outletId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@unique([outletId, productId])
   @@map("outlet_product_prices")
 }
 
+// ----------------------------------------------------------------------------
+// 19. SubscriptionInvoice (Billing Invoices per Tenant)
+// ----------------------------------------------------------------------------
 model SubscriptionInvoice {
-  id              String             @id @default(uuid())
+  id              String           @id @default(uuid())
   tenantId        String
-  invoiceNumber   String             @unique
+  invoiceNumber   String           @unique
   tier            SubscriptionTier
-  amount          Decimal            @db.Decimal(12, 2)
-  status          String             // PENDING, PAID, FAILED, EXPIRED
-  paymentProvider String             @default("MIDTRANS")
+  amount          Decimal          @db.Decimal(12, 2)
+  status          String           // PENDING, PAID, FAILED, EXPIRED
+  paymentProvider String           @default("MIDTRANS")
   paymentToken    String?
   paymentUrl      String?
   paidAt          DateTime?
   expiredAt       DateTime
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 
-  tenant          Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, status])
   @@map("subscription_invoices")
 }
 
+// ----------------------------------------------------------------------------
+// 20. SubscriptionHistory (Subscription Audit Trail)
+// ----------------------------------------------------------------------------
 model SubscriptionHistory {
   id          String           @id @default(uuid())
   tenantId    String
@@ -595,11 +657,14 @@ model SubscriptionHistory {
   changedById String?
   createdAt   DateTime         @default(now())
 
-  tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@map("subscription_histories")
 }
 
+// ----------------------------------------------------------------------------
+// 21. PlatformAdminSession (SuperAdmin Active Impersonation Sessions)
+// ----------------------------------------------------------------------------
 model PlatformAdminSession {
   id             String   @id @default(uuid())
   platformUserId String
@@ -614,11 +679,14 @@ model PlatformAdminSession {
   @@map("platform_admin_sessions")
 }
 
+// ----------------------------------------------------------------------------
+// 22. PlatformAuditLog (SuperAdmin Activity & System Audit Logs)
+// ----------------------------------------------------------------------------
 model PlatformAuditLog {
   id          String   @id @default(uuid())
   actorUserId String
-  tenantId    String?  // tenant yang terdampak
-  action      String   // TENANT_SUSPEND, TIER_OVERRIDE, IMPERSONATE_START, ...
+  tenantId    String?  // Affected tenant ID (if applicable)
+  action      String   // TENANT_SUSPEND, TIER_OVERRIDE, IMPERSONATE_START, etc.
   metadata    Json?
   createdAt   DateTime @default(now())
 
@@ -627,67 +695,75 @@ model PlatformAuditLog {
   @@map("platform_audit_logs")
 }
 
+// ----------------------------------------------------------------------------
+// 23. Supplier (Supplier Directory per Tenant)
+// ----------------------------------------------------------------------------
 model Supplier {
-  id          String @id @default(uuid())
+  id          String    @id @default(uuid())
   tenantId    String
   name        String
   contactName String?
   phone       String?
   email       String?
   address     String?
-  createdAt   DateTime @default(now())
+  createdAt   DateTime  @default(now())
   updatedAt   DateTime? @updatedAt
   deletedAt   DateTime?
 
-  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   purchaseOrders PurchaseOrder[]
 
   @@map("suppliers")
 }
 
-enum POSstatus {
-  DRAFT
-  ORDERED
-  RECEIVED
-  CANCELLED
-}
-
+// ----------------------------------------------------------------------------
+// 24. PurchaseOrder (Supplier Purchase Orders)
+// ----------------------------------------------------------------------------
 model PurchaseOrder {
-  id          String  @id @default(uuid())
-  tenantId    String
-  supplierId  String
-  poNumber    String
-  status      POSstatus @default(DRAFT)
-  totalAmount Decimal @db.Decimal(12, 2) @default(0)
-  outletId   String?
-  createdById String
-  expectedDate  DateTime?
-  recievedDate  DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt 
-  
+  id           String      @id @default(uuid())
+  tenantId     String
+  supplierId   String
+  poNumber     String
+  status       POSstatus   @default(DRAFT)
+  totalAmount  Decimal     @default(0) @db.Decimal(12, 2)
+  outletId     String?
+  createdById  String
+  expectedDate DateTime?
+  recievedDate DateTime?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
   tenant       Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   supplier     Supplier            @relation(fields: [supplierId], references: [id], onDelete: Restrict)
   outlet       Outlet?             @relation(fields: [outletId], references: [id], onDelete: SetNull)
   createdBy    User                @relation(fields: [createdById], references: [id], onDelete: Restrict)
   items        PurchaseOrderItem[]
   stockLedgers StockLedger[]
+
   @@unique([tenantId, poNumber])
   @@map("purchase_orders")
 }
 
+// ----------------------------------------------------------------------------
+// 24.5 PurchaseOrderItem (Detailed Line Items per Purchase Order)
+// ----------------------------------------------------------------------------
 model PurchaseOrderItem {
   id              String        @id @default(uuid())
   purchaseOrderId String
   productId       String
   quantity        Int
-  costPrice       Decimal       @db.Decimal(12, 2) // Harga beli saat PO
+  costPrice       Decimal       @db.Decimal(12, 2) // Purchase price per unit at PO creation
   subTotal        Decimal       @db.Decimal(12, 2)
-  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
-  product       Product       @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  product         Product       @relation(fields: [productId], references: [id], onDelete: Restrict)
+
   @@map("purchase_order_items")
 }
 
+// ----------------------------------------------------------------------------
+// 25. SalesReturn (Customer Returns & Refunds)
+// ----------------------------------------------------------------------------
 model SalesReturn {
   id                String            @id @default(uuid())
   tenantId          String
@@ -711,6 +787,9 @@ model SalesReturn {
   @@map("sales_returns")
 }
 
+// ----------------------------------------------------------------------------
+// 25.5 SalesReturnItem (Detailed Line Items per Sales Return)
+// ----------------------------------------------------------------------------
 model SalesReturnItem {
   id            String      @id @default(uuid())
   salesReturnId String
@@ -719,8 +798,8 @@ model SalesReturnItem {
   refundPrice   Decimal     @db.Decimal(12, 2)
   subtotal      Decimal     @db.Decimal(12, 2)
 
-  salesReturn SalesReturn @relation(fields: [salesReturnId], references: [id], onDelete: Cascade)
-  product     Product     @relation(fields: [productId], references: [id], onDelete: Restrict)
+  salesReturn   SalesReturn @relation(fields: [salesReturnId], references: [id], onDelete: Cascade)
+  product       Product     @relation(fields: [productId], references: [id], onDelete: Restrict)
 
   @@map("sales_return_items")
 }

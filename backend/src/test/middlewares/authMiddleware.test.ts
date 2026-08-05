@@ -72,7 +72,6 @@ describe('authMiddleware - Runtime Payload Validation', () => {
       id: 'user-id-001',
       tenantId: 'tenant-id-001',
       roles: ['Kasir']
-      // missing name, email, permissions
     };
     const token = jwt.sign(invalidPayload, 'test-secret');
 

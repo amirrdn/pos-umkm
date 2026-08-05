@@ -1,18 +1,30 @@
 import { PrismaClient, Prisma } from '@prisma/client';
 import { tenantStorage, getSystemContext, tenantRlsTxStorage } from './tenantContext';
 
+/**
+ * ============================================================================
+ * PRISMA CLIENT & POSTGRESQL ROW-LEVEL SECURITY (RLS) MANAGEMENT
+ * ============================================================================
+ * Manages database connections, connection pooling limits, system context routing,
+ * tenant RLS session variable binding (`app.current_tenant_id`), and auto-injection
+ * of multi-tenant query filters across Prisma operations.
+ * ============================================================================
+ */
+
 const globalForPrisma = globalThis as unknown as { prisma?: TenantScopedPrismaClient };
 
-// Free-tier production: 3 koneksi cukup karena semua analytics query kini reuse tx yang sama.
-// Supabase free tier default max 5-10 direct connections; sisakan untuk tenantMiddleware.
+/**
+ * Connection pool limits tuned for production database host tiers.
+ */
 const APP_POOL_LIMIT = Number(process.env.PRISMA_APP_CONNECTION_LIMIT ?? 3);
 const SYSTEM_POOL_LIMIT = Number(process.env.PRISMA_SYSTEM_CONNECTION_LIMIT ?? 2);
 
 /**
- * Deteksi Supabase Pooler:
- * - Port 6543 = transaction mode (PgBouncer) → butuh pgbouncer=true, TIDAK support interactive tx.
- * - Port 5432 di pooler.supabase.com = session mode → aman untuk SET CONFIG & interactive tx.
- * JANGAN paksa port ke 6543; gunakan URL persis seperti yang di-set di env.
+ * Appends connection pool parameters and mode flags to database URL.
+ *
+ * @param url Target database connection string.
+ * @param limit Maximum connection pool size.
+ * @returns Formatted connection URL.
  */
 function datasourceWithPoolLimit(url: string | undefined, limit: number): string | undefined {
   if (!url) return undefined;
@@ -21,7 +33,6 @@ function datasourceWithPoolLimit(url: string | undefined, limit: number): string
     const isSupabasePooler = parsed.hostname.includes('pooler.supabase.com');
     const isTransactionModePort = parsed.port === '6543';
 
-    // Hanya set pgbouncer=true jika benar-benar transaction mode (port 6543).
     if (isSupabasePooler && isTransactionModePort) {
       parsed.searchParams.set('pgbouncer', 'true');
     }
@@ -39,7 +50,9 @@ function datasourceWithPoolLimit(url: string | undefined, limit: number): string
 
 let systemPrismaInstance: PrismaClient | undefined;
 
-/** Lazy — hindari dua Prisma engine di cold start (penting di Render 512MB). */
+/**
+ * Lazy initializer for System Prisma Client instance.
+ */
 function getSystemPrisma(): PrismaClient {
   if (!systemPrismaInstance) {
     systemPrismaInstance = new PrismaClient({
@@ -80,14 +93,13 @@ function runOnTenantRlsClient<T>(
 ): Promise<T> {
   const pinnedTx = tenantRlsTxStorage.getStore();
   if (pinnedTx && tenantStorage.getStore() === tenantId) {
-    // Pakai query() — delegate tx extended client re-enter extension → loop/OOM.
     return query(args) as Promise<T>;
   }
   return runWithTenantRlsSession(model, operation, args, tenantId) as Promise<T>;
 }
 
-/** set_config + query harus satu koneksi/tx.
- * Timeout default dinaikkan ke 30 detik untuk mengakomodasi query analytics berat di production.
+/**
+ * Binds `app.current_tenant_id` session variable in PostgreSQL transaction before query execution.
  */
 async function runWithTenantRlsSession(
   model: string,
@@ -247,7 +259,6 @@ async function executeRawWithTenant<T>(
     return callback(pinnedTx as PrismaTx);
   }
 
-  // Default timeout 30 detik — cukup untuk query analytics berat di production.
   const resolvedOptions: TenantTransactionOptions = {
     maxWait: options?.maxWait ?? 10_000,
     timeout: options?.timeout ?? 30_000,

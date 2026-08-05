@@ -1,13 +1,26 @@
+/// <reference types="node" />
+import 'dotenv/config';
 import { PrismaClient, POSstatus, TransactionStatus, MutationType } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
+/**
+ * ============================================================================
+ * SEEDING SCRIPT: AUGUST 2026 TRANSACTIONS & PURCHASE ORDERS
+ * ============================================================================
+ * Seeds purchase orders, supplier restocks, cashier sales transactions,
+ * and stock ledgers for demo accounts across August 2026.
+ * ============================================================================
+ */
 async function main() {
-  console.log('🌱 Memulai seeding data Transaksi Pembelian & Penjualan (Bulan Agustus 2026) untuk owner@tokoutama.com...');
+  console.log('🌱 Starting August 2026 Purchase & Sales Transaction seeding...');
 
-  // 1. Ambil User Owner & Tenant
+  /**
+   * 1. Retrieve Owner User & Tenant Context
+   */
+  const targetEmail = process.env.SEED_OWNER_EMAIL || 'owner@example.com';
   const user = await prisma.user.findUnique({
-    where: { email: 'owner@tokoutama.com' },
+    where: { email: targetEmail },
     include: {
       tenant: true,
       userOutlets: { include: { outlet: true } }
@@ -15,7 +28,7 @@ async function main() {
   });
 
   if (!user || !user.tenantId || !user.tenant) {
-    throw new Error('User owner@tokoutama.com atau Tenant [Toko Utama] tidak ditemukan. Jalankan seed utama terlebih dahulu.');
+    throw new Error(`User ${targetEmail} or associated Tenant not found. Please run primary seed first.`);
   }
 
   const tenantId: string = user.tenantId;
@@ -26,20 +39,24 @@ async function main() {
   console.log(`👤 User: ${user.name} (${userId})`);
   console.log(`🏪 Outlet ID: ${outletId}`);
 
-  // 2. Ambil Produk & Pelanggan
+  /**
+   * 2. Retrieve Product Catalog & Customer Directory
+   */
   const products = await prisma.product.findMany({
     where: { tenantId }
   });
 
   if (products.length === 0) {
-    throw new Error('Tidak ada produk ditemukan untuk tenant. Seeding produk terlebih dahulu.');
+    throw new Error('No products found for tenant. Please seed product catalog first.');
   }
 
   const customers = await prisma.customer.findMany({
     where: { tenantId }
   });
 
-  // 3. Seed Supplier untuk Toko Utama
+  /**
+   * 3. Seed Supplier Records for Toko Utama
+   */
   const suppliersData = [
     {
       id: 'sup-food-001',
@@ -79,16 +96,18 @@ async function main() {
     });
     seededSuppliers.push(sup);
   }
-  console.log(`🚚 ${seededSuppliers.length} Supplier berhasil di-seed.`);
+  console.log(`🚚 ${seededSuppliers.length} Suppliers seeded successfully.`);
 
-  // 4. SEED TRANSAKSI PEMBELIAN (PURCHASE ORDERS / STOK MASUK) - BULAN AGUSTUS 2026
-  console.log('📦 Seeding Transaksi Pembelian (Purchase Orders)...');
+  /**
+   * 4. Seed Purchase Orders & Restock Ledger Logs (August 2026)
+   */
+  console.log('📦 Seeding Purchase Orders (Stok Masuk)...');
 
   const purchaseOrderConfigs = [
     {
       poNumber: 'PO-20260802-001',
       day: 2,
-      supplier: seededSuppliers[2], // PT Kopi Nusantara
+      supplier: seededSuppliers[2],
       status: POSstatus.RECEIVED,
       items: [
         { product: products.find(p => p.sku === 'PROD-001') || products[0], qty: 100 },
@@ -98,7 +117,7 @@ async function main() {
     {
       poNumber: 'PO-20260805-002',
       day: 5,
-      supplier: seededSuppliers[0], // PT Food & Beverage
+      supplier: seededSuppliers[0],
       status: POSstatus.RECEIVED,
       items: [
         { product: products.find(p => p.sku === 'PROD-002') || products[1], qty: 80 },
@@ -108,7 +127,7 @@ async function main() {
     {
       poNumber: 'PO-20260809-003',
       day: 9,
-      supplier: seededSuppliers[1], // CV Sembako Jaya
+      supplier: seededSuppliers[1],
       status: POSstatus.RECEIVED,
       items: [
         { product: products.find(p => p.sku === 'PROD-004') || products[3], qty: 200 },
@@ -117,7 +136,7 @@ async function main() {
     {
       poNumber: 'PO-20260814-004',
       day: 14,
-      supplier: seededSuppliers[2], // PT Kopi Nusantara
+      supplier: seededSuppliers[2],
       status: POSstatus.RECEIVED,
       items: [
         { product: products.find(p => p.sku === 'PROD-001') || products[0], qty: 120 },
@@ -127,7 +146,7 @@ async function main() {
     {
       poNumber: 'PO-20260818-005',
       day: 18,
-      supplier: seededSuppliers[0], // PT Food & Beverage
+      supplier: seededSuppliers[0],
       status: POSstatus.RECEIVED,
       items: [
         { product: products.find(p => p.sku === 'PROD-002') || products[1], qty: 100 },
@@ -137,7 +156,7 @@ async function main() {
     {
       poNumber: 'PO-20260822-006',
       day: 22,
-      supplier: seededSuppliers[1], // CV Sembako Jaya
+      supplier: seededSuppliers[1],
       status: POSstatus.RECEIVED,
       items: [
         { product: products.find(p => p.sku === 'PROD-004') || products[3], qty: 250 },
@@ -146,7 +165,7 @@ async function main() {
     {
       poNumber: 'PO-20260826-007',
       day: 26,
-      supplier: seededSuppliers[2], // PT Kopi Nusantara
+      supplier: seededSuppliers[2],
       status: POSstatus.RECEIVED,
       items: [
         { product: products.find(p => p.sku === 'PROD-001') || products[0], qty: 150 },
@@ -155,7 +174,7 @@ async function main() {
     {
       poNumber: 'PO-20260829-008',
       day: 29,
-      supplier: seededSuppliers[0], // PT Food & Beverage
+      supplier: seededSuppliers[0],
       status: POSstatus.RECEIVED,
       items: [
         { product: products.find(p => p.sku === 'PROD-003') || products[2], qty: 50 },
@@ -165,7 +184,7 @@ async function main() {
     {
       poNumber: 'PO-20260831-009',
       day: 31,
-      supplier: seededSuppliers[1], // CV Sembako Jaya
+      supplier: seededSuppliers[1],
       status: POSstatus.ORDERED,
       items: [
         { product: products.find(p => p.sku === 'PROD-002') || products[1], qty: 60 },
@@ -175,9 +194,8 @@ async function main() {
 
   let poCount = 0;
   for (const poConf of purchaseOrderConfigs) {
-    const poDate = new Date(2026, 7, poConf.day, 10, 30, 0); // 7 = August (0-indexed)
+    const poDate = new Date(2026, 7, poConf.day, 10, 30, 0);
 
-    // Hitung total amount
     let totalAmount = 0;
     const itemRecords = poConf.items.map(it => {
       const costPrice = Number(it.product.purchasePrice);
@@ -191,7 +209,6 @@ async function main() {
       };
     });
 
-    // Check exist
     const existingPO = await prisma.purchaseOrder.findUnique({
       where: {
         tenantId_poNumber: {
@@ -202,7 +219,7 @@ async function main() {
     });
 
     if (existingPO) {
-      console.log(`⏩ PO ${poConf.poNumber} sudah ada, melewatinya.`);
+      console.log(`⏩ PO ${poConf.poNumber} already exists. Skipping.`);
       continue;
     }
 
@@ -225,10 +242,8 @@ async function main() {
       }
     });
 
-    // Jika status RECEIVED, tambahkan stok ke OutletStock dan catat ke StockLedger
     if (poConf.status === POSstatus.RECEIVED) {
       for (const it of itemRecords) {
-        // Ambil stok saat ini
         const outletStock = await prisma.outletStock.findUnique({
           where: {
             outletId_productId: {
@@ -241,7 +256,6 @@ async function main() {
         const currentStock = outletStock ? outletStock.stock : 0;
         const newStock = currentStock + it.quantity;
 
-        // Upsert OutletStock
         await prisma.outletStock.upsert({
           where: {
             outletId_productId: {
@@ -260,7 +274,6 @@ async function main() {
           }
         });
 
-        // Catat di StockLedger
         await prisma.stockLedger.create({
           data: {
             tenantId,
@@ -282,19 +295,20 @@ async function main() {
     poCount++;
   }
 
-  console.log(`✅ ${poCount} Transaksi Pembelian (Purchase Orders) Agustus 2026 berhasil di-seed!`);
+  console.log(`✅ ${poCount} Purchase Orders (August 2026) seeded successfully.`);
 
-  // 5. SEED TRANSAKSI PENJUALAN (SALES TRANSACTIONS / POS) - BULAN AGUSTUS 2026
-  console.log('🛒 Seeding Transaksi Penjualan (POS Checkout Transactions)...');
+  /**
+   * 5. Seed POS Checkout Sales Transactions (August 2026)
+   */
+  console.log('🛒 Seeding POS Checkout Sales Transactions (August 2026)...');
 
   let txCount = 0;
-  // Buat transaksi penjualan yang tersebar sepanjang bulan Agustus 2026
   for (let day = 1; day <= 31; day++) {
-    const transactionsPerDay = (day % 3) + 1; // 1-3 transaksi per hari
+    const transactionsPerDay = (day % 3) + 1;
 
     for (let t = 1; t <= transactionsPerDay; t++) {
       const invoiceNumber = `INV-202608${day.toString().padStart(2, '0')}-${t.toString().padStart(3, '0')}`;
-      const txDate = new Date(2026, 7, day, 8 + (t * 3), 15 + (t * 10), 0); // Agustus 2026
+      const txDate = new Date(2026, 7, day, 8 + (t * 3), 15 + (t * 10), 0);
 
       const existingTx = await prisma.transaction.findUnique({
         where: {
@@ -309,7 +323,6 @@ async function main() {
         continue;
       }
 
-      // Pilih 1 - 3 produk secara acak/berurutan
       const prodIndex1 = (day + t) % products.length;
       const prodIndex2 = (day + t + 2) % products.length;
       const selectedProducts = [products[prodIndex1]];
@@ -368,7 +381,6 @@ async function main() {
         }
       });
 
-      // Potong stok dan catat StockLedger (SALE)
       for (const it of itemsData) {
         const outletStock = await prisma.outletStock.findUnique({
           where: {
@@ -414,13 +426,13 @@ async function main() {
     }
   }
 
-  console.log(`✅ ${txCount} Transaksi Penjualan (Sales Transactions) Agustus 2026 berhasil di-seed!`);
-  console.log('🎉 Seeding data transaksi pembelian & penjualan bulan Agustus 2026 selesai dengan sukses!');
+  console.log(`✅ ${txCount} Sales transactions (August 2026) seeded successfully.`);
+  console.log('🎉 August 2026 Purchase & Sales Transaction seeding completed successfully!');
 }
 
 main()
   .catch((e) => {
-    console.error('❌ Terjadi kesalahan saat seeding transaksi:', e);
+    console.error('❌ Error during transaction seeding:', e);
     process.exit(1);
   })
   .finally(async () => {

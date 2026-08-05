@@ -166,7 +166,6 @@ export class AuthService {
           }
         });
 
-        // Delegate Default Roles and Permissions Creation to Service
         const roles = await TenantProvisioningService.provisionDefaultRoles(tx, tenant.id);
 
         const user = await tx.user.create({
@@ -251,11 +250,9 @@ export class AuthService {
       const hashedPassword = await bcrypt.hash(input.password, 10);
 
       const result = await prisma.$transaction(async (tx) => {
-        // Pastikan tenant ada
         const tenant = await tx.tenant.findUnique({ where: { id: input.tenantId } });
         if (!tenant) throw new RegistrationError('TENANT_NOT_FOUND', 'Tenant tidak ditemukan.', 404);
 
-        // Default role untuk staf yang mendaftar secara publik adalah Kasir
         const roleKasir = await tx.role.findFirst({
           where: { tenantId: tenant.id, name: 'Kasir' }
         });

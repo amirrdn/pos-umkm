@@ -102,7 +102,6 @@ export class SubscriptionService {
       ? PLATFORM_ADMIN_EFFECTIVE_LIMITS
       : TIER_LIMITS[tenant.subscriptionTier];
 
-    // Mengoptimalkan kueri dengan menjalankan count secara paralel
     const startOfMonth = new Date();
     startOfMonth.setDate(1);
     startOfMonth.setHours(0, 0, 0, 0);
@@ -239,7 +238,6 @@ export class SubscriptionService {
         },
       });
 
-      // 3. Nonaktifkan staf tambahan (Hanya sisakan 2 staf terlama yang APPROVED)
       const approvedStaff = await tx.user.findMany({
         where: {
           tenantId,

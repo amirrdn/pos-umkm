@@ -1,15 +1,25 @@
+/// <reference types="node" />
+import 'dotenv/config';
 import { PrismaClient, type Permission } from '@prisma/client';
 import bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
 
+/**
+ * ============================================================================
+ * PRIMARY SEEDING SCRIPT: SAAS POS SYSTEM FOUNDATION
+ * ============================================================================
+ * Seeds baseline tenant, default main outlet, global permissions, core RBAC
+ * roles (Platform Admin, Owner, Manager, Cashier, Warehouse Staff), demo users,
+ * product catalog with categories and stock levels, and customer directory.
+ * ============================================================================
+ */
 async function main() {
-  console.log('🌱 Memulai proses seeding database...');
+  console.log('🌱 Starting primary database seeding...');
 
-  // ==========================================
-  // a. SEEDING TENANT
-  // ==========================================
-  // Menggunakan ID statis agar sinkron dengan mock tenant di frontend/backend
+  /**
+   * 1. Seed Tenant Context
+   */
   const tenant = await prisma.tenant.upsert({
     where: { id: 'tenant-uuid-xyz-123' },
     update: {},
@@ -17,7 +27,7 @@ async function main() {
       id: 'tenant-uuid-xyz-123',
       name: 'Toko Utama',
       slug: 'toko-utama',
-      email: 'info@tokoutama.com',
+      email: process.env.SEED_TENANT_EMAIL || 'info@example.com',
       phone: '081234567890',
       status: 'ACTIVE',
       subscriptionTier: 'ENTERPRISE',
@@ -25,9 +35,11 @@ async function main() {
       subscriptionExpiresAt: new Date('2027-12-31T23:59:59Z')
     }
   });
-  console.log('🏢 Tenant [Toko Utama] berhasil di-seed.');
+  console.log('🏢 Tenant [Toko Utama] seeded successfully.');
 
-  // a.5 SEEDING DEFAULT OUTLET
+  /**
+   * 2. Seed Default Main Outlet
+   */
   await prisma.outlet.upsert({
     where: { id: 'outlet-default-uuid-111' },
     update: { type: 'MAIN' },
@@ -41,11 +53,11 @@ async function main() {
       phone: '021-5551234'
     }
   });
-  console.log('🏪 Default Outlet [Toko Utama Pusat] berhasil di-seed.');
+  console.log('🏪 Main Outlet [Toko Utama Pusat] seeded successfully.');
 
-  // ==========================================
-  // b. SEEDING PERMISSIONS (GLOBAL)
-  // ==========================================
+  /**
+   * 3. Seed Global Permissions Catalog
+   */
   const permissionsData = [
     {
       name: 'create-transaction',
@@ -108,11 +120,11 @@ async function main() {
     });
     permissions.push(perm);
   }
-  console.log(`🔑 ${permissions.length} Hak Akses (Permissions) berhasil di-seed.`);
+  console.log(`🔑 ${permissions.length} Global Permissions seeded successfully.`);
 
-  // ==========================================
-  // c. SEEDING ROLE PLATFORM ADMIN (pemilik aplikasi SaaS)
-  // ==========================================
+  /**
+   * 4. Seed Platform Admin Role & Permission Mappings
+   */
   const rolePlatformAdmin = await prisma.role.upsert({
     where: { id: 'role-platform-admin-uuid-001' },
     update: {},
@@ -139,11 +151,11 @@ async function main() {
       },
     });
   }
-  console.log('🛡️ Peran platform [Admin] dan pemetaan Hak Akses berhasil di-seed.');
+  console.log('🛡️ Platform Role [Admin] seeded successfully.');
 
-  // ==========================================
-  // d. SEEDING ROLE (OWNER) & HUBUNGKAN DENGAN PERMISSIONS
-  // ==========================================
+  /**
+   * 5. Seed Owner Role & Permission Mappings
+   */
   const roleOwner = await prisma.role.upsert({
     where: { id: 'role-owner-uuid-444' },
     update: {},
@@ -155,7 +167,6 @@ async function main() {
     }
   });
 
-  // Hubungkan Role Owner ke seluruh Permission yang telah dibuat
   for (const perm of permissions) {
     await prisma.rolePermission.upsert({
       where: {
@@ -171,9 +182,11 @@ async function main() {
       }
     });
   }
-  console.log('👑 Peran [Owner] dan pemetaan Hak Akses berhasil di-seed.');
+  console.log('👑 Tenant Role [Owner] seeded successfully.');
 
-  // Seeding Peran Kasir
+  /**
+   * 6. Seed Cashier Role & Permission Mappings
+   */
   const roleKasir = await prisma.role.upsert({
     where: { id: 'role-kasir-uuid-555' },
     update: {},
@@ -185,7 +198,6 @@ async function main() {
     }
   });
 
-  // Hubungkan Peran Kasir dengan permission 'create-transaction', 'view:products', 'view:customers', 'create:customers'
   const kasirPermissions = ['create-transaction', 'view:products', 'view:customers', 'create:customers'];
   for (const permName of kasirPermissions) {
     const matchedPerm = permissions.find(p => p.name === permName);
@@ -205,9 +217,11 @@ async function main() {
       });
     }
   }
-  console.log('Peran [Kasir] dan pemetaan Hak Akses berhasil di-seed.');
+  console.log('🛒 Tenant Role [Kasir] seeded successfully.');
 
-  // Seeding Peran Manager
+  /**
+   * 7. Seed Manager Role & Permission Mappings
+   */
   const roleManager = await prisma.role.upsert({
     where: { id: 'role-manager-uuid-666' },
     update: {},
@@ -219,7 +233,6 @@ async function main() {
     }
   });
 
-  // Hubungkan Manager ke semua permissions
   for (const perm of permissions) {
     await prisma.rolePermission.upsert({
       where: {
@@ -235,9 +248,11 @@ async function main() {
       }
     });
   }
-  console.log('Peran [Manager] dan pemetaan Hak Akses berhasil di-seed.');
+  console.log('👔 Tenant Role [Manager] seeded successfully.');
 
-  // Seeding Peran Staf Gudang
+  /**
+   * 8. Seed Warehouse Staff Role & Permission Mappings
+   */
   const roleStafGudang = await prisma.role.upsert({
     where: { id: 'role-staf-gudang-uuid-777' },
     update: {},
@@ -249,7 +264,6 @@ async function main() {
     }
   });
 
-  // Hubungkan Staf Gudang ke permission 'view:products', 'create:products', 'update:products'
   const gudangPermissions = ['view:products', 'create:products', 'update:products'];
   for (const permName of gudangPermissions) {
     const matchedPerm = permissions.find(p => p.name === permName);
@@ -269,14 +283,16 @@ async function main() {
       });
     }
   }
-  console.log('Peran [Staf Gudang] dan pemetaan Hak Akses berhasil di-seed.');
+  console.log('📦 Tenant Role [Staf Gudang] seeded successfully.');
 
-  // d. SEEDING USER (ADMIN/OWNER & KASIR)
+  /**
+   * 9. Seed Demo Users (Owner & Cashier Accounts)
+   */
   const hashedPassword = await bcrypt.hash('password123', 10);
   
-  // User Owner
+  const ownerEmail = process.env.SEED_OWNER_EMAIL || 'owner@example.com';
   const user = await prisma.user.upsert({
-    where: { email: 'owner@tokoutama.com' },
+    where: { email: ownerEmail },
     update: {
       password: hashedPassword,
       approvalStatus: 'APPROVED',
@@ -285,14 +301,13 @@ async function main() {
       id: 'user-admin-111',
       tenantId: tenant.id,
       name: 'Budi Owner',
-      email: 'owner@tokoutama.com',
+      email: ownerEmail,
       password: hashedPassword,
       isActive: true,
       approvalStatus: 'APPROVED',
     }
   });
 
-  // Hubungkan User Owner ke Role Owner
   await prisma.userRole.upsert({
     where: {
       userId_roleId: {
@@ -307,7 +322,6 @@ async function main() {
     }
   });
 
-  // Hubungkan User Owner ke Default Outlet
   await prisma.userOutlet.upsert({
     where: {
       userId_outletId: {
@@ -321,11 +335,11 @@ async function main() {
       outletId: 'outlet-default-uuid-111'
     }
   });
-  console.log('👤 Pengguna [Budi Owner] dan asosiasi Peran Owner serta Outlet berhasil di-seed.');
+  console.log('👤 Demo User [Owner] seeded successfully.');
 
-  // User Kasir
+  const kasirEmail = process.env.SEED_KASIR_EMAIL || 'kasir@example.com';
   const kasirUser = await prisma.user.upsert({
-    where: { email: 'kasir@tokoutama.com' },
+    where: { email: kasirEmail },
     update: {
       password: hashedPassword,
       approvalStatus: 'APPROVED',
@@ -334,14 +348,13 @@ async function main() {
       id: 'user-kasir-222',
       tenantId: tenant.id,
       name: 'Asep Kasir',
-      email: 'kasir@tokoutama.com',
+      email: kasirEmail,
       password: hashedPassword,
       isActive: true,
       approvalStatus: 'APPROVED',
     }
   });
 
-  // Hubungkan User Kasir ke Role Kasir
   await prisma.userRole.upsert({
     where: {
       userId_roleId: {
@@ -356,7 +369,6 @@ async function main() {
     }
   });
 
-  // Hubungkan User Kasir ke Default Outlet
   await prisma.userOutlet.upsert({
     where: {
       userId_outletId: {
@@ -370,13 +382,11 @@ async function main() {
       outletId: 'outlet-default-uuid-111'
     }
   });
-  console.log('👤 Pengguna [Asep Kasir] dan asosiasi Peran Kasir serta Outlet berhasil di-seed.');
+  console.log('👤 Demo User [Kasir] seeded successfully.');
 
-  // ==========================================
-  // e. SEEDING KATEGORI & PRODUK (SINKRON DENGAN FRONTEND)
-  // ==========================================
-  
-  // 1. Kategori
+  /**
+   * 10. Seed Product Categories & Product Catalog
+   */
   const catMinuman = await prisma.category.upsert({
     where: {
       tenantId_slug: { tenantId: tenant.id, slug: 'minuman' },
@@ -410,10 +420,8 @@ async function main() {
       prefix: 'MKN',
     },
   });
-  console.log('📂 Kategori produk [Makanan] & [Minuman] berhasil di-seed.');
+  console.log('📂 Product Categories [Food & Beverage] seeded successfully.');
 
-  // 2. Produk (Menggunakan UUID yang sama dengan frontend PosView.tsx)
-  // Produk demo — stok hanya di OutletStock
   const productsData = [
     {
       id: 'e281bbcf-71d5-451e-9276-2e8df31cf81f',
@@ -503,9 +511,11 @@ async function main() {
       },
     });
   }
-  console.log(`📦 ${productsData.length} Data Produk & OutletStock berhasil di-seed.`);
+  console.log(`📦 ${productsData.length} Product records & OutletStock balances seeded successfully.`);
 
-  // Seed default product images
+  /**
+   * 11. Seed Product Images
+   */
   const defaultImages = [
     {
       id: 'img-prod-001',
@@ -549,10 +559,11 @@ async function main() {
       create: img
     });
   }
-  console.log('🖼️ Gambar default produk berhasil di-seed.');
+  console.log('🖼️ Default Product Images seeded successfully.');
 
-  // f. SEEDING CUSTOMERS
-  console.log('👥 Seeding data pelanggan...');
+  /**
+   * 12. Seed Customer Directory
+   */
   const customersData = [
     {
       id: 'cust-uuid-111',
@@ -589,16 +600,15 @@ async function main() {
       create: cust
     });
   }
-  console.log(`👥 ${customersData.length} Pelanggan berhasil di-seed.`);
-  console.log('✅ Proses seeding database selesai dengan sukses! 🎉');
+  console.log(`👥 ${customersData.length} Customer records seeded successfully.`);
+  console.log('🎉 Primary database seeding completed successfully!');
 }
 
 main()
   .catch((e) => {
-    console.error('❌ Terjadi kesalahan saat seeding database:', e);
+    console.error('❌ Error during primary database seeding:', e);
     process.exit(1);
   })
   .finally(async () => {
-    // Putuskan hubungan koneksi Prisma Client
     await prisma.$disconnect();
   });

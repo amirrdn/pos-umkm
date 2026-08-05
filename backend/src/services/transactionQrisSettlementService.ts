@@ -3,14 +3,30 @@ import { logWarn } from '../lib/logger';
 import { incrementOutletStock } from '../domain/inventory/stock.repository';
 import { MidtransService } from './midtransService';
 
+/**
+ * ============================================================================
+ * SERVICE: QRIS PAYMENT SETTLEMENT & VOID SERVICE
+ * ============================================================================
+ * Handles asynchronous QRIS payment lifecycle transitions:
+ * settlement (PENDING → COMPLETED), cancellation/expiry (PENDING → VOID with stock
+ * reversion), and Midtrans polling for real-time payment status synchronization.
+ * ============================================================================
+ */
+
 export const QRIS_FAILURE_STATUSES = ['expire', 'cancel', 'deny'] as const;
 
+/**
+ * Returns true when a Midtrans status string indicates a failed/cancelled QRIS payment.
+ */
 export function isQrisFailureStatus(status: string): boolean {
   return (QRIS_FAILURE_STATUSES as readonly string[]).includes(status);
 }
 
 /**
- * Menyelesaikan transaksi QRIS PENDING → COMPLETED dan menulis ledger stok.
+ * Settles a PENDING QRIS transaction to COMPLETED status.
+ * Stock was already decremented at checkout (reservation); no additional stock mutation needed.
+ *
+ * @param params.transactionId Target transaction ID.
  */
 export async function completeQrisSettlement(params: {
   transactionId: string;
@@ -28,15 +44,19 @@ export async function completeQrisSettlement(params: {
       include: { items: true },
     });
 
+    /**
+     * Stock was already decremented at checkout (reservation).
+     * No further stock deduction is needed at settlement.
+     */
     if (!transactionWithItems) return;
-
-    // Stok sudah dipotong saat proses checkout awal (reservasi).
-    // Tidak perlu memotong stok lagi di sini.
   }, { maxWait: 15000, timeout: 30000 });
 }
 
 /**
- * Membatalkan transaksi QRIS PENDING → VOID.
+ * Voids a PENDING QRIS transaction and reverts outlet stock for each reserved item.
+ * Logs a RETURN StockLedger record per item for auditability.
+ *
+ * @param transactionId Target transaction ID.
  */
 export async function voidQrisTransaction(transactionId: string): Promise<void> {
   await prisma.$transaction(async (tx) => {
@@ -76,7 +96,12 @@ export async function voidQrisTransaction(transactionId: string): Promise<void> 
 }
 
 /**
- * Sinkronkan status PENDING dari Midtrans API (dipakai polling frontend).
+ * Polls Midtrans API for current QRIS payment status and advances transaction lifecycle accordingly.
+ * Used by frontend polling to detect settlement or cancellation in near-real-time.
+ *
+ * @param params.transactionId Internal transaction ID.
+ * @param params.invoiceNumber Midtrans order ID used to query payment status.
+ * @returns Resolved payment state: COMPLETED, VOID, or PENDING.
  */
 export async function syncPendingQrisFromMidtrans(params: {
   transactionId: string;

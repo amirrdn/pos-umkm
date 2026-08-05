@@ -1,13 +1,26 @@
+/// <reference types="node" />
+import 'dotenv/config';
 import { PrismaClient, POSstatus, TransactionStatus, MutationType } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
+/**
+ * ============================================================================
+ * SEEDING SCRIPT: 30-DAY SINGLE-TENANT DEMO TRANSACTIONS
+ * ============================================================================
+ * Seeds 30-day transactional history, purchase orders, supplier directory,
+ * low-stock thresholds, and sales items for demo accounts.
+ * ============================================================================
+ */
 async function main() {
-  console.log('🌱 Memulai seeding data dummy 30 hari terakhir (3 Juli 2026 - 1 Agustus 2026) untuk owner@tokoutama.com...');
+  console.log('🌱 Starting 30-day dummy data seeding (July 3 - August 1, 2026)...');
 
-  // 1. Ambil User Owner & Tenant
+  /**
+   * 1. Retrieve Owner User & Tenant Context
+   */
+  const targetEmail = process.env.SEED_OWNER_EMAIL || 'owner@example.com';
   const user = await prisma.user.findUnique({
-    where: { email: 'owner@tokoutama.com' },
+    where: { email: targetEmail },
     include: {
       tenant: true,
       userOutlets: { include: { outlet: true } }
@@ -15,7 +28,7 @@ async function main() {
   });
 
   if (!user || !user.tenantId || !user.tenant) {
-    throw new Error('User owner@tokoutama.com atau Tenant tidak ditemukan.');
+    throw new Error(`User ${targetEmail} or associated Tenant not found.`);
   }
 
   const tenantId: string = user.tenantId;
@@ -26,20 +39,24 @@ async function main() {
   console.log(`👤 User: ${user.name} (${userId})`);
   console.log(`🏪 Outlet ID: ${outletId}`);
 
-  // 2. Ambil Produk & Pelanggan
+  /**
+   * 2. Retrieve Product Catalog & Customer Directory
+   */
   const products = await prisma.product.findMany({
     where: { tenantId }
   });
 
   if (products.length === 0) {
-    throw new Error('Tidak ada produk ditemukan untuk tenant.');
+    throw new Error('No products found for tenant.');
   }
 
   const customers = await prisma.customer.findMany({
     where: { tenantId }
   });
 
-  // 3. Pastikan Supplier Terseed
+  /**
+   * 3. Seed Supplier Records
+   */
   const suppliersData = [
     {
       id: 'sup-food-001',
@@ -80,16 +97,17 @@ async function main() {
     seededSuppliers.push(sup);
   }
 
-  // 4. ATUR STOK MINIMAL & ALERT STOK RENDAH
-  console.log('⚠️ Mengatur Stok Rendah pada beberapa produk...');
+  /**
+   * 4. Configure Low Stock Thresholds for Testing Alert Widgets
+   */
+  console.log('⚠️ Setting low stock thresholds for sample products...');
   if (products.length >= 2) {
-    // Produk 1: Stok rendah (stok 4, minStock 15)
     await prisma.outletStock.upsert({
       where: { outletId_productId: { outletId, productId: products[0].id } },
       update: { stock: 4, minStock: 15 },
       create: { tenantId, outletId, productId: products[0].id, stock: 4, minStock: 15 }
     });
-    // Produk 2: Stok rendah (stok 3, minStock 10)
+
     await prisma.outletStock.upsert({
       where: { outletId_productId: { outletId, productId: products[1].id } },
       update: { stock: 3, minStock: 10 },
@@ -97,14 +115,16 @@ async function main() {
     });
   }
 
-  // 5. SEED TRANSAKSI PEMBELIAN (PURCHASE ORDERS) DI BULAN JULI & AGUSTUS
-  console.log('📦 Seeding Transaksi Pembelian (Purchase Orders)...');
+  /**
+   * 5. Seed Purchase Orders for Restocking History (July & August 2026)
+   */
+  console.log('📦 Seeding Purchase Orders...');
   const poDates = [
-    { day: 5, month: 6, year: 2026, num: 'PO-20260705-001' },  // 5 Juli 2026 (month 6 = July 0-indexed)
-    { day: 12, month: 6, year: 2026, num: 'PO-20260712-002' }, // 12 Juli 2026
-    { day: 19, month: 6, year: 2026, num: 'PO-20260719-003' }, // 19 Juli 2026
-    { day: 26, month: 6, year: 2026, num: 'PO-20260726-004' }, // 26 Juli 2026
-    { day: 1, month: 7, year: 2026, num: 'PO-20260801-005' },  // 1 Agustus 2026
+    { day: 5, month: 6, year: 2026, num: 'PO-20260705-001' },
+    { day: 12, month: 6, year: 2026, num: 'PO-20260712-002' },
+    { day: 19, month: 6, year: 2026, num: 'PO-20260719-003' },
+    { day: 26, month: 6, year: 2026, num: 'PO-20260726-004' },
+    { day: 1, month: 7, year: 2026, num: 'PO-20260801-005' },
   ];
 
   for (const p of poDates) {
@@ -162,24 +182,24 @@ async function main() {
     }
   }
 
-  // 6. SEED TRANSAKSI PENJUALAN UNTUK 30 HARI TERAKHIR (3 JULI 2026 - 1 AGUSTUS 2026)
-  console.log('🛒 Seeding Transaksi Penjualan (30 Hari Terakhir: 3 Juli - 1 Agustus 2026)...');
+  /**
+   * 6. Seed 30-Day Daily Sales Transactions (July 3 - August 1, 2026)
+   */
+  console.log('🛒 Seeding Sales Transactions (July 3 - August 1, 2026)...');
 
-  // Rentang tanggal: 3 Juli 2026 s.d. 1 Agustus 2026
-  const startDate = new Date(2026, 6, 3); // 3 Juli 2026 (0-indexed month 6)
-  const endDate = new Date(2026, 7, 1);   // 1 Agustus 2026 (0-indexed month 7)
+  const startDate = new Date(2026, 6, 3);
+  const endDate = new Date(2026, 7, 1);
 
   let currentDate = new Date(startDate);
   let totalTxSeeded = 0;
 
   while (currentDate <= endDate) {
     const year = currentDate.getFullYear();
-    const month = currentDate.getMonth(); // 6=July, 7=August
+    const month = currentDate.getMonth();
     const day = currentDate.getDate();
 
-    // Hari ini (1 Agustus) buat lebih banyak transaksi (8-12 transaksi) agar Omset Hari Ini naik signifikan
     const isToday = (month === 7 && day === 1);
-    const txPerDay = isToday ? 10 : (day % 4) + 3; // 3 - 6 transaksi per hari untuk Juli
+    const txPerDay = isToday ? 10 : (day % 4) + 3;
 
     const monthStr = (month + 1).toString().padStart(2, '0');
     const dayStr = day.toString().padStart(2, '0');
@@ -198,7 +218,6 @@ async function main() {
         continue;
       }
 
-      // Pilih 1 - 3 produk untuk setiap transaksi
       const p1 = products[(day + t) % products.length];
       const p2 = products[(day + t + 1) % products.length];
       const selectedProds = [p1];
@@ -208,7 +227,7 @@ async function main() {
 
       let subTotal = 0;
       const itemsData = selectedProds.map(p => {
-        const qty = (t % 3) + 1; // 1-3 pcs
+        const qty = (t % 3) + 1;
         const price = Number(p.sellingPrice);
         const cost = Number(p.purchasePrice);
         const itemSubtotal = price * qty;
@@ -257,7 +276,6 @@ async function main() {
         }
       });
 
-      // Catat Mutasi Stok di StockLedger
       for (const it of itemsData) {
         await prisma.stockLedger.create({
           data: {
@@ -279,17 +297,16 @@ async function main() {
       totalTxSeeded++;
     }
 
-    // Lanjut ke hari berikutnya
     currentDate.setDate(currentDate.getDate() + 1);
   }
 
-  console.log(`✅ ${totalTxSeeded} Transaksi Penjualan (3 Juli - 1 Agustus 2026) berhasil di-seed!`);
-  console.log('🎉 Seeding data dummy 30 hari terakhir selesai dengan sukses!');
+  console.log(`✅ ${totalTxSeeded} Sales transactions (July 3 - August 1, 2026) seeded successfully.`);
+  console.log('🎉 30-day dummy data seeding completed successfully!');
 }
 
 main()
   .catch((e) => {
-    console.error('❌ Terjadi kesalahan saat seeding data 30 hari:', e);
+    console.error('❌ Error during 30-day seeding:', e);
     process.exit(1);
   })
   .finally(async () => {

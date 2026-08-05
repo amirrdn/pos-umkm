@@ -2,6 +2,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SubscriptionTier, SubscriptionStatus } from '@prisma/client';
 import { tenantId, userId } from '../helpers/http';
 
+/**
+ * Hoisted mock factory for Prisma client used across all SubscriptionService tests.
+ * Provides isolated transaction mock (mockTx) and top-level Prisma instance (mockPrisma).
+ */
 const { mockTx, mockPrisma } = vi.hoisted(() => {
   const tx = {
     tenant: {
@@ -89,12 +93,10 @@ describe('SubscriptionService', () => {
         lastBillingAt: null,
       });
 
-      // Mock counts below limits
       mockPrisma.product.count.mockResolvedValue(10);
       mockPrisma.outlet.count.mockResolvedValue(0);
       mockPrisma.user.count.mockResolvedValue(1);
       mockPrisma.transaction.count.mockResolvedValue(50);
-      // Mock for reconcileTenantSubscription if it's called
       mockPrisma.subscriptionInvoice.findFirst.mockResolvedValue(null);
 
       const details = await SubscriptionService.getSubscriptionDetails(tenantId);
@@ -122,7 +124,6 @@ describe('SubscriptionService', () => {
       mockPrisma.outlet.count.mockResolvedValue(0);
       mockPrisma.user.count.mockResolvedValue(0);
       mockPrisma.transaction.count.mockResolvedValue(0);
-      // Mock for reconcileTenantSubscription if it's called
       mockPrisma.subscriptionInvoice.findFirst.mockResolvedValue(null);
 
       await SubscriptionService.getSubscriptionDetails(tenantId, undefined, {
@@ -147,7 +148,6 @@ describe('SubscriptionService', () => {
       mockPrisma.outlet.count.mockResolvedValue(5);
       mockPrisma.user.count.mockResolvedValue(10);
       mockPrisma.transaction.count.mockResolvedValue(500);
-      // Mock for reconcileTenantSubscription if it's called
       mockPrisma.subscriptionInvoice.findFirst.mockResolvedValue(null);
 
       const details = await SubscriptionService.getSubscriptionDetails(tenantId, {
@@ -171,12 +171,16 @@ describe('SubscriptionService', () => {
         lastBillingAt: null,
       });
 
-      // Products: 27/30 (90% -> near limit), Outlets: 1/1 (full), Staff: 2/2 (full)
+      /**
+       * Products: 27/30 (90% → near limit)
+       * Outlets: 1/1 (full)
+       * Staff: 2/2 (full)
+       * Transactions: 150/150 (full)
+       */
       mockPrisma.product.count.mockResolvedValue(27);
       mockPrisma.outlet.count.mockResolvedValue(1);
       mockPrisma.user.count.mockResolvedValue(2);
       mockPrisma.transaction.count.mockResolvedValue(150);
-      // Mock for reconcileTenantSubscription if it's called
       mockPrisma.subscriptionInvoice.findFirst.mockResolvedValue(null);
 
       const details = await SubscriptionService.getSubscriptionDetails(tenantId);
@@ -203,7 +207,6 @@ describe('SubscriptionService', () => {
         subscriptionExpiresAt: null,
         lastBillingAt: null,
       });
-      // Mock for reconcileTenantSubscription if it's called within checkLimit functions
       mockPrisma.subscriptionInvoice.findFirst.mockResolvedValue(null);
     });
 
@@ -350,7 +353,6 @@ describe('SubscriptionService', () => {
         },
       });
 
-      // Deactivate branch outlets
       expect(mockTx.outlet.updateMany).toHaveBeenCalledWith({
         where: {
           tenantId,
@@ -362,7 +364,10 @@ describe('SubscriptionService', () => {
         },
       });
 
-      // Staf 3 and 4 should be updated to PENDING (since staff limit on FREE is 2)
+      /**
+       * Staff limit on FREE tier is 2.
+       * staff-3 and staff-4 (joined later) should be set to PENDING status.
+       */
       expect(mockTx.user.updateMany).toHaveBeenCalledWith({
         where: {
           id: { in: ['staff-3', 'staff-4'] },
@@ -372,7 +377,6 @@ describe('SubscriptionService', () => {
         },
       });
 
-      // History log created
       expect(mockTx.subscriptionHistory.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
           tenantId,

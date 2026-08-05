@@ -52,18 +52,18 @@ function buildVerificationUrl(token: string): string {
 
 export async function issueEmailVerificationToken(userId: string): Promise<string> {
   return runInSystemContext('auth', async () => {
-  const token = crypto.randomBytes(TOKEN_BYTES).toString('hex');
-  const expiresAt = new Date(Date.now() + TOKEN_TTL_MS);
+    const token = crypto.randomBytes(TOKEN_BYTES).toString('hex');
+    const expiresAt = new Date(Date.now() + TOKEN_TTL_MS);
 
-  await prisma.user.update({
-    where: { id: userId },
-    data: {
-      emailVerificationToken: token,
-      emailVerificationExpiresAt: expiresAt,
-    },
-  });
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        emailVerificationToken: token,
+        emailVerificationExpiresAt: expiresAt,
+      },
+    });
 
-  return token;
+    return token;
   });
 }
 
@@ -116,16 +116,16 @@ export async function sendAccountVerificationEmail(input: {
       text,
       ...(useResendTemplate && templateId
         ? {
-            template: {
-              id: templateId,
-              variables: {
-                USER_NAME: input.name,
-                VERIFY_URL: verifyUrl,
-                EXPIRES_IN_HOURS: String(VERIFICATION_EXPIRES_HOURS),
-                APP_NAME,
-              },
+          template: {
+            id: templateId,
+            variables: {
+              USER_NAME: input.name,
+              VERIFY_URL: verifyUrl,
+              EXPIRES_IN_HOURS: String(VERIFICATION_EXPIRES_HOURS),
+              APP_NAME,
             },
-          }
+          },
+        }
         : {}),
     });
 
@@ -143,56 +143,55 @@ export async function sendAccountVerificationEmail(input: {
 
 export async function verifyEmailToken(token: string): Promise<{ email: string; name: string }> {
   return runInSystemContext('auth', async () => {
-  const user = await prisma.user.findFirst({
-    where: {
-      emailVerificationToken: token,
-      deletedAt: null,
-    },
-  });
+    const user = await prisma.user.findFirst({
+      where: {
+        emailVerificationToken: token,
+        deletedAt: null,
+      },
+    });
 
-  if (!user) {
-    throw new Error('Token verifikasi tidak valid atau sudah digunakan.');
-  }
+    if (!user) {
+      throw new Error('Token verifikasi tidak valid atau sudah digunakan.');
+    }
 
-  if (!user.emailVerificationExpiresAt || user.emailVerificationExpiresAt < new Date()) {
-    throw new Error('Token verifikasi sudah kedaluwarsa. Silakan minta kirim ulang email verifikasi.');
-  }
+    if (!user.emailVerificationExpiresAt || user.emailVerificationExpiresAt < new Date()) {
+      throw new Error('Token verifikasi sudah kedaluwarsa. Silakan minta kirim ulang email verifikasi.');
+    }
 
-  if (user.emailVerifiedAt) {
+    if (user.emailVerifiedAt) {
+      return { email: user.email, name: user.name };
+    }
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        emailVerifiedAt: new Date(),
+        emailVerificationToken: null,
+        emailVerificationExpiresAt: null,
+      },
+    });
+
     return { email: user.email, name: user.name };
-  }
-
-  await prisma.user.update({
-    where: { id: user.id },
-    data: {
-      emailVerifiedAt: new Date(),
-      emailVerificationToken: null,
-      emailVerificationExpiresAt: null,
-    },
-  });
-
-  return { email: user.email, name: user.name };
   });
 }
 
 export async function resendVerificationEmail(email: string): Promise<void> {
   return runInSystemContext('auth', async () => {
-  const normalized = normalizeAuthEmail(email);
-  const user = await prisma.user.findFirst({
-    where: { email: { equals: normalized, mode: 'insensitive' }, deletedAt: null },
-  });
+    const normalized = normalizeAuthEmail(email);
+    const user = await prisma.user.findFirst({
+      where: { email: { equals: normalized, mode: 'insensitive' }, deletedAt: null },
+    });
 
-  if (!user) {
-    // Jangan bocorkan apakah email terdaftar
-    return;
-  }
+    if (!user) {
+      return;
+    }
 
-  if (user.emailVerifiedAt) {
-    throw new Error('Email sudah diverifikasi. Silakan masuk ke akun Anda.');
-  }
+    if (user.emailVerifiedAt) {
+      throw new Error('Email sudah diverifikasi. Silakan masuk ke akun Anda.');
+    }
 
-  const token = await issueEmailVerificationToken(user.id);
-  await sendAccountVerificationEmail({ email: user.email, name: user.name, token });
+    const token = await issueEmailVerificationToken(user.id);
+    await sendAccountVerificationEmail({ email: user.email, name: user.name, token });
   });
 }
 

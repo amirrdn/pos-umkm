@@ -92,10 +92,6 @@ app.use('/api/auth/google', authLimiter);
 
 app.use('/api', apiRateLimiter);
 
-// ==========================================
-// DAFTAR ROUTE APLIKASI
-// ==========================================
-
 app.get('/health', async (_req, res) => {
   const redisOk = await pingRedis();
   res.status(200).json({

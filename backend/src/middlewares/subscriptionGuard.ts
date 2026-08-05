@@ -33,7 +33,7 @@ export async function checkSubscriptionStatus(req: Request, res: Response, next:
             platformAdminBypass = isPlatformAdmin(validated.roles);
           }
         } catch {
-          // Validasi token utama dilakukan oleh authMiddleware
+          // Validasi token from middleware already verified in authMiddleware
         }
       }
     }
@@ -51,7 +51,6 @@ export async function checkSubscriptionStatus(req: Request, res: Response, next:
       return next();
     }
 
-    // Global guard berjalan sebelum tenantMiddleware — bootstrap RLS via where.id.
     const tenant = await prisma.tenant.findUnique({
       where: { id: tenantId },
       select: { subscriptionStatus: true, subscriptionExpiresAt: true },

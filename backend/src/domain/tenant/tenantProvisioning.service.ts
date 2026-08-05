@@ -1,8 +1,20 @@
 import { PrismaTx } from '../../lib/prisma';
 
+/**
+ * ============================================================================
+ * SERVICE: TENANT PROVISIONING SERVICE
+ * ============================================================================
+ * Provisions baseline RBAC roles (Owner, Manager, Staf Gudang, Kasir) and maps
+ * appropriate permissions for newly onboarded tenants.
+ * ============================================================================
+ */
 export class TenantProvisioningService {
   /**
-   * Initializes default roles and permissions for a newly created Tenant.
+   * Provisions default RBAC roles and permission mappings for a new tenant.
+   *
+   * @param tx Active Prisma transaction context.
+   * @param tenantId The unique identifier of the tenant being provisioned.
+   * @returns Map of role names to created Role IDs.
    */
   static async provisionDefaultRoles(
     tx: PrismaTx,
@@ -10,7 +22,9 @@ export class TenantProvisioningService {
   ): Promise<Record<string, string>> {
     const permissions = await tx.permission.findMany();
     
-    // Create Owner role
+    /**
+     * 1. Provision Owner Role (Full Tenant Access)
+     */
     const roleOwner = await tx.role.create({
       data: {
         tenantId,
@@ -24,7 +38,9 @@ export class TenantProvisioningService {
     }));
     await tx.rolePermission.createMany({ data: ownerPermissionsData });
 
-    // Create Manager role
+    /**
+     * 2. Provision Manager Role (Full Operational Access)
+     */
     const roleManager = await tx.role.create({
       data: {
         tenantId,
@@ -38,7 +54,9 @@ export class TenantProvisioningService {
     }));
     await tx.rolePermission.createMany({ data: managerPermissionsData });
 
-    // Create Staf Gudang role
+    /**
+     * 3. Provision Warehouse Staff Role (Product & Stock Access)
+     */
     const roleStafGudang = await tx.role.create({
       data: {
         tenantId,
@@ -55,7 +73,9 @@ export class TenantProvisioningService {
       }));
     await tx.rolePermission.createMany({ data: gudangPermissionsData });
 
-    // Create Kasir role
+    /**
+     * 4. Provision Cashier Role (POS Checkout & Customer Access)
+     */
     const roleKasir = await tx.role.create({
       data: {
         tenantId,
